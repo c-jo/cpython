@@ -1220,7 +1220,13 @@ config_init_hash_seed(PyConfig *config)
     return _PyStatus_OK();
 }
 
-
+#ifdef RISCOS
+#warning config_wstr_to_int hardcoded to return 0
+config_wstr_to_int(const wchar_t *wstr, int *result)
+{
+    return 0;
+}
+#else
 static int
 config_wstr_to_int(const wchar_t *wstr, int *result)
 {
@@ -1237,7 +1243,7 @@ config_wstr_to_int(const wchar_t *wstr, int *result)
     *result = (int)value;
     return 0;
 }
-
+#endif
 
 static PyStatus
 config_read_env_vars(PyConfig *config)
@@ -1436,6 +1442,10 @@ config_get_stdio_errors(const PyConfig *config)
 static PyStatus
 config_get_locale_encoding(PyConfig *config, wchar_t **locale_encoding)
 {
+#ifdef RISCOS
+    return PyConfig_SetString(config, locale_encoding, L"latin-1");
+#endif
+
 #ifdef MS_WINDOWS
     char encoding[20];
     PyOS_snprintf(encoding, sizeof(encoding), "cp%u", GetACP());
@@ -1585,7 +1595,9 @@ config_init_fs_encoding(PyConfig *config, const PyPreConfig *preconfig)
 #ifdef _Py_FORCE_UTF8_FS_ENCODING
         status = PyConfig_SetString(config, &config->filesystem_encoding, L"utf-8");
 #else
-
+#ifdef RISCOS
+        status = PyConfig_SetString(config, &config->filesystem_encoding, L"latin-1");
+#else
 #ifdef MS_WINDOWS
         if (preconfig->legacy_windows_fs_encoding) {
             /* Legacy Windows filesystem encoding: mbcs/replace */
@@ -1614,6 +1626,7 @@ config_init_fs_encoding(PyConfig *config, const PyPreConfig *preconfig)
                                                 &config->filesystem_encoding);
 #endif
         }
+#endif   /* !RISCOS */
 #endif   /* !_Py_FORCE_UTF8_FS_ENCODING */
 
         if (_PyStatus_EXCEPTION(status)) {
