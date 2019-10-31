@@ -4,10 +4,14 @@
 * This module is automatically imported during initialization. *
 ****************************************************************
 
-This will append site-specific paths to the module search path.  On
-Unix (including Mac OSX), it starts with sys.prefix and
+This will append site-specific paths to the module search path.
+
+On Unix (including Mac OSX), it starts with sys.prefix and
 sys.exec_prefix (if different) and appends
 lib/python<version>/site-packages.
+
+On RISC OS it will use sys.prefix.Site-Packages.
+
 On other platforms (such as Windows), it tries each of the
 prefixes directly, as well as with lib/site-packages appended.  The
 resulting directories, if they exist, are appended to sys.path, and
@@ -338,6 +342,8 @@ def getsitepackages(prefixes=None):
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python%d.%d" % sys.version_info[:2],
                                         "site-packages"))
+        elif os.name == 'riscos':
+            sitepackages.append(os.path.join(prefix, "Site-Packages"))
         else:
             sitepackages.append(prefix)
             sitepackages.append(os.path.join(prefix, "lib", "site-packages"))

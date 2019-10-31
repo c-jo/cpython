@@ -85,6 +85,27 @@ elif 'nt' in _names:
     except ImportError:
         pass
 
+if 'riscos' in _names:
+    name = 'riscos'
+    linesep = '\n'
+    from riscos import *
+    try:
+        from riscos import _exit
+        __all__.append('_exit')
+    except ImportError:
+        pass
+    import riscospath as path
+
+    try:
+        from riscos import _have_functions
+    except ImportError:
+        pass
+
+    import riscos
+    __all__.extend(_get_exports_list(riscos))
+    del riscos
+
+
 else:
     raise ImportError('no os specific module found')
 

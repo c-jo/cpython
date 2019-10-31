@@ -404,6 +404,11 @@ def _generate_posix_vars():
         pybuilddir += '-pydebug'
     os.makedirs(pybuilddir, exist_ok=True)
     destfile = os.path.join(pybuilddir, name + '.py')
+    builddir = 'pybuilddir.txt'
+
+    if sys.platform == 'riscos':
+        destfile = name + '/py'
+        builddir = 'pybuilddir/txt'
 
     with open(destfile, 'w', encoding='utf8') as f:
         f.write('# system configuration generated and used by'
@@ -412,7 +417,7 @@ def _generate_posix_vars():
         pprint.pprint(vars, stream=f)
 
     # Create file used for sys.path fixup -- see Modules/getpath.c
-    with open('pybuilddir.txt', 'w', encoding='utf8') as f:
+    with open(builddir, 'w', encoding='utf8') as f:
         f.write(pybuilddir)
 
 def _init_posix(vars):
