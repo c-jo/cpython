@@ -52,6 +52,7 @@ extern PyObject* PyInit_gc(void);
 extern PyObject* PyInit__ast(void);
 extern PyObject* _PyWarnings_Init(void);
 extern PyObject* PyInit__string(void);
+extern PyObject* PyInit_swi(void);
 
 struct _inittab _PyImport_Inittab[] = {
 
@@ -101,6 +102,9 @@ struct _inittab _PyImport_Inittab[] = {
 
     /* This lives in Objects/unicodeobject.c */
     {"_string", PyInit__string},
+
+    /* This lives in RISCOS/swimodule.c */
+    {"swi", PyInit_swi},
 
     /* Sentinel */
     {0, 0}
