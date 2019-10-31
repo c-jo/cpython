@@ -3,10 +3,13 @@
 # Maintained by Georg Brandl.
 
 import os
-import shlex
-import shutil
 import sys
-import subprocess
+
+if os.name != 'riscos':
+    import shlex
+    import shutil
+    import subprocess
+
 import threading
 
 __all__ = ["Error", "open", "open_new", "open_new_tab", "get", "register"]
@@ -527,6 +530,10 @@ def register_standard_browsers():
                         "netscape", "opera", iexplore):
             if shutil.which(browser):
                 register(browser, None, BackgroundBrowser(browser))
+
+    elif os.name == 'riscos':
+        register('RISCOS', None, RISCOSDefault())
+
     else:
         # Prefer X browsers if present
         if os.environ.get("DISPLAY"):
@@ -668,6 +675,20 @@ if sys.platform == 'darwin':
             rc = osapipe.close()
             return not rc
 
+#
+# Platform support for RISCOS
+#
+
+if os.name == 'riscos':
+    from swi import swi
+    class RISCOSDefault(BaseBrowser):
+        def open(self, url, new=0, autoraise=True):
+            try:
+                swi('URI_Dispatch','is',0,url)
+            except OSError:
+                return False
+            else:
+                return True
 
 def main():
     import getopt
