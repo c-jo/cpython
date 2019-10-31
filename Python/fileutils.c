@@ -653,7 +653,12 @@ encode_current_locale(const wchar_t *text, char **str,
                     converted = wcstombs(bytes, buf, size);
                 }
                 else {
+#ifdef HAVE_BROKEN_MBSTOWCS
+                    static char temp[8];
+                    converted = wcstombs(temp, buf, 8);
+#else
                     converted = wcstombs(NULL, buf, 0);
+#endif
                 }
                 if (converted == (size_t)-1) {
                     goto encode_error;
