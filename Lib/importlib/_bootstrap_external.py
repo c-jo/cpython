@@ -122,7 +122,10 @@ def _write_atomic(path, data, mode=0o666):
     Be prepared to handle a FileExistsError if concurrent writing of the
     temporary file is attempted."""
     # id() is used to generate a pseudo-random filename.
-    path_tmp = '{}.{}'.format(path, id(path))
+    if sys.platform == 'riscos':
+        path_tmp = '<Wimp$ScrapDir>.cpython-{}'.format(id(path))
+    else:
+        path_tmp = '{}.{}'.format(path, id(path))
     fd = _os.open(path_tmp,
                   _os.O_EXCL | _os.O_CREAT | _os.O_WRONLY, mode & 0o666)
     try:
@@ -1587,7 +1590,7 @@ def _setup(_bootstrap_module):
         setattr(self_module, builtin_name, builtin_module)
 
     # Directly load the os module (needed during bootstrap).
-    os_details = ('posix', ['/']), ('nt', ['\\', '/'])
+    os_details = ('posix', ['/']), ('nt', ['\\', '/']), ('riscos', ['.'])
     for builtin_os, path_separators in os_details:
         # Assumption made in _path_join()
         assert all(len(sep) == 1 for sep in path_separators)
@@ -1602,7 +1605,7 @@ def _setup(_bootstrap_module):
             except ImportError:
                 continue
     else:
-        raise ImportError('importlib requires posix or nt')
+        raise ImportError('importlib requires posix, nt or riscos')
     setattr(self_module, '_os', os_module)
     setattr(self_module, 'path_sep', path_sep)
     setattr(self_module, 'path_separators', ''.join(path_separators))
@@ -1629,6 +1632,14 @@ def _setup(_bootstrap_module):
         if '_d.pyd' in EXTENSION_SUFFIXES:
             WindowsRegistryFinder.DEBUG_BUILD = True
 
+    # RISC OS doesn't have extensions, but we also allow a '/py' suffix for
+    # .py files from other systems.
+    if builtin_os == 'riscos':
+        SOURCE_SUFFIXES.clear()
+        SOURCE_SUFFIXES.append('')
+        SOURCE_SUFFIXES.append('/py')
+        BYTECODE_SUFFIXES.clear()
+        BYTECODE_SUFFIXES.append('/py')
 
 def _install(_bootstrap_module):
     """Install the path-based import components."""
