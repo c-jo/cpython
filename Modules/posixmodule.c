@@ -383,6 +383,9 @@ extern char        *ctermid_r(char *);
 #ifdef MS_WINDOWS
 #define INITFUNC PyInit_nt
 #define MODNAME "nt"
+#elif RISCOS
+#define INITFUNC PyInit_riscos
+#define MODNAME "riscos"
 #else
 #define INITFUNC PyInit_posix
 #define MODNAME "posix"
@@ -2235,7 +2238,7 @@ posix_do_stat(const char *function_name, path_t *path,
     STRUCT_STAT st;
     int result;
 
-#if !defined(MS_WINDOWS) && !defined(HAVE_FSTATAT) && !defined(HAVE_LSTAT)
+#if !defined(MS_WINDOWS) && !defined(HAVE_FSTATAT) && !defined(HAVE_LSTAT) && !defined(RISCOS)
     if (follow_symlinks_specified(function_name, follow_symlinks))
         return NULL;
 #endif

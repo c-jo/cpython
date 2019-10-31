@@ -3,6 +3,12 @@
 #include "Python.h"
 #include "pycore_pylifecycle.h"
 
+#ifdef RISCOS
+#include <unixlib/local.h>
+__riscosify_control = __RISCOSIFY_NO_PROCESS;
+#endif
+
+
 #ifdef MS_WINDOWS
 int
 wmain(int argc, wchar_t **argv)
