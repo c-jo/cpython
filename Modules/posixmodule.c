@@ -44,6 +44,7 @@
 #else
 #  include "winreparse.h"
 #endif
+#include "osdefs.h"
 
 /* On android API level 21, 'AT_EACCESS' is not declared although
  * HAVE_FACCESSAT is defined. */
@@ -12848,8 +12849,8 @@ join_path_filename(const char *path_narrow, const char* filename, Py_ssize_t fil
         return NULL;
     }
     strcpy(result, path_narrow);
-    if (path_len > 0 && result[path_len - 1] != '/')
-        result[path_len++] = '/';
+    if (path_len > 0 && result[path_len - 1] != SEP)
+        result[path_len++] = SEP;
     strcpy(result + path_len, filename);
     return result;
 }
