@@ -898,7 +898,6 @@ dir_fd_converter(PyObject *o, void *p)
  * Use as follows:
  *      path_t path;
  *      memset(&path, 0, sizeof(path));
- *      PyArg_ParseTuple(args, "O&", path_converter, &path);
  *      // ... use values from path ...
  *      path_cleanup(&path);
  *
@@ -13539,6 +13538,32 @@ os__remove_dll_directory_impl(PyObject *module, PyObject *cookie)
 
 #endif
 
+#ifdef RISCOS
+#include "swis.h"
+
+PyDoc_STRVAR(get_filetype__doc__,
+    "Return the RISC OS filetype of the specified file.\n");
+
+static PyObject*
+get_filetype(PyObject *self, PyObject *args)
+{
+    char *filename;
+    if (!PyArg_ParseTuple(args, "s", &filename))
+        return NULL;
+
+    int objtype, filetype;
+    _swi(OS_File, _INR(0,1) | _OUT(0) | _OUT(6),
+         23, filename,
+         &objtype, &filetype);
+
+    if (objtype == 0)
+	return PyErr_Format(PyExc_ValueError, "File not found");
+
+    return Py_BuildValue("i", filetype);
+}
+
+#endif /* RISCOS */
+
 static PyMethodDef posix_methods[] = {
 
     OS_STAT_METHODDEF
@@ -13730,6 +13755,9 @@ static PyMethodDef posix_methods[] = {
 #ifdef MS_WINDOWS
     OS__ADD_DLL_DIRECTORY_METHODDEF
     OS__REMOVE_DLL_DIRECTORY_METHODDEF
+#endif
+#ifdef RISCOS
+    {"get_filetype", get_filetype, METH_VARARGS, get_filetype__doc__},
 #endif
     {NULL,              NULL}            /* Sentinel */
 };

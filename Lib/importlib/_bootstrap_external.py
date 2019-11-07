@@ -123,7 +123,7 @@ def _write_atomic(path, data, mode=0o666):
     temporary file is attempted."""
     # id() is used to generate a pseudo-random filename.
     if sys.platform == 'riscos':
-        path_tmp = '<Wimp$ScrapDir>.cpython-{}'.format(id(path))
+        path_tmp = '{}-{}'.format(path, id(path))
     else:
         path_tmp = '{}.{}'.format(path, id(path))
     fd = _os.open(path_tmp,
@@ -671,8 +671,21 @@ def spec_from_file_location(name, location=None, *, loader=None,
                 loader = loader_class(name, location)
                 spec.loader = loader
                 break
-        else:
-            return None
+
+    # For RISC OS, try the extension too
+    if loader is None and sys.platform == 'riscos':
+        type = os.get_filetype(location)
+        if type in FILETYPE_MAP:
+            equiv_suffix = FILETYPE_MAP[type]
+            for loader_class, suffixes in _get_supported_file_loaders():
+                if equiv_suffix in suffixes:
+                    loader = loader_class(name, location)
+                    spec.loader = loader
+                    break
+
+    # Still didn't get anything?
+    if loader is None:
+        return None
 
     # Set submodule_search_paths appropriately.
     if submodule_search_locations is _POPULATE:
@@ -1079,7 +1092,6 @@ class SourcelessFileLoader(FileLoader, _LoaderBasics):
 # Filled in by _setup().
 EXTENSION_SUFFIXES = []
 
-
 class ExtensionFileLoader(FileLoader, _LoaderBasics):
 
     """Loader for extension modules.
@@ -1472,6 +1484,20 @@ class FileFinder:
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path,
                                           None, target)
+        # On RISC OS, try the base name and use the filetype
+        if sys.platform == 'riscos':
+            full_path = _path_join(self.path, tail_module)
+            if _path_isfile(full_path):
+                filetype = _os.get_filetype(full_path)
+                _bootstrap._verbose_message('trying {}',
+                                            full_path, verbosity=2)
+                if filetype in FILETYPE_MAP:
+                    equiv_suffix = FILETYPE_MAP[filetype]
+                    _bootstrap._verbose_message('treating filetype {:03x} as {}', filetype, equiv_suffix, verbosity=2)
+                    for loader_class, suffixes in _get_supported_file_loaders():
+                        if equiv_suffix in suffixes:
+                            return self._get_spec(loader_class, fullname, full_path,
+                                                  None, target)
         if is_namespace:
             _bootstrap._verbose_message('possible namespace for {}', base_path)
             spec = _bootstrap.ModuleSpec(fullname, None)
@@ -1556,17 +1582,16 @@ def _fix_up_module(ns, name, pathname, cpathname=None):
         # Not important enough to report.
         pass
 
-
 def _get_supported_file_loaders():
     """Returns a list of file-based module loaders.
 
-    Each item is a tuple (loader, suffixes).
+    Each item is a tuple (loader, suffixes)
     """
     extensions = ExtensionFileLoader, _imp.extension_suffixes()
     source = SourceFileLoader, SOURCE_SUFFIXES
     bytecode = SourcelessFileLoader, BYTECODE_SUFFIXES
-    return [extensions, source, bytecode]
 
+    return [extensions, source, bytecode]
 
 def _setup(_bootstrap_module):
     """Setup the path-based importers for importlib by importing needed
@@ -1636,10 +1661,11 @@ def _setup(_bootstrap_module):
     # .py files from other systems.
     if builtin_os == 'riscos':
         SOURCE_SUFFIXES.clear()
-        SOURCE_SUFFIXES.append('')
         SOURCE_SUFFIXES.append('/py')
         BYTECODE_SUFFIXES.clear()
-        BYTECODE_SUFFIXES.append('/py')
+        BYTECODE_SUFFIXES.append('/pyc')
+        global FILETYPE_MAP
+        FILETYPE_MAP = { 0xfff:'/py', 0xfed:'/pyd', 0xe1f:'/so' }
 
 def _install(_bootstrap_module):
     """Install the path-based import components."""

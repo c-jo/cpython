@@ -35,7 +35,6 @@
 
 const char *_PyImport_DynLoadFiletab[] = {
 #if defined(RISCOS)
-    "",
     "/so",
 #elif defined(__CYGWIN__)
     ".dll",
@@ -69,11 +68,13 @@ _PyImport_FindSharedFuncptr(const char *prefix,
     char pathbuf[260];
     int dlopenflags=0;
 
+#ifndef RISCOS
     if (strchr(pathname, '/') == NULL) {
         /* Prefix bare filename with "./" */
         PyOS_snprintf(pathbuf, sizeof(pathbuf), "./%-.255s", pathname);
         pathname = pathbuf;
     }
+#endif
 
     PyOS_snprintf(funcname, sizeof(funcname),
                   LEAD_UNDERSCORE "%.20s_%.200s", prefix, shortname);
@@ -99,7 +100,25 @@ _PyImport_FindSharedFuncptr(const char *prefix,
 
     dlopenflags = _PyInterpreterState_Get()->dlopenflags;
 
+#ifdef RISCOS
+    /* dlopen expects a unix-style name ... */
+    char dlpath[strlen(pathname)+2];
+    char *d = dlpath;
+    *d++ = '/';
+    for (const char *c = pathname; *c != 0; ++c)
+    {
+        switch (*c)
+        {
+            case '/' : *d++ = '.'; break;
+            case '.' : *d++ = '/'; break;
+            default  : *d++ = *c;
+       }
+    }
+    *d = 0;
+    handle = dlopen(dlpath, dlopenflags);
+#else
     handle = dlopen(pathname, dlopenflags);
+#endif
 
     if (handle == NULL) {
         PyObject *mod_name;
