@@ -13559,7 +13559,10 @@ get_filetype(PyObject *self, PyObject *args)
     if (objtype == 0)
 	return PyErr_Format(PyExc_ValueError, "File not found");
 
-    return Py_BuildValue("i", filetype);
+    if (filetype == -1)
+        return Py_BuildValue("");
+    else
+        return Py_BuildValue("i", filetype);
 }
 
 #endif /* RISCOS */
