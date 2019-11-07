@@ -4,17 +4,13 @@
 # === Variables set by makesetup ===
 
 MODBUILT_NAMES=      posix  errno  pwd  _sre  _codecs  _weakref  _functools  _operator  _collections  _abc  itertools  atexit  _signal  _stat  time  _thread  _locale  _io  faulthandler  _tracemalloc  _symtable  xxsubtype
-MODDISABLED_NAMES= 
+MODDISABLED_NAMES=
 MODOBJS=             Modules/posixmodule.o  Modules/errnomodule.o  Modules/pwdmodule.o  Modules/_sre.o  Modules/_codecsmodule.o  Modules/_weakref.o  Modules/_functoolsmodule.o  Modules/_operator.o  Modules/_collectionsmodule.o  Modules/_abc.o  Modules/itertoolsmodule.o  Modules/atexitmodule.o  Modules/signalmodule.o  Modules/_stat.o  Modules/timemodule.o  Modules/_threadmodule.o  Modules/_localemodule.o  Modules/_iomodule.o Modules/iobase.o Modules/fileio.o Modules/bytesio.o Modules/bufferedio.o Modules/textio.o Modules/stringio.o  Modules/faulthandler.o  Modules/_tracemalloc.o Modules/hashtable.o  Modules/symtablemodule.o  Modules/xxsubtype.o
 MODLIBS=           $(LOCALMODLIBS) $(BASEMODLIBS)
 
 # === Variables set by configure
 VERSION=	3.8
-srcdir=		.
-
-abs_srcdir=	/home/cmj/RPCEmu-RO5/hostfs/cpython
-abs_builddir=	/home/cmj/RPCEmu-RO5/hostfs/cpython
-
+srcdir=         .
 
 CC=		arm-unknown-riscos-gcc
 CXX=		arm-unknown-riscos-g++
@@ -22,9 +18,9 @@ MAINCC=		$(CC)
 LINKCC=		$(PURIFY) $(MAINCC)
 AR=		ar
 READELF=	readelf
-SOABI=		cpython-38-arm-riscos
+SOABI=
 LDVERSION=	$(VERSION)$(ABIFLAGS)
-LIBPYTHON=	
+LIBPYTHON=
 GITVERSION=	git --git-dir $(srcdir)/.git rev-parse --short HEAD
 GITTAG=		git --git-dir $(srcdir)/.git describe --all --always --dirty
 GITBRANCH=	git --git-dir $(srcdir)/.git name-rev --name-only HEAD
@@ -33,10 +29,10 @@ PGO_PROF_USE_FLAG=-fprofile-use -fprofile-correction
 LLVM_PROF_MERGER=true
 LLVM_PROF_FILE=
 LLVM_PROF_ERR=no
-DTRACE=         
-DFLAGS=         
-DTRACE_HEADERS= 
-DTRACE_OBJS=    
+DTRACE=
+DFLAGS=
+DTRACE_HEADERS=
+DTRACE_OBJS=
 
 GNULD=		yes
 
@@ -46,43 +42,36 @@ SHELL=		/bin/sh
 # Use this to make a link between python$(VERSION) and python in $(BINDIR)
 LN=		ln
 
-# Portable install script (configure doesn't always guess right)
-INSTALL=	/usr/bin/install -c
-INSTALL_PROGRAM=${INSTALL}
-INSTALL_SCRIPT= ${INSTALL}
-INSTALL_DATA=	${INSTALL} -m 644
-# Shared libraries must be installed with executable mode on some systems;
-# rather than figuring out exactly which, we always give them executable mode.
-INSTALL_SHARED= ${INSTALL} -m 755
 
 MKDIR_P=	/usr/bin/mkdir -p
 
 MAKESETUP=      $(srcdir)/Modules/makesetup
 
 # Compiler options
-OPT=		-DNDEBUG -DRISCOS -g -fwrapv -O3 -Wall
-BASECFLAGS=	 -Wno-unused-result -Wsign-compare
-BASECPPFLAGS=	
-CONFIGURE_CFLAGS=	
+OPT=-DNDEBUG -DRISCOS -fwrapv -O3 -Wall -std=c99
+BASECFLAGS=	-Wno-unused-result -Wsign-compare
+BASECPPFLAGS=
+CONFIGURE_CFLAGS=
+EXTRA_CFLAGS=	-IOSLib:
 # CFLAGS_NODIST is used for building the interpreter and stdlib C extensions.
 # Use it when a compiler flag should _not_ be part of the distutils CFLAGS
 # once Python is installed (Issue #21121).
-CONFIGURE_CFLAGS_NODIST= -std=c99 -Wextra -Wno-unused-result -Wno-unused-parameter -Wno-missing-field-initializers -Werror=implicit-function-declaration
+CONFIGURE_CFLAGS_NODIST=-Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Werror=implicit-function-declaration
 # LDFLAGS_NODIST is used in the same manner as CFLAGS_NODIST.
 # Use it when a linker flag should _not_ be part of the distutils LDFLAGS
 # once Python is installed (bpo-35257)
 CONFIGURE_LDFLAGS_NODIST=
-CONFIGURE_CPPFLAGS=	
-CONFIGURE_LDFLAGS=	
+CONFIGURE_CPPFLAGS=
+CONFIGURE_LDFLAGS=
 # Avoid assigning CFLAGS, LDFLAGS, etc. so users can use them on the
 # command line to append to these values without stomping the pre-set
 # values.
 PY_CFLAGS=	$(BASECFLAGS) $(OPT) $(CONFIGURE_CFLAGS) $(CFLAGS) $(EXTRA_CFLAGS)
-PY_CFLAGS_NODIST=$(CONFIGURE_CFLAGS_NODIST) $(CFLAGS_NODIST) -I$(srcdir)/Include/internal
+PY_CFLAGS_NODIST=$(CONFIGURE_CFLAGS_NODIST) $(CFLAGS_NODIST) -IInclude/internal
 # Both CPPFLAGS and LDFLAGS need to contain the shell's value for setup.py to
 # be able to build extension modules using the directories specified in the
 # environment variables
-PY_CPPFLAGS=	$(BASECPPFLAGS) -I. -I$(srcdir)/Include -I$(srcdir)/RISCOS $(CONFIGURE_CPPFLAGS) $(CPPFLAGS)
+PY_CPPFLAGS=	$(BASECPPFLAGS) -I. -IInclude -IRISCOS $(CONFIGURE_CPPFLAGS) $(CPPFLAGS)
 PY_LDFLAGS=	$(CONFIGURE_LDFLAGS) $(LDFLAGS)
 PY_LDFLAGS_NODIST=$(CONFIGURE_LDFLAGS_NODIST) $(LDFLAGS_NODIST)
 NO_AS_NEEDED=	-Wl,--no-as-needed
@@ -105,10 +94,10 @@ CFLAGS_ALIASING=
 
 
 # Machine-dependent subdirectories
-MACHDEP=	linux
+MACHDEP=	RISCOS
 
 # Multiarch directory (may be empty)
-MULTIARCH=	
+MULTIARCH=
 MULTIARCH_CPPFLAGS =
 
 # Install prefix for architecture-independent files
@@ -127,7 +116,7 @@ MANDIR=		${datarootdir}/man
 INCLUDEDIR=	${prefix}/include
 CONFINCLUDEDIR=	$(exec_prefix)/include
 SCRIPTDIR=	$(prefix)/lib
-ABIFLAGS=	
+ABIFLAGS=
 
 # Detailed destination directories
 BINLIBDEST=	$(LIBDIR)/python$(VERSION)
@@ -136,8 +125,8 @@ INCLUDEPY=	$(INCLUDEDIR)/python$(LDVERSION)
 CONFINCLUDEPY=	$(CONFINCLUDEDIR)/python$(LDVERSION)
 
 # Symbols used for using shared libraries
-SHLIB_SUFFIX=	.so
-EXT_SUFFIX=	.cpython-38-arm-riscos.so
+SHLIB_SUFFIX=
+EXT_SUFFIX=
 LDSHARED=	$(CC) -shared $(PY_LDFLAGS)
 BLDSHARED=	$(CC) -shared $(PY_CORE_LDFLAGS)
 LDCXXSHARED=	$(CXX) -shared
@@ -149,10 +138,10 @@ BUILDEXE=,e1f
 
 # Short name and location for Mac OS X Python framework
 UNIVERSALSDK=
-PYTHONFRAMEWORK=	
+PYTHONFRAMEWORK=
 PYTHONFRAMEWORKDIR=	no-framework
-PYTHONFRAMEWORKPREFIX=	
-PYTHONFRAMEWORKINSTALLDIR= 
+PYTHONFRAMEWORKPREFIX=
+PYTHONFRAMEWORKINSTALLDIR=
 # Deployment target selected during configure, to be checked
 # by distutils. The export statement is needed to ensure that the
 # deployment target is active during build.
@@ -169,15 +158,15 @@ LIPO_32BIT_FLAGS=
 OTHER_LIBTOOL_OPT=
 
 # Environment to run shared python without installed libraries
-RUNSHARED=       
+RUNSHARED=
 
 # ensurepip options
 ENSUREPIP=      upgrade
 
 # OpenSSL options for setup.py so sysconfig can pick up AC_SUBST() vars.
-OPENSSL_INCLUDES= 
-OPENSSL_LIBS=-lssl -lcrypto  
-OPENSSL_LDFLAGS= 
+OPENSSL_INCLUDES=
+OPENSSL_LIBS=-lssl -lcrypto
+OPENSSL_LDFLAGS=
 
 # Modes for directories, executables and data files created by the
 # install process.  Default to user-only-writable for all file types.
@@ -186,7 +175,7 @@ EXEMODE=	755
 FILEMODE=	644
 
 # configure script arguments
-CONFIG_ARGS=	
+CONFIG_ARGS=
 
 
 # Subdirectories with code
@@ -205,37 +194,37 @@ DIST=		$(DISTFILES) $(DISTDIRS)
 LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
 LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
 BLDLIBRARY=     $(LDLIBRARY)
-PY3LIBRARY=     
-DLLLIBRARY=	
-LDLIBRARYDIR=   
+PY3LIBRARY=
+DLLLIBRARY=
+LDLIBRARYDIR=
 INSTSONAME=	$(LDLIBRARY)
 
 
 #LIBS=		-lcrypt -lpthread -ldl  -lutil -lm
 LIBS=		-lpthread -ldl -lOSLib32
 LIBM=		-lm
-LIBC=		
+LIBC=
 SYSLIBS=	$(LIBM) $(LIBC)
 SHLIBS=		$(LIBS)
 
 DLINCLDIR=	.
 DYNLOADFILE=	dynload_shlib.o
-MACHDEP_OBJS=	
+MACHDEP_OBJS=
 LIBOBJDIR=	Python/
-LIBOBJS=	
+LIBOBJS=
 
-PYTHON=		python3.8
+PYTHON=		python3$(EXE)
 BUILDPYTHON=	python3$(EXE)
 
 PYTHON_FOR_REGEN=python3.8
 UPDATE_FILE=python3.8 $(srcdir)/Tools/scripts/update_file.py
 PYTHON_FOR_BUILD=./$(BUILDPYTHON) -E
 _PYTHON_HOST_PLATFORM=_riscos
-HOST_GNU_TYPE=	x86_64-pc-linux-gnu
+HOST_GNU_TYPE=	arm-unknown-riscos
 
 # Tcl and Tk config info from --with-tcltk-includes and -libs options
-TCLTK_INCLUDES=	
-TCLTK_LIBS=	
+TCLTK_INCLUDES=
+TCLTK_LIBS=
 
 # The task to run while instrumented when building the profile-opt target.
 # To speed up profile generation, we don't run the full unit test suite
@@ -251,7 +240,7 @@ COVERAGE_REPORT_OPTIONS=--no-branch-coverage --title "CPython lcov report"
 
 # === Definitions added by makesetup ===
 
-LOCALMODLIBS=                      
+LOCALMODLIBS=
 BASEMODLIBS=
 PYTHONPATH=$(COREPYTHONPATH)
 COREPYTHONPATH=$(DESTPATH)$(SITEPATH)$(TESTPATH)
@@ -285,7 +274,7 @@ IO_OBJS=	\
 
 ##########################################################################
 
-LIBFFI_INCLUDEDIR=	
+LIBFFI_INCLUDEDIR=
 
 ##########################################################################
 # Parser
@@ -297,7 +286,10 @@ POBJS=		\
 		Parser/parser.o \
 		Parser/token.o \
 
-PARSER_OBJS=	$(POBJS) Parser/myreadline.o Parser/parsetok.o Parser/tokenizer.o
+PARSER_OBJS=	$(POBJS) \
+		Parser/myreadline.o \
+		Parser/parsetok.o \
+		Parser/tokenizer.o
 
 PARSER_HEADERS= \
 		$(srcdir)/Include/grammar.h \
@@ -442,8 +434,8 @@ DTRACE_DEPS = \
 
 # Default target
 all:		build_all
-build_all:	check-clean-src $(BUILDPYTHON) oldsharedmods sharedmods gdbhooks \
-		Programs/_testembed python-config
+#build_all:	check-clean-src $(BUILDPYTHON) oldsharedmods sharedmods gdbhooks Programs/_testembed python-config
+build_all:	$(BUILDPYTHON)
 
 # Check that the source is clean when building out of source.
 check-clean-src:
@@ -558,7 +550,8 @@ clinic: check-clean-src $(srcdir)/Modules/_blake2/blake2s_impl.c
 
 # Build the interpreter
 $(BUILDPYTHON):	Programs/python.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY)
-	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -o $@ Programs/python.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
+	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) \
+	-o $@ Programs/python.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
 
 platform: $(BUILDPYTHON) pybuilddir.txt
 	$(RUNSHARED) $(PYTHON_FOR_BUILD) -c 'import sys ; from sysconfig import get_platform ; print("%s-%d.%d" % (get_platform(), *sys.version_info[:2]))' >platform
@@ -594,10 +587,10 @@ $(srcdir)/Modules/_blake2/blake2s_impl.c: $(srcdir)/Modules/_blake2/blake2b_impl
 # Under BSD make, MAKEFLAGS might be " -s -v x=y".
 # Ignore macros passed by GNU make, passed after --
 sharedmods: $(BUILDPYTHON) pybuilddir.txt Modules/_math.o
-	@case "`echo X $$MAKEFLAGS | sed 's/^X //;s/ -- .*//'`" in \
-	    *\ -s*|s*) quiet="-q";; \
-	    *) quiet="";; \
-	esac; \
+#	@case "`echo X $$MAKEFLAGS | sed 's/^X //;s/ -- .*//'`" in \
+#	    *\ -s*|s*) quiet="-q";; \
+#	    *) quiet="";; \
+#	esac; \
 	echo "$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
 		_TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' \
 		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build"; \
@@ -672,9 +665,6 @@ $(DLLLIBRARY) libpython$(LDVERSION).dll.a: $(LIBRARY_OBJS)
 	fi
 
 
-oldsharedmods: $(SHAREDMODS)
-
-
 Makefile Modules/config.c: Makefile.pre \
 				$(srcdir)/Modules/config.c.in \
 				$(MAKESETUP) \
@@ -737,11 +727,12 @@ Modules/getbuildinfo.o: $(PARSER_OBJS) \
 		$(MODOBJS) \
 		$(DTRACE_OBJS) \
 		$(srcdir)/Modules/getbuildinfo.c
+#	$(CC) -c $(PY_CORE_CFLAGS) \
+#	      -DGITVERSION="\"`LC_ALL=C $(GITVERSION)`\"" \
+#	      -DGITTAG="\"`LC_ALL=C $(GITTAG)`\"" \
+#	      -DGITBRANCH="\"`LC_ALL=C $(GITBRANCH)`\"" \
 	$(CC) -c $(PY_CORE_CFLAGS) \
-	      -DGITVERSION="\"`LC_ALL=C $(GITVERSION)`\"" \
-	      -DGITTAG="\"`LC_ALL=C $(GITTAG)`\"" \
-	      -DGITBRANCH="\"`LC_ALL=C $(GITBRANCH)`\"" \
-	      -o $@ $(srcdir)/Modules/getbuildinfo.c
+		-o $@ $(srcdir)/Modules/getbuildinfo.c
 
 Modules/getpath.o: $(srcdir)/Modules/getpath.c
 	$(CC) -c $(PY_CORE_CFLAGS) -DPYTHONPATH='"$(PYTHONPATH)"' \
@@ -1165,7 +1156,7 @@ multisslcompile: build_all
 multissltest: build_all
 	$(RUNSHARED) ./$(BUILDPYTHON) Tools/ssl/multissltests.py
 
-install:  commoninstall bininstall maninstall 
+install:  commoninstall bininstall maninstall
 	if test "x$(ENSUREPIP)" != "xno"  ; then \
 		case $(ENSUREPIP) in \
 			upgrade) ensurepip="--upgrade" ;; \
@@ -1188,7 +1179,7 @@ altinstall: commoninstall
 commoninstall:  check-clean-src  \
 		altbininstall libinstall inclinstall libainstall \
 		sharedinstall oldsharedinstall altmaninstall \
-		
+
 
 # Install shared libraries enabled by Setup
 DESTDIRS=	$(exec_prefix) $(LIBDIR) $(BINLIBDEST) $(DESTSHARED)
@@ -1213,7 +1204,7 @@ $(DESTSHARED):
 
 # Install the interpreter with $(VERSION) affixed
 # This goes into $(exec_prefix)
-altbininstall: $(BUILDPYTHON) 
+altbininstall: $(BUILDPYTHON)
 	@for i in $(BINDIR) $(LIBDIR); \
 	do \
 		if test ! -d $(DESTDIR)$$i; then \
