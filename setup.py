@@ -45,7 +45,7 @@ CYGWIN = (HOST_PLATFORM == 'cygwin')
 MACOS = (HOST_PLATFORM == 'darwin')
 AIX = (HOST_PLATFORM.startswith('aix'))
 VXWORKS = ('vxworks' in HOST_PLATFORM)
-
+RISCOS = (HOST_PLATFORM == 'riscos')
 
 SUMMARY = """
 Python is an interpreted, interactive, object-oriented programming
@@ -314,6 +314,8 @@ class PyBuildExt(build_ext):
         if not self.srcdir:
             # Maybe running on Windows but not using CYGWIN?
             raise ValueError("No source directory; cannot proceed.")
+        if os.name == 'riscos' and self.srcdir == '.':
+            self.srcdir = '@'
         self.srcdir = os.path.abspath(self.srcdir)
 
         # Detect which modules should be compiled
@@ -339,7 +341,10 @@ class PyBuildExt(build_ext):
 
         # Python header files
         headers = [sysconfig.get_config_h_filename()]
-        headers += glob(os.path.join(sysconfig.get_path('include'), "*.h"))
+        if RISCOS:
+            headers += glob(os.path.join(sysconfig.get_path('include'),'h',"*"))
+        else:
+            headers += glob(os.path.join(sysconfig.get_path('include'), "*.h"))
 
         # The sysconfig variables built by makesetup that list the already
         # built modules and the disabled modules as configured by the Setup
@@ -654,7 +659,8 @@ class PyBuildExt(build_ext):
         # only change this for cross builds for 3.3, issues on Mageia
         if CROSS_COMPILING:
             self.add_cross_compiling_paths()
-        self.add_multiarch_paths()
+        if os.name != 'riscos':
+            self.add_multiarch_paths()
         self.add_ldflags_cppflags()
 
     def init_inc_lib_dirs(self):
@@ -1462,7 +1468,7 @@ class PyBuildExt(build_ext):
 
     def detect_platform_specific_exts(self):
         # Unix-only modules
-        if not MS_WINDOWS:
+        if not MS_WINDOWS and not RISCOS:
             if not VXWORKS:
                 # Steen Lumholt's termios module
                 self.add(Extension('termios', ['termios.c']))
@@ -1474,7 +1480,7 @@ class PyBuildExt(build_ext):
         # Platform-specific libraries
         if HOST_PLATFORM.startswith(('linux', 'freebsd', 'gnukfreebsd')):
             self.add(Extension('ossaudiodev', ['ossaudiodev.c']))
-        elif not AIX:
+        elif not AIX and not RISCOS:
             self.missing.append('ossaudiodev')
 
         if MACOS:
@@ -1482,6 +1488,9 @@ class PyBuildExt(build_ext):
                                extra_link_args=[
                                    '-framework', 'SystemConfiguration',
                                    '-framework', 'CoreFoundation']))
+
+        if RISCOS:
+            pass
 
     def detect_compress_exts(self):
         # Andrew Kuchling's zlib module.  Note that some versions of zlib
@@ -2370,8 +2379,12 @@ class PyBuildInstallLib(install_lib):
 class PyBuildScripts(build_scripts):
     def copy_scripts(self):
         outfiles, updated_files = build_scripts.copy_scripts(self)
-        fullversion = '-{0[0]}.{0[1]}'.format(sys.version_info)
-        minoronly = '.{0[1]}'.format(sys.version_info)
+        if RISCOS:
+            fullversion = '-{0[0]}{0[1]}'.format(sys.version_info)
+            minoronly = '{0[1]}'.format(sys.version_info)
+        else:
+            fullversion = '-{0[0]}.{0[1]}'.format(sys.version_info)
+            minoronly = '.{0[1]}'.format(sys.version_info)
         newoutfiles = []
         newupdated_files = []
         for filename in outfiles:
