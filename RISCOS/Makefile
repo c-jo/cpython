@@ -3,17 +3,17 @@
 
 # === Variables set by makesetup ===
 
-MODBUILT_NAMES=      posix  errno  pwd  _sre  _codecs  _weakref  _functools  _operator  _collections  _abc  itertools  atexit  _signal  _stat  time  _thread  _locale  _io  faulthandler  _tracemalloc  _symtable  xxsubtype
+MODBUILT_NAMES=      posix  errno  pwd  _sre  _codecs  _weakref  _functools _operator  _collections  _abc  itertools  atexit  _signal  _stat  time _thread _locale  _io  faulthandler  _tracemalloc  _symtable  xxsubtype
 MODDISABLED_NAMES=
-MODOBJS=             Modules/posixmodule.o  Modules/errnomodule.o  Modules/pwdmodule.o  Modules/_sre.o  Modules/_codecsmodule.o  Modules/_weakref.o  Modules/_functoolsmodule.o  Modules/_operator.o  Modules/_collectionsmodule.o  Modules/_abc.o  Modules/itertoolsmodule.o  Modules/atexitmodule.o  Modules/signalmodule.o  Modules/_stat.o  Modules/timemodule.o  Modules/_threadmodule.o  Modules/_localemodule.o  Modules/_iomodule.o Modules/iobase.o Modules/fileio.o Modules/bytesio.o Modules/bufferedio.o Modules/textio.o Modules/stringio.o  Modules/faulthandler.o  Modules/_tracemalloc.o Modules/hashtable.o  Modules/symtablemodule.o  Modules/xxsubtype.o
+MODOBJS=Modules/posixmodule.o  Modules/errnomodule.o  Modules/pwdmodule.o  Modules/_sre.o  Modules/_codecsmodule.o  Modules/_weakref.o  Modules/_functoolsmodule.o  Modules/_operator.o  Modules/_collectionsmodule.o  Modules/_abc.o  Modules/itertoolsmodule.o  Modules/atexitmodule.o  Modules/signalmodule.o  Modules/_stat.o  Modules/timemodule.o  Modules/_threadmodule.o  Modules/_localemodule.o  Modules/_iomodule.o Modules/iobase.o Modules/fileio.o Modules/bytesio.o Modules/bufferedio.o Modules/textio.o Modules/stringio.o  Modules/faulthandler.o  Modules/_tracemalloc.o Modules/hashtable.o Modules/symtablemodule.o Modules/xxsubtype.o
 MODLIBS=           $(LOCALMODLIBS) $(BASEMODLIBS)
 
 # === Variables set by configure
 VERSION=	3.8
 srcdir=         .
 
-CC=		arm-unknown-riscos-gcc
-CXX=		arm-unknown-riscos-g++
+CC=		gcc
+CXX=		g++
 MAINCC=		$(CC)
 LINKCC=		$(PURIFY) $(MAINCC)
 AR=		ar
@@ -42,17 +42,25 @@ SHELL=		/bin/sh
 # Use this to make a link between python$(VERSION) and python in $(BINDIR)
 LN=		ln
 
+# Portable install script (configure doesn't always guess right)
+INSTALL=	/usr/bin/install -c
+INSTALL_PROGRAM=${INSTALL}
+INSTALL_SCRIPT= ${INSTALL}
+INSTALL_DATA=	${INSTALL} -m 644
+# Shared libraries must be installed with executable mode on some systems;
+# rather than figuring out exactly which, we always give them executable mode.
+INSTALL_SHARED= ${INSTALL} -m 755
 
 MKDIR_P=	/usr/bin/mkdir -p
 
 MAKESETUP=      $(srcdir)/Modules/makesetup
 
 # Compiler options
-OPT=-DNDEBUG -DRISCOS -fwrapv -O3 -Wall -std=c99
+OPT=		-DNDEBUG -DRISCOS -fwrapv -O3 -Wall -fno-builtin -std=c99
 BASECFLAGS=	-Wno-unused-result -Wsign-compare
 BASECPPFLAGS=
 CONFIGURE_CFLAGS=
-EXTRA_CFLAGS=	-IOSLib:
+EXTRA_CFLAGS=
 # CFLAGS_NODIST is used for building the interpreter and stdlib C extensions.
 # Use it when a compiler flag should _not_ be part of the distutils CFLAGS
 # once Python is installed (Issue #21121).
@@ -71,7 +79,7 @@ PY_CFLAGS_NODIST=$(CONFIGURE_CFLAGS_NODIST) $(CFLAGS_NODIST) -IInclude/internal
 # Both CPPFLAGS and LDFLAGS need to contain the shell's value for setup.py to
 # be able to build extension modules using the directories specified in the
 # environment variables
-PY_CPPFLAGS=	$(BASECPPFLAGS) -I. -IInclude -IRISCOS $(CONFIGURE_CPPFLAGS) $(CPPFLAGS)
+PY_CPPFLAGS=	$(BASECPPFLAGS) -IInclude -IRISCOS $(CONFIGURE_CPPFLAGS) $(CPPFLAGS)
 PY_LDFLAGS=	$(CONFIGURE_LDFLAGS) $(LDFLAGS)
 PY_LDFLAGS_NODIST=$(CONFIGURE_LDFLAGS_NODIST) $(LDFLAGS_NODIST)
 NO_AS_NEEDED=	-Wl,--no-as-needed
@@ -95,10 +103,6 @@ CFLAGS_ALIASING=
 
 # Machine-dependent subdirectories
 MACHDEP=	RISCOS
-
-# Multiarch directory (may be empty)
-MULTIARCH=
-MULTIARCH_CPPFLAGS =
 
 # Install prefix for architecture-independent files
 prefix=		/usr/local
@@ -133,29 +137,11 @@ LDCXXSHARED=	$(CXX) -shared
 DESTSHARED=	$(BINLIBDEST)/lib-dynload
 
 # Executable suffix (.exe on Windows and Mac OS X)
-EXE=,e1f
-BUILDEXE=,e1f
-
-# Short name and location for Mac OS X Python framework
-UNIVERSALSDK=
-PYTHONFRAMEWORK=
-PYTHONFRAMEWORKDIR=	no-framework
-PYTHONFRAMEWORKPREFIX=
-PYTHONFRAMEWORKINSTALLDIR=
-# Deployment target selected during configure, to be checked
-# by distutils. The export statement is needed to ensure that the
-# deployment target is active during build.
-MACOSX_DEPLOYMENT_TARGET=
-#export MACOSX_DEPLOYMENT_TARGET
+EXE=
+BUILDEXE=
 
 # Option to install to strip binaries
 STRIPFLAG=-s
-
-# Flags to lipo to produce a 32-bit-only universal executable
-LIPO_32BIT_FLAGS=
-
-# Options to enable prebinding (for fast startup prior to Mac OS X 10.3)
-OTHER_LIBTOOL_OPT=
 
 # Environment to run shared python without installed libraries
 RUNSHARED=
@@ -191,8 +177,10 @@ DISTDIRS=	$(SUBDIRS) $(SUBDIRSTOO) Ext-dummy
 DIST=		$(DISTFILES) $(DISTDIRS)
 
 
-LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
-LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
+#LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
+#LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
+LIBRARY=	libpython38
+LDLIBRARY=	$(LIBRARY)
 BLDLIBRARY=     $(LDLIBRARY)
 PY3LIBRARY=
 DLLLIBRARY=
@@ -201,7 +189,7 @@ INSTSONAME=	$(LDLIBRARY)
 
 
 #LIBS=		-lcrypt -lpthread -ldl  -lutil -lm
-LIBS=		-lpthread -ldl -lOSLib32
+LIBS=		-ldl -LOSLib: -lOSLib32
 LIBM=		-lm
 LIBC=
 SYSLIBS=	$(LIBM) $(LIBC)
@@ -213,7 +201,7 @@ MACHDEP_OBJS=
 LIBOBJDIR=	Python/
 LIBOBJS=
 
-PYTHON=		python3$(EXE)
+PYTHON=		python3
 BUILDPYTHON=	python3$(EXE)
 
 PYTHON_FOR_REGEN=python3.8
@@ -299,7 +287,6 @@ PARSER_HEADERS= \
 
 ##########################################################################
 # Python
-
 PYTHON_OBJS=	\
 		Python/_warnings.o \
 		Python/Python-ast.o \
@@ -434,8 +421,10 @@ DTRACE_DEPS = \
 
 # Default target
 all:		build_all
-#build_all:	check-clean-src $(BUILDPYTHON) oldsharedmods sharedmods gdbhooks Programs/_testembed python-config
-build_all:	$(BUILDPYTHON)
+#build_all:	check-clean-src $(BUILDPYTHON) oldsharedmods sharedmods gdbhooks
+build_all:	$(BUILDPYTHON)  sharedmods \
+		Programs/_testembed
+# python-config
 
 # Check that the source is clean when building out of source.
 check-clean-src:
@@ -550,8 +539,7 @@ clinic: check-clean-src $(srcdir)/Modules/_blake2/blake2s_impl.c
 
 # Build the interpreter
 $(BUILDPYTHON):	Programs/python.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY)
-	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) \
-	-o $@ Programs/python.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
+	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -o $@ Programs/python.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
 
 platform: $(BUILDPYTHON) pybuilddir.txt
 	$(RUNSHARED) $(PYTHON_FOR_BUILD) -c 'import sys ; from sysconfig import get_platform ; print("%s-%d.%d" % (get_platform(), *sys.version_info[:2]))' >platform
@@ -563,12 +551,12 @@ platform: $(BUILDPYTHON) pybuilddir.txt
 # problems by creating a dummy pybuilddir.txt just to allow interpreter
 # initialization to succeed.  It will be overwritten by generate-posix-vars
 # or removed in case of failure.
-pybuilddir.txt: $(BUILDPYTHON)
-	@echo "none" > ./pybuilddir.txt
+pybuilddir: $(BUILDPYTHON)
+	@echo "none" > ./pybuilddir
 	$(RUNSHARED) $(PYTHON_FOR_BUILD) -S -m sysconfig --generate-posix-vars ;\
 	if test $$? -ne 0 ; then \
 		echo "generate-posix-vars failed" ; \
-		rm -f ./pybuilddir.txt ; \
+		rm pybuilddir ; \
 		exit 1 ; \
 	fi
 
@@ -581,27 +569,33 @@ $(srcdir)/Modules/_blake2/blake2s_impl.c: $(srcdir)/Modules/_blake2/blake2b_impl
 	$(PYTHON_FOR_REGEN) $(srcdir)/Modules/_blake2/blake2b2s.py
 	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/clinic/clinic.py -f $@
 
+# RISC OS SWI module
+RISCOS/swimodule.o: RISCOS/swimodule.c
+	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -o $@ $<
+
+# RISC OS getpath (needs OSLib)
+RISCOS/getpath.o: RISCOS/getpath.c
+	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -o $@ $<
+#		-DPREFIX='"$(prefix)"' \
+#		-DEXEC_PREFIX='"$(exec_prefix)"' \
+#		-DVERSION='"$(VERSION)"' \
+#		-DVPATH='"$(VPATH)"' \
+
 # Build the shared modules
-# Under GNU make, MAKEFLAGS are sorted and normalized; the 's' for
-# -s, --silent or --quiet is always the first char.
-# Under BSD make, MAKEFLAGS might be " -s -v x=y".
-# Ignore macros passed by GNU make, passed after --
-sharedmods: $(BUILDPYTHON) pybuilddir.txt Modules/_math.o
-#	@case "`echo X $$MAKEFLAGS | sed 's/^X //;s/ -- .*//'`" in \
-#	    *\ -s*|s*) quiet="-q";; \
-#	    *) quiet="";; \
-#	esac; \
-	echo "$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
-		_TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' \
-		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build"; \
-	$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' \
-		_TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' \
-		$(PYTHON_FOR_BUILD) $(srcdir)/setup.py $$quiet build
+sharedmods: $(BUILDPYTHON) pybuilddir Modules/_math.o
+	Set CC '$(CC)'
+	Set LDSHARED '$(BLDSHARED)'
+	Set OPT '$(OPT)'
+	Set _TCLTK_INCLUDES '$(TCLTK_INCLUDES)'
+	Set _TCLTK_LIBS '$(TCLTK_LIBS)'
+	$(PYTHON_FOR_BUILD) setup build
+
+#	$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' _TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' $(PYTHON_FOR_BUILD) $(srcdir)/setup $$quiet build
 
 
 # Build static library
 $(LIBRARY): $(LIBRARY_OBJS)
-	-rm -f $@
+	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBRARY_OBJS)
 
 libpython$(LDVERSION).so: $(LIBRARY_OBJS) $(DTRACE_OBJS)
@@ -632,51 +626,6 @@ gdbhooks: $(BUILDPYTHON)-gdb.py
 SRC_GDB_HOOKS=$(srcdir)/Tools/gdb/libpython.py
 $(BUILDPYTHON)-gdb.py: $(SRC_GDB_HOOKS)
 	$(INSTALL_DATA) $(SRC_GDB_HOOKS) $(BUILDPYTHON)-gdb.py
-
-# This rule is here for OPENSTEP/Rhapsody/MacOSX. It builds a temporary
-# minimal framework (not including the Lib directory and such) in the current
-# directory.
-RESSRCDIR=Mac/Resources/framework
-$(PYTHONFRAMEWORKDIR)/Versions/$(VERSION)/$(PYTHONFRAMEWORK): \
-		$(LIBRARY) \
-		$(RESSRCDIR)/Info.plist
-	$(INSTALL) -d -m $(DIRMODE) $(PYTHONFRAMEWORKDIR)/Versions/$(VERSION)
-	$(CC) -o $(LDLIBRARY) $(PY_CORE_LDFLAGS) -dynamiclib \
-		-all_load $(LIBRARY) -Wl,-single_module \
-		-install_name $(DESTDIR)$(PYTHONFRAMEWORKINSTALLDIR)/Versions/$(VERSION)/$(PYTHONFRAMEWORK) \
-		-compatibility_version $(VERSION) \
-		-current_version $(VERSION) \
-		-framework CoreFoundation $(LIBS);
-	$(INSTALL) -d -m $(DIRMODE)  \
-		$(PYTHONFRAMEWORKDIR)/Versions/$(VERSION)/Resources/English.lproj
-	$(INSTALL_DATA) $(RESSRCDIR)/Info.plist \
-		$(PYTHONFRAMEWORKDIR)/Versions/$(VERSION)/Resources/Info.plist
-	$(LN) -fsn $(VERSION) $(PYTHONFRAMEWORKDIR)/Versions/Current
-	$(LN) -fsn Versions/Current/$(PYTHONFRAMEWORK) $(PYTHONFRAMEWORKDIR)/$(PYTHONFRAMEWORK)
-	$(LN) -fsn Versions/Current/Resources $(PYTHONFRAMEWORKDIR)/Resources
-
-# This rule builds the Cygwin Python DLL and import library if configured
-# for a shared core library; otherwise, this rule is a noop.
-$(DLLLIBRARY) libpython$(LDVERSION).dll.a: $(LIBRARY_OBJS)
-	if test -n "$(DLLLIBRARY)"; then \
-		$(LDSHARED) -Wl,--out-implib=$@ -o $(DLLLIBRARY) $^ \
-			$(LIBS) $(MODLIBS) $(SYSLIBS); \
-	else true; \
-	fi
-
-
-Makefile Modules/config.c: Makefile.pre \
-				$(srcdir)/Modules/config.c.in \
-				$(MAKESETUP) \
-				$(srcdir)/Modules/Setup \
-				Modules/Setup.local
-	$(SHELL) $(MAKESETUP) -c $(srcdir)/Modules/config.c.in \
-				-s Modules \
-				Modules/Setup.local \
-				$(srcdir)/Modules/Setup
-	@mv config.c Modules
-	@echo "The Makefile was updated, you may need to re-run make."
-
 
 Programs/_testembed: Programs/_testembed.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY)
 	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -o $@ Programs/_testembed.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
@@ -759,20 +708,10 @@ Modules/pwdmodule.o: $(srcdir)/Modules/pwdmodule.c $(srcdir)/Modules/posixmodule
 Modules/signalmodule.o: $(srcdir)/Modules/signalmodule.c $(srcdir)/Modules/posixmodule.h
 
 Python/dynload_shlib.o: $(srcdir)/Python/dynload_shlib.c
-	$(CC) -c $(PY_CORE_CFLAGS) \
-		-DSOABI='"$(SOABI)"' \
-		-o $@ $(srcdir)/Python/dynload_shlib.c
-
-Python/dynload_hpux.o: $(srcdir)/Python/dynload_hpux.c
-	$(CC) -c $(PY_CORE_CFLAGS) \
-		-DSHLIB_EXT='"$(EXT_SUFFIX)"' \
-		-o $@ $(srcdir)/Python/dynload_hpux.c
+	$(CC) -c $(PY_CORE_CFLAGS) -DSOABI='"$(SOABI)"' -o $@ $(srcdir)/Python/dynload_shlib.c
 
 Python/sysmodule.o: $(srcdir)/Python/sysmodule.c $(srcdir)/Include/pydtrace.h
-	$(CC) -c $(PY_CORE_CFLAGS) \
-		-DABIFLAGS='"$(ABIFLAGS)"' \
-		$(MULTIARCH_CPPFLAGS) \
-		-o $@ $(srcdir)/Python/sysmodule.c
+	$(CC) -c $(PY_CORE_CFLAGS) -DABIFLAGS="\"$(ABIFLAGS)\"" -o $@ $(srcdir)/Python/sysmodule.c
 
 $(IO_OBJS): $(IO_H)
 
@@ -1590,7 +1529,7 @@ sharedinstall: sharedmods
 		--install-scripts=$(BINDIR) \
 		--install-platlib=$(DESTSHARED) \
 		--root=$(DESTDIR)/
-	-rm $(DESTDIR)$(DESTSHARED)/_sysconfigdata_$(ABIFLAGS)_$(MACHDEP)_$(MULTIARCH).py
+	-rm $(DESTDIR)$(DESTSHARED)/_sysconfigdata_$(ABIFLAGS)_$(MACHDEP).py
 	-rm -r $(DESTDIR)$(DESTSHARED)/__pycache__
 
 # Here are a couple of targets for MacOSX again, to install a full

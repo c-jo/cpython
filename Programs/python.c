@@ -5,9 +5,8 @@
 
 #ifdef RISCOS
 #include <unixlib/local.h>
-__riscosify_control = __RISCOSIFY_NO_PROCESS;
+int __riscosify_control = __RISCOSIFY_NO_PROCESS;
 #endif
-
 
 #ifdef MS_WINDOWS
 int
