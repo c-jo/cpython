@@ -79,6 +79,15 @@ _INSTALL_SCHEMES = {
         'scripts': '{userbase}/bin',
         'data': '{userbase}',
         },
+    'riscos': {
+        'stdlib': '<Python3$Dir>.Lib',
+        'platstdlib': '<Python3$Dir>.Lib',
+        'purelib': '<Python3$Dir>.Site-Packages',
+        'platlib': '<Python3$Dir>.Site-Packages',
+        'include': '<Python3$Dir>.Include',
+        'scripts': '<Python3$Dir>.Bin',
+        'data': '<Python3$Dir>.Data',
+        },
     }
 
 _SCHEME_KEYS = ('stdlib', 'platstdlib', 'purelib', 'platlib', 'include',
@@ -332,6 +341,9 @@ def _parse_makefile(filename, vars=None):
 
 def get_makefile_filename():
     """Return the path of the Makefile."""
+    if os.name == 'riscos':
+        return os.path.join(_sys_home or _PROJECT_BASE, "RISCOS", "Makefile")
+
     if _PYTHON_BUILD:
         return os.path.join(_sys_home or _PROJECT_BASE, "Makefile")
     if hasattr(sys, 'abiflags'):
@@ -399,16 +411,17 @@ def _generate_posix_vars():
         module.build_time_vars = vars
         sys.modules[name] = module
 
-    pybuilddir = 'build/lib.%s-%s' % (get_platform(), _PY_VERSION_SHORT)
+    if sys.platform == 'riscos':
+       pybuilddir = 'build.lib_%s-%s' % (get_platform(), _PY_VERSION_SHORT_NO_DOT)
+       builddir = 'pybuilddir'
+    else:
+        pybuilddir = 'build/lib.%s-%s' % (get_platform(), _PY_VERSION_SHORT)
+        builddir = 'pybuilddir.txt'
     if hasattr(sys, "gettotalrefcount"):
         pybuilddir += '-pydebug'
-    os.makedirs(pybuilddir, exist_ok=True)
-    destfile = os.path.join(pybuilddir, name + '.py')
-    builddir = 'pybuilddir.txt'
 
-    if sys.platform == 'riscos':
-        destfile = name + '/py'
-        builddir = 'pybuilddir/txt'
+    os.makedirs(pybuilddir, exist_ok=True)
+    destfile = os.path.join(pybuilddir, name)
 
     with open(destfile, 'w', encoding='utf8') as f:
         f.write('# system configuration generated and used by'
@@ -436,6 +449,19 @@ def _init_non_posix(vars):
     vars['INCLUDEPY'] = get_path('include')
     vars['EXT_SUFFIX'] = '.pyd'
     vars['EXE'] = '.exe'
+    vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
+    vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
+
+def _init_riscos(vars):
+    _init_posix(vars)
+
+    """Initialize the module as appropriate for RISCOS"""
+    # set basic install directories
+    vars['LIBDEST'] = get_path('stdlib')
+    vars['BINLIBDEST'] = get_path('platstdlib')
+    vars['INCLUDEPY'] = get_path('include')
+    vars['EXT_SUFFIX'] = ''
+    vars['EXE'] = ''
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
     vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
 
@@ -481,6 +507,8 @@ def get_config_h_filename():
     if _PYTHON_BUILD:
         if os.name == "nt":
             inc_dir = os.path.join(_sys_home or _PROJECT_BASE, "PC")
+        elif os.name == "riscos":
+            return os.path.join(_sys_home or _PROJECT_BASE, "RISCOS", "h", "pyconfig")
         else:
             inc_dir = _sys_home or _PROJECT_BASE
     else:
@@ -554,6 +582,8 @@ def get_config_vars(*args):
             _init_non_posix(_CONFIG_VARS)
         if os.name == 'posix':
             _init_posix(_CONFIG_VARS)
+        if os.name == 'riscos':
+            _init_riscos(_CONFIG_VARS)
         # For backward compatibility, see issue19555
         SO = _CONFIG_VARS.get('EXT_SUFFIX')
         if SO is not None:
