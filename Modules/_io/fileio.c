@@ -234,9 +234,10 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
     int flags = 0;
     int fd = -1;
     int fd_is_own = 0;
-#ifdef O_CLOEXEC
+#if !defined(RISCOS) && defined(O_CLOEXEC)
+//#ifdef O_CLOEXEC
     int *atomic_flag_works = &_Py_open_cloexec_works;
-#elif !defined(MS_WINDOWS)
+#elif !defined(MS_WINDOWS) && !defined(RISCOS)
     int *atomic_flag_works = NULL;
 #endif
     struct _Py_stat_struct fdfstat;
@@ -393,7 +394,7 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
         else {
             PyObject *fdobj;
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
             /* the opener may clear the atomic flag */
             atomic_flag_works = NULL;
 #endif
@@ -427,7 +428,7 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
             goto error;
         }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
         if (_Py_set_inheritable(self->fd, 0, atomic_flag_works) < 0)
             goto error;
 #endif
