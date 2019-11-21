@@ -45,6 +45,7 @@
 #  include "winreparse.h"
 #endif
 #include "osdefs.h"
+#undef HAVE_DIRENT_D_TYPE
 
 /* On android API level 21, 'AT_EACCESS' is not declared although
  * HAVE_FACCESSAT is defined. */

@@ -50,7 +50,7 @@ my_getallocationgranularity (void)
 
 #endif
 
-#ifdef UNIX
+#if defined(UNIX)
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -60,11 +60,10 @@ my_getpagesize(void)
 {
     return sysconf(_SC_PAGESIZE);
 }
-
-#define my_getallocationgranularity my_getpagesize
 #else
 #define my_getpagesize getpagesize
 #endif
+#define my_getallocationgranularity my_getpagesize
 
 #endif /* UNIX */
 
@@ -592,9 +591,15 @@ mmap_flush_method(mmap_object *self, PyObject *args)
     Py_RETURN_NONE;
 #elif defined(UNIX)
     /* XXX flags for msync? */
+#ifdef RISCOS
+    if (-1 == msync(self->data + offset, size)) {
+        PyErr_SetFromErrno(PyExc_OSError);
+        return NULL;
+#else
     if (-1 == msync(self->data + offset, size, MS_SYNC)) {
         PyErr_SetFromErrno(PyExc_OSError);
         return NULL;
+#endif
     }
     Py_RETURN_NONE;
 #else
