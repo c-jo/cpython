@@ -8210,6 +8210,13 @@ PyInit__socket(void)
     PyModule_AddIntMacro(m, AI_V4MAPPED);
 #endif
 #ifdef AI_DEFAULT
+#ifdef RISCOS
+/* UnixLib defines AI_DEFAULT to (AI_V4MAPPED | AI_ADDRCONFIG)
+ * but doesn't define AI_ADDRCONFIG...
+ */
+#undef AI_DEFAULT
+#define AI_DEFAULT (AI_V4MAPPED)
+#endif
     PyModule_AddIntMacro(m, AI_DEFAULT);
 #endif
 #ifdef NI_MAXHOST
