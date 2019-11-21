@@ -27,6 +27,10 @@
 #define LEAD_UNDERSCORE ""
 #endif
 
+#ifdef RISCOS
+#include <unixlib/local.h>
+#endif
+
 /* The .so extension module ABI tag, supplied by the Makefile via
    Makefile.pre.in and configure.  This is used to discriminate between
    incompatible .so files so that extensions for different Python builds can
@@ -64,11 +68,11 @@ _PyImport_FindSharedFuncptr(const char *prefix,
 {
     dl_funcptr p;
     void *handle;
-    char funcname[258];
-    char pathbuf[260];
     int dlopenflags=0;
-
+    char funcname[258];
 #ifndef RISCOS
+    char pathbuf[260];
+
     if (strchr(pathname, '/') == NULL) {
         /* Prefix bare filename with "./" */
         PyOS_snprintf(pathbuf, sizeof(pathbuf), "./%-.255s", pathname);
@@ -101,21 +105,9 @@ _PyImport_FindSharedFuncptr(const char *prefix,
     dlopenflags = _PyInterpreterState_Get()->dlopenflags;
 
 #ifdef RISCOS
-    /* dlopen expects a unix-style name ... */
-    char dlpath[strlen(pathname)+2];
-    char *d = dlpath;
-    *d++ = '/';
-    for (const char *c = pathname; *c != 0; ++c)
-    {
-        switch (*c)
-        {
-            case '/' : *d++ = '.'; break;
-            case '.' : *d++ = '/'; break;
-            default  : *d++ = *c;
-       }
-    }
-    *d = 0;
-    handle = dlopen(dlpath, dlopenflags);
+    char* unixpath = __unixify(pathname, 0x0, 0, 0, -1);
+    handle = dlopen(unixpath, dlopenflags);
+    free(unixpath);
 #else
     handle = dlopen(pathname, dlopenflags);
 #endif
