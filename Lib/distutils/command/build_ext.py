@@ -547,6 +547,10 @@ class build_ext(Command):
         # Detect target language, if not provided
         language = ext.language or self.compiler.detect_language(sources)
 
+        if os.name == 'riscos':
+            # gcc treats the -o as unix format..
+            ext_path = ext_path.replace('.','/')
+
         self.compiler.link_shared_object(
             objects, ext_path,
             libraries=self.get_libraries(ext),

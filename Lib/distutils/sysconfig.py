@@ -119,6 +119,13 @@ def get_python_inc(plat_specific=0, prefix=None):
             return (os.path.join(prefix, "include") + os.path.pathsep +
                     os.path.join(prefix, "PC"))
         return os.path.join(prefix, "include")
+    elif os.name == "riscos":
+        if python_build:
+            # Include both the include and RISCOS dir to ensure we can find
+            # pyconfig.h
+            return (os.path.join(prefix, "Include") + os.path.pathsep +
+                    os.path.join(prefix, "RISCOS"))
+        return os.path.join(prefix, "Include")
     else:
         raise DistutilsPlatformError(
             "I don't know where Python installs its C header files "
@@ -242,6 +249,8 @@ def get_config_h_filename():
     if python_build:
         if os.name == "nt":
             inc_dir = os.path.join(_sys_home or project_base, "PC")
+        elif os.name == "riscos":
+            inc_dir = os.path.join(_sys_home or project_base, "RISCOS")
         else:
             inc_dir = _sys_home or project_base
     else:
@@ -463,6 +472,9 @@ def _init_nt():
     global _config_vars
     _config_vars = g
 
+
+def _init_riscos():
+    _init_posix()
 
 def get_config_vars(*args):
     """With no arguments, return a dictionary of all configuration

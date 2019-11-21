@@ -850,8 +850,9 @@ int main (int argc, char **argv) {
         obj_names = []
         for src_name in source_filenames:
             base, ext = os.path.splitext(src_name)
-            base = os.path.splitdrive(base)[1] # Chop off the drive
-            base = base[os.path.isabs(base):]  # If abs, chop off leading /
+            print("src_name",src_name, "strip_dir",strip_dir, "output_dir",output_dir,"base",base,"ext",ext)
+            ###FIXME  - RISC OS hack
+            base = os.path.join('o', os.path.split(base)[-1])
             if ext not in self.src_extensions:
                 raise UnknownFileError(
                       "unknown file type '%s' (from '%s')" % (ext, src_name))
@@ -932,6 +933,8 @@ _default_compilers = (
     ('posix', 'unix'),
     ('nt', 'msvc'),
 
+    # RISC OS can use a UNIXish thing
+    ('riscos', 'unix'),
     )
 
 def get_default_compiler(osname=None, platform=None):
