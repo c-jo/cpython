@@ -32,7 +32,7 @@ def spawn(cmd, search_path=1, verbose=0, dry_run=0):
     # cmd is documented as a list, but just in case some code passes a tuple
     # in, protect our %-formatting code against horrible death
     cmd = list(cmd)
-    if os.name == 'posix':
+    if os.name == 'posix' or os.name == 'riscos':
         _spawn_posix(cmd, search_path, dry_run=dry_run)
     elif os.name == 'nt':
         _spawn_nt(cmd, search_path, dry_run=dry_run)

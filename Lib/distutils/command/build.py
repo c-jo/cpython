@@ -81,7 +81,11 @@ class build(Command):
                             "--plat-name only supported on Windows (try "
                             "using './configure --help' on your platform)")
 
-        plat_specifier = ".%s-%d.%d" % (self.plat_name, *sys.version_info[:2])
+        if os.name == 'riscos':
+            # No dots for RISC OS
+            plat_specifier = "_%s-%d%d" % (self.plat_name, *sys.version_info[:2])
+        else:
+            plat_specifier = ".%s-%d.%d" % (self.plat_name, *sys.version_info[:2])
 
         # Make it so Python 2.x and Python 2.x with --with-pydebug don't
         # share the same build directories. Doing so confuses the build
@@ -110,11 +114,15 @@ class build(Command):
         # 'build_temp' -- temporary directory for compiler turds,
         # "build/temp.<plat>"
         if self.build_temp is None:
-            self.build_temp = os.path.join(self.build_base,
-                                           'temp' + plat_specifier)
+             self.build_temp = os.path.join(self.build_base,
+                                            'temp' + plat_specifier)
         if self.build_scripts is None:
-            self.build_scripts = os.path.join(self.build_base,
-                                              'scripts-%d.%d' % sys.version_info[:2])
+            if os.name == 'riscos': # No dot
+                self.build_scripts = os.path.join(self.build_base,
+                                                  'scripts-%d%d' % sys.version_info[:2])
+            else:
+                self.build_scripts = os.path.join(self.build_base,
+                                                  'scripts-%d.%d' % sys.version_info[:2])
 
         if self.executable is None and sys.executable:
             self.executable = os.path.normpath(sys.executable)

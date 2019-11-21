@@ -130,6 +130,17 @@ class Extension:
             msg = "Unknown Extension options: %s" % options
             warnings.warn(msg)
 
+        if os.name == 'riscos':
+           sources = []
+           for source in self.sources:
+               path,extn = source.rsplit('.',1)
+               path = path.replace('.','-')
+               elements = path.split('/')
+               #path = path.replace('/','.')
+               newsource = os.path.join('.'.join(elements[:-1]),extn,elements[-1])
+               sources.append(newsource)
+           self.sources = sources
+
     def __repr__(self):
         return '<%s.%s(%r) at %#x>' % (
             self.__class__.__module__,

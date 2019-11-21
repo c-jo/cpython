@@ -79,6 +79,11 @@ class UnixCCompiler(CCompiler):
     xcode_stub_lib_extension = ".tbd"
     static_lib_format = shared_lib_format = dylib_lib_format = "lib%s%s"
     xcode_stub_lib_format = dylib_lib_format
+
+    if os.name == 'riscos':
+        src_extensions += [""]
+        obj_extension = ""
+
     if sys.platform == "cygwin":
         exe_extension = ".exe"
 
