@@ -184,13 +184,15 @@ static PyObject *PyBlock_Resize(PyBlockObject *self,PyObject *arg)
   Py_INCREF(Py_None);return Py_None;
 }
 
-/*
 static PyObject *PyBlock_ToFile(PyBlockObject *self,PyObject *arg)
 { int s=0,e=self->length/4;
   PyObject *f;
   FILE *fp;
   if(!PyArg_ParseTuple(arg,"O|ii",&f,&s,&e)) return NULL;
-  fp=PyFile_AsFile(f);
+  int fd = PyObject_AsFileDescriptor(f);
+  printf("fd=%d\n",fd);
+  fp=0;
+  //fp=PyFile_AsFile(f);
   if (!fp)
   { PyErr_SetString(PyExc_TypeError, "arg must be open file");
     return NULL;
@@ -198,17 +200,16 @@ static PyObject *PyBlock_ToFile(PyBlockObject *self,PyObject *arg)
   fwrite((int*)(self->block)+s,4,e-s,fp);
   Py_INCREF(Py_None);return Py_None;
 }
-*/
 
 static struct PyMethodDef PyBlock_Methods[]=
-{ { "tostring",(PyCFunction)PyBlock_ToString,1},
-  { "padstring",(PyCFunction)PyBlock_PadString,1},
-  { "nullstring",(PyCFunction)PyBlock_NullString,1},
-  { "ctrlstring",(PyCFunction)PyBlock_CtrlString,1},
-  { "bitset",(PyCFunction)PyBlock_BitSet,1},
-  { "resize",(PyCFunction)PyBlock_Resize,1},
-//  { "tofile",(PyCFunction)PyBlock_ToFile,1},
-  { NULL,NULL}		/* sentinel */
+{ { "tostring",   (PyCFunction)PyBlock_ToString,   METH_VARARGS, NULL},
+  { "padstring",  (PyCFunction)PyBlock_PadString,  METH_VARARGS, NULL},
+  { "nullstring", (PyCFunction)PyBlock_NullString, METH_VARARGS, NULL},
+  { "ctrlstring", (PyCFunction)PyBlock_CtrlString, METH_VARARGS, NULL},
+  { "bitset",     (PyCFunction)PyBlock_BitSet,     METH_VARARGS, NULL},
+  { "resize",     (PyCFunction)PyBlock_Resize,     METH_VARARGS, NULL},
+  { "tofile",     (PyCFunction)PyBlock_ToFile,     METH_VARARGS, NULL},
+  { NULL,NULL, 0, 0 }		/* sentinel */
 };
 
 static int block_len(PyBlockObject *b)
@@ -308,6 +309,7 @@ static PyObject *PyBlock_GetAttr(PyBlockObject *s,char *name)
     }
     return list;
   }
+
   return PyObject_GenericGetAttr(/*PyBlock_Methods,*/ (PyObject*) s, PyUnicode_FromString(name));
   //return Py_FindMethod(PyBlock_Methods, (PyObject*) s,name);
 }
@@ -323,28 +325,35 @@ static void PyBlock_Dealloc(PyBlockObject *b)
   PyMem_DEL(b);
 }
 
-static PyTypeObject PyBlockType=
-{ PyObject_HEAD_INIT(&PyType_Type)
-  0,				/*ob_size*/
-  "block",			/*tp_name*/
+static PyTypeObject PyBlockType =
+{ PyVarObject_HEAD_INIT(&PyType_Type, 0)
+  .tp_name = "swi.block",
+  .tp_basicsize = sizeof(PyBlockObject),
+  .tp_dealloc = (destructor)PyBlock_Dealloc,
+  .tp_getattr = (getattrfunc)PyBlock_GetAttr,
+  .tp_as_sequence = &block_as_sequence,
+  .tp_getattro = 0,
+};
+
+#if 0
+  "swi.block",			/*tp_name*/
   sizeof(PyBlockObject),	/*tp_size*/
   0,				/*tp_itemsize */
-  /* methods */
   (destructor)PyBlock_Dealloc,	/*tp_dealloc*/
-  0,				/*tp_print*/
+  0,                            /*tp_vectorcall_offset*/
   (getattrfunc)PyBlock_GetAttr,	/*tp_getattr*/
   0,				/*tp_setattr*/
-  0,                            /*tp_as_async*/
+  0,				/*tp_as_async*/
   0,				/*tp_repr*/
   0,				/*tp_as_number*/
   &block_as_sequence,		/*tp_as_sequence*/
   0,				/*tp_as_mapping*/
-};
+#endif
 
 /* swi commands */
 
 static PyObject *swi_swi(PyObject *self,PyObject *args)
-{ PyObject *name,*format,*result,*v;
+{ PyObject *name,*format,*result=0,*v=0;
   int swino,carry,rno=0,j,n;
   char *swiname,*fmt,*outfmt;
   _kernel_swi_regs r;
@@ -569,15 +578,15 @@ static PyMethodDef SwiMethods[]=
 };
 
 static struct PyModuleDef SwiModuleDef = {
-        PyModuleDef_HEAD_INIT,
-        "swi",
-        NULL,
-        NULL,
-        SwiMethods,
-        NULL,
-        NULL,
-        NULL,
-        NULL
+        PyModuleDef_HEAD_INIT, /*m_base*/
+        "swi",                 /*m_name*/  
+        NULL,                  /*m_doc*/
+        (Py_ssize_t)0,         /*m_size*/
+        SwiMethods,            /*m_methods*/
+        NULL,                  /*m_slots*/
+        NULL,                  /*m_traverse*/
+        NULL,                  /*m_clear*/
+        NULL                   /*m_free*/
 };
 
 PyObject* PyInit_swi()
