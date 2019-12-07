@@ -57,13 +57,13 @@ def normcase(s):
 
 # Return whether a path is absolute.
 # Trivial in Posix, harder on RISC OS.
-# For now just check if it has :: in it (eg. ADFS::Gizmo)
+# For now just check if it has :: in it (eg. ADFS::Gizmo) or starts with
+# a < (eg. <Wimp$ScrapDir>
 
 def isabs(s):
     """Test whether a path is absolute"""
     s = os.fspath(s)
-    return s.find('::')
-
+    return s.find('::') != -1 or (len(s) > 0 and s[0] == '<')
 
 # Join pathnames.
 # Ignore the previous parts if a part is absolute.
