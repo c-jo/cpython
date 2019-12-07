@@ -64,11 +64,17 @@ try:
     import msvcrt
     import _winapi
     _mswindows = True
+    _riscos = False
 except ModuleNotFoundError:
     _mswindows = False
-    import _posixsubprocess
-    import select
-    import selectors
+    if os.name == 'riscos':
+        import swi
+        _riscos = True
+    else:
+        import _posixsubprocess
+        import select
+        import selectors
+        _riscos = False
 else:
     from _winapi import (CREATE_NEW_CONSOLE, CREATE_NEW_PROCESS_GROUP,
                          STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
@@ -203,6 +209,8 @@ if _mswindows:
             return "%s(%d)" % (self.__class__.__name__, int(self))
 
         __del__ = Close
+elif _riscos:
+    pass
 else:
     # When select or poll has indicated that the file is writable,
     # we can write up to _PIPE_BUF bytes without risk of blocking.
@@ -756,6 +764,9 @@ class Popen(object):
             if preexec_fn is not None:
                 raise ValueError("preexec_fn is not supported on Windows "
                                  "platforms")
+        elif _riscos:
+            if stderr is not None:
+                raise ValueError("stderr redirection is not supported on RISC OS")
         else:
             # POSIX
             if pass_fds and not close_fds:
@@ -783,6 +794,51 @@ class Popen(object):
             raise SubprocessError('Cannot disambiguate when both text '
                                   'and universal_newlines are supplied but '
                                   'different. Pass one or the other.')
+
+        if _riscos:
+            print(args, bufsize, executable,
+                 stdin, stdout, stderr,
+                 preexec_fn, close_fds,
+                 shell, cwd, env, universal_newlines,
+                 startupinfo, creationflags,
+                 restore_signals, start_new_session,
+                 pass_fds, encoding, errors, text)
+
+            redirects = []
+            if stdin is not None:
+                self.in_pipe = "Pipe:sp_in"
+                redirects.append('< '+self.in_pipe)
+            else:
+                self.in_pipe = None
+
+            if stdout is not None:
+                self.out_pipe = "Pipe:sp_out"
+                redirects.append('> '+self.out_pipe)
+            else:
+                self.out_pipe = None
+
+            redir_string = ' '.join(redirects)
+
+            if args.__class__ == str.__class__:
+                cmd = args
+            else:
+                cmd = None
+                for arg in args:
+                    if ' ' in arg:
+                        arg = '"' + arg + '"'
+                    if cmd:
+                        cmd += ' '+arg
+                    else:
+                        cmd = arg
+             
+            if redir_string:
+                cmd = cmd + ' { ' + redir_string + ' }'
+
+            task_handle = swi.swi('Wimp_StartTask','s;i',cmd)
+            print("cmd: {} task hanldle={}".format(cmd,task_handle))
+            self.returncode = 0
+            return
+
 
         # Input and output objects. The general principle is like
         # this:
@@ -994,6 +1050,20 @@ class Popen(object):
         is triggered by setting any of text, encoding, errors or
         universal_newlines.
         """
+
+        if _riscos:
+            if input:
+                fh = os.open(self.in_pipe, os.O_WRONLY)
+                data = os.write(fh,input.encode('latin-1'))
+                os.close(fh)
+
+            if self.out_pipe:
+                fh = os.open(self.out_pipe, os.O_RDONLY)
+                data = os.read(fh,64*1024)
+                os.close(fh)
+                return (data,None)
+            else:
+                return (None,None)
 
         if self._communication_started and input:
             raise ValueError("Cannot send input after starting communication")
@@ -1450,6 +1520,9 @@ class Popen(object):
 
         kill = terminate
 
+    elif _riscos:
+        pass
+
     else:
         #
         # POSIX methods
@@ -1701,7 +1774,6 @@ class Popen(object):
                         err_msg = os.strerror(errno_num)
                     raise child_exception_type(errno_num, err_msg, err_filename)
                 raise child_exception_type(err_msg)
-
 
         def _handle_exitstatus(self, sts, _WIFSIGNALED=os.WIFSIGNALED,
                 _WTERMSIG=os.WTERMSIG, _WIFEXITED=os.WIFEXITED,
