@@ -1,0 +1,5 @@
+Dir <Obey$Dir>
+Run <Obey$Dir>.SetPyPath
+
+Make -f RISCOS/Makefile
+Copy python3 HostFS::HostFS.$.!Python3.python3 ~CVF
