@@ -163,6 +163,8 @@ def _candidate_tempdir_list():
         dirlist.extend([ _os.path.expanduser(r'~\AppData\Local\Temp'),
                          _os.path.expandvars(r'%SYSTEMROOT%\Temp'),
                          r'c:\temp', r'c:\tmp', r'\temp', r'\tmp' ])
+    elif _os.name == 'riscos':
+        dirlist.extend([ '<Wimp$ScrapDir>' ])
     else:
         dirlist.extend([ '/tmp', '/var/tmp', '/usr/tmp' ])
 
