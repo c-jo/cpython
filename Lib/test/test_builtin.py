@@ -167,7 +167,11 @@ class BuiltinTest(unittest.TestCase):
                               {'__package__': None, '__spec__': None, '__name__': '__main__'},
                               locals={}, fromlist=('foo',), level=1)
         # embedded null character
-        self.assertRaises(ModuleNotFoundError, __import__, 'string\x00')
+        if os.name == 'riscos':
+            # We get a value error trying to convert the string to the FS encoding
+            self.assertRaises(ValueError, __import__, 'string\x00')
+        else:
+            self.assertRaises(ModuleNotFoundError, __import__, 'string\x00')
 
     def test_abs(self):
         # int

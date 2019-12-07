@@ -211,14 +211,14 @@ class FilterTests(BaseTest):
             self.module.resetwarnings()
             self.module.filterwarnings("once", category=UserWarning)
             message = UserWarning("FilterTests.test_once")
-            self.module.warn_explicit(message, UserWarning, "__init__.py",
+            self.module.warn_explicit(message, UserWarning, "__init__"+os.extsep +"py",
                                     42)
             self.assertEqual(w[-1].message, message)
             del w[:]
-            self.module.warn_explicit(message, UserWarning, "__init__.py",
+            self.module.warn_explicit(message, UserWarning, "__init__"+os.extsep +"py",
                                     13)
             self.assertEqual(len(w), 0)
-            self.module.warn_explicit(message, UserWarning, "test_warnings2.py",
+            self.module.warn_explicit(message, UserWarning, "test_warnings2"+os.extsep +"py",
                                     42)
             self.assertEqual(len(w), 0)
 
@@ -312,7 +312,7 @@ class FilterTests(BaseTest):
         with original_warnings.catch_warnings(record=True,
                 module=self.module) as w:
             self.module.filters = L
-            self.module.warn_explicit(UserWarning("b"), None, "f.py", 42)
+            self.module.warn_explicit(UserWarning("b"), None, "f"+os.extsep+"py", 42)
             self.assertEqual(str(w[-1].message), "b")
 
     def test_filterwarnings_duplicate_filters(self):
@@ -402,10 +402,10 @@ class WarnTests(BaseTest):
                     module=self.module) as w:
                 warning_tests.inner("spam1")
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "stacklevel.py")
+                                    "stacklevel"+os.extsep+"py")
                 warning_tests.outer("spam2")
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "stacklevel.py")
+                                    "stacklevel"+os.extsep+"py")
 
     def test_stacklevel(self):
         # Test stacklevel argument
@@ -415,20 +415,20 @@ class WarnTests(BaseTest):
                     module=self.module) as w:
                 warning_tests.inner("spam3", stacklevel=1)
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "stacklevel.py")
+                                    "stacklevel"+os.extsep+"py")
                 warning_tests.outer("spam4", stacklevel=1)
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "stacklevel.py")
+                                    "stacklevel"+os.extsep+"py")
 
                 warning_tests.inner("spam5", stacklevel=2)
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "__init__.py")
+                                    "__init__"+os.extsep+"py")
                 warning_tests.outer("spam6", stacklevel=2)
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "stacklevel.py")
+                                    "stacklevel"+os.extsep+"py")
                 warning_tests.outer("spam6.5", stacklevel=3)
                 self.assertEqual(os.path.basename(w[-1].filename),
-                                    "__init__.py")
+                                    "__init__"+os.extsep+"py")
 
                 warning_tests.inner("spam7", stacklevel=9999)
                 self.assertEqual(os.path.basename(w[-1].filename),
@@ -725,7 +725,7 @@ class _WarningsTests(BaseTest, unittest.TestCase):
         self.assertEqual(result.count('\n'), 2,
                              "Too many newlines in %r" % result)
         first_line, second_line = result.split('\n', 1)
-        expected_file = os.path.splitext(warning_tests.__file__)[0] + '.py'
+        expected_file = os.path.splitext(warning_tests.__file__)[0]+os.extsep+'py'
         first_line_parts = first_line.rsplit(':', 3)
         path, line, warning_class, message = first_line_parts
         line = int(line)
@@ -841,7 +841,7 @@ class WarningsDisplayTests(BaseTest):
     def test_formatwarning(self):
         message = "msg"
         category = Warning
-        file_name = os.path.splitext(warning_tests.__file__)[0] + '.py'
+        file_name = os.path.splitext(warning_tests.__file__)[0]+os.extsep+'py'
         line_num = 3
         file_line = linecache.getline(file_name, line_num).strip()
         format = "%s:%s: %s: %s\n  %s\n"
@@ -857,7 +857,7 @@ class WarningsDisplayTests(BaseTest):
                                     category, file_name, line_num, file_line))
 
     def test_showwarning(self):
-        file_name = os.path.splitext(warning_tests.__file__)[0] + '.py'
+        file_name = os.path.splitext(warning_tests.__file__)[0]+os.extsep+'py'
         line_num = 3
         expected_file_line = linecache.getline(file_name, line_num).strip()
         message = 'msg'
@@ -883,7 +883,7 @@ class WarningsDisplayTests(BaseTest):
         def myformatwarning(message, category, filename, lineno, text):
             return f'm={message}:c={category}:f={filename}:l={lineno}:t={text}'
 
-        file_name = os.path.splitext(warning_tests.__file__)[0] + '.py'
+        file_name = os.path.splitext(warning_tests.__file__)[0]+os.extsep+'py'
         line_num = 3
         file_line = linecache.getline(file_name, line_num).strip()
         message = 'msg'

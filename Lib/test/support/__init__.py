@@ -864,6 +864,9 @@ else:
 if os.name == 'java':
     # Jython disallows @ in module names
     TESTFN = '$test'
+elif os.name == 'riscos':
+    # RISC OS also disallows $
+    TESTFN = '/test' 
 else:
     TESTFN = '@test'
 

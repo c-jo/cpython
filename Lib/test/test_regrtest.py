@@ -226,10 +226,11 @@ class ParseArgsTestCase(unittest.TestCase):
         self.checkError(['--testdir'], 'expected one argument')
 
     def test_runleaks(self):
-        for opt in '-L', '--runleaks':
-            with self.subTest(opt=opt):
-                ns = libregrtest._parse_args([opt])
-                self.assertTrue(ns.runleaks)
+        if sys.platform != 'riscos':
+            for opt in '-L', '--runleaks':
+                with self.subTest(opt=opt):
+                    ns = libregrtest._parse_args([opt])
+                    self.assertTrue(ns.runleaks)
 
     def test_huntrleaks(self):
         for opt in '-R', '--huntrleaks':
