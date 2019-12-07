@@ -1302,7 +1302,7 @@ _Py_open_impl(const char *pathname, int flags, int gil_held)
             return -1;
     }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
     if (set_inheritable(fd, 0, gil_held, atomic_flag_works) < 0) {
         close(fd);
         return -1;
