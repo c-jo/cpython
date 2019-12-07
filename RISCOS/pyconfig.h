@@ -478,7 +478,7 @@
 #undef HAVE_GETPGRP
 
 /* Define to 1 if you have the `getpid' function. */
-#undef HAVE_GETPID
+#define HAVE_GETPID 1
 
 /* Define to 1 if you have the `getpriority' function. */
 #define HAVE_GETPRIORITY 1
