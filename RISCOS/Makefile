@@ -18,7 +18,7 @@ MAINCC=		$(CC)
 LINKCC=		$(PURIFY) $(MAINCC)
 AR=		ar
 READELF=	readelf
-SOABI=
+SOABI=          cpython-38-arm-riscos
 LDVERSION=	$(VERSION)$(ABIFLAGS)
 LIBPYTHON=
 GITVERSION=	git --git-dir $(srcdir)/.git rev-parse --short HEAD
@@ -435,103 +435,6 @@ check-clean-src:
 		exit 1; \
 	fi
 
-# Profile generation build must start from a clean tree.
-profile-clean-stamp:
-	$(MAKE) clean profile-removal
-	touch $@
-
-# Compile with profile generation enabled.
-profile-gen-stamp: profile-clean-stamp
-	@if [ $(LLVM_PROF_ERR) = yes ]; then \
-		echo "Error: Cannot perform PGO build because llvm-profdata was not found in PATH" ;\
-		echo "Please add it to PATH and run ./configure again" ;\
-		exit 1;\
-	fi
-	@echo "Building with support for profile generation:"
-	$(MAKE) build_all_generate_profile
-	touch $@
-
-# Run task with profile generation build to create profile information.
-profile-run-stamp:
-	@echo "Running code to generate profile data (this can take a while):"
-	# First, we need to create a clean build with profile generation
-	# enabled.
-	$(MAKE) profile-gen-stamp
-	# Next, run the profile task to generate the profile information.
-	$(MAKE) run_profile_task
-	$(MAKE) build_all_merge_profile
-	# Remove profile generation binary since we are done with it.
-	$(MAKE) clean
-	# This is an expensive target to build and it does not have proper
-	# makefile dependency information.  So, we create a "stamp" file
-	# to record its completion and avoid re-running it.
-	touch $@
-
-build_all_generate_profile:
-	$(MAKE) all CFLAGS_NODIST="$(CFLAGS_NODIST) $(PGO_PROF_GEN_FLAG)" LDFLAGS_NODIST="$(LDFLAGS_NODIST) $(PGO_PROF_GEN_FLAG)" LIBS="$(LIBS)"
-
-run_profile_task:
-	@ # FIXME: can't run for a cross build
-	$(LLVM_PROF_FILE) $(RUNSHARED) ./$(BUILDPYTHON) $(PROFILE_TASK) || true
-
-build_all_merge_profile:
-	$(LLVM_PROF_MERGER)
-
-# Compile Python binary with profile guided optimization.
-# To force re-running of the profile task, remove the profile-run-stamp file.
-profile-opt: profile-run-stamp
-	@echo "Rebuilding with profile guided optimizations:"
-	-rm -f profile-clean-stamp
-	$(MAKE) all CFLAGS_NODIST="$(CFLAGS_NODIST) $(PGO_PROF_USE_FLAG)" LDFLAGS_NODIST="$(LDFLAGS_NODIST)"
-
-# Compile and run with gcov
-.PHONY=coverage coverage-lcov coverage-report
-coverage:
-	@echo "Building with support for coverage checking:"
-	$(MAKE) clean profile-removal
-	$(MAKE) all CFLAGS="$(CFLAGS) -O0 -pg -fprofile-arcs -ftest-coverage" LIBS="$(LIBS) -lgcov"
-
-coverage-lcov:
-	@echo "Creating Coverage HTML report with LCOV:"
-	@rm -f $(COVERAGE_INFO)
-	@rm -rf $(COVERAGE_REPORT)
-	@lcov --capture --directory $(abs_builddir) \
-	    --base-directory $(realpath $(abs_builddir)) \
-	    --path $(realpath $(abs_srcdir)) \
-	    --output-file $(COVERAGE_INFO)
-	@ # remove 3rd party modules, system headers and internal files with
-	@ # debug, test or dummy functions.
-	@lcov --remove $(COVERAGE_INFO) \
-	    '*/Modules/_blake2/impl/*' \
-	    '*/Modules/_ctypes/libffi*/*' \
-	    '*/Modules/_decimal/libmpdec/*' \
-	    '*/Modules/_sha3/kcp/*' \
-	    '*/Modules/expat/*' \
-	    '*/Modules/zlib/*' \
-	    '*/Include/*' \
-	    '*/Modules/xx*.c' \
-	    '*/Parser/listnode.c' \
-	    '*/Python/pyfpe.c' \
-	    '*/Python/pystrcmp.c' \
-	    '/usr/include/*' \
-	    '/usr/local/include/*' \
-	    '/usr/lib/gcc/*' \
-	    --output-file $(COVERAGE_INFO)
-	@genhtml $(COVERAGE_INFO) --output-directory $(COVERAGE_REPORT) \
-	    $(COVERAGE_REPORT_OPTIONS)
-	@echo
-	@echo "lcov report at $(COVERAGE_REPORT)/index.html"
-	@echo
-
-# Force regeneration of parser and importlib
-coverage-report: regen-grammar regen-token regen-importlib
-	@ # build with coverage info
-	$(MAKE) coverage
-	@ # run tests, ignore failures
-	$(TESTRUNNER) $(TESTOPTS) || true
-	@ # build lcov report
-	$(MAKE) coverage-lcov
-
 # Run "Argument Clinic" over all source files
 .PHONY=clinic
 clinic: check-clean-src $(srcdir)/Modules/_blake2/blake2s_impl.c
@@ -541,7 +444,7 @@ clinic: check-clean-src $(srcdir)/Modules/_blake2/blake2s_impl.c
 $(BUILDPYTHON):	Programs/python.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY)
 	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -o $@ Programs/python.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
 
-platform: $(BUILDPYTHON) pybuilddir.txt
+platform: $(BUILDPYTHON) pybuilddir
 	$(RUNSHARED) $(PYTHON_FOR_BUILD) -c 'import sys ; from sysconfig import get_platform ; print("%s-%d.%d" % (get_platform(), *sys.version_info[:2]))' >platform
 
 # Create build directory and generate the sysconfig build-time data there.
@@ -575,10 +478,9 @@ RISCOS/swimodule.o: RISCOS/swimodule.c
 
 # RISC OS getpath (needs OSLib)
 RISCOS/getpath.o: RISCOS/getpath.c
-	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -o $@ $<
+	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -DVERSION='"$(VERSION)"' -o $@ $<
 #		-DPREFIX='"$(prefix)"' \
 #		-DEXEC_PREFIX='"$(exec_prefix)"' \
-#		-DVERSION='"$(VERSION)"' \
 #		-DVPATH='"$(VPATH)"' \
 
 # Build the shared modules
@@ -588,44 +490,32 @@ sharedmods: $(BUILDPYTHON) pybuilddir Modules/_math.o
 	Set OPT '$(OPT)'
 	Set _TCLTK_INCLUDES '$(TCLTK_INCLUDES)'
 	Set _TCLTK_LIBS '$(TCLTK_LIBS)'
-	$(PYTHON_FOR_BUILD) setup build
-
+	Echo run setup build
+#	$(PYTHON_FOR_BUILD) setup build
 #	$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' _TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' $(PYTHON_FOR_BUILD) $(srcdir)/setup $$quiet build
-
 
 # Build static library
 $(LIBRARY): $(LIBRARY_OBJS)
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBRARY_OBJS)
 
-libpython$(LDVERSION).so: $(LIBRARY_OBJS) $(DTRACE_OBJS)
-	if test $(INSTSONAME) != $(LDLIBRARY); then \
-		$(BLDSHARED) -Wl,-h$(INSTSONAME) -o $(INSTSONAME) $(LIBRARY_OBJS) $(MODLIBS) $(SHLIBS) $(LIBC) $(LIBM); \
-		$(LN) -f $(INSTSONAME) $@; \
-	else \
-		$(BLDSHARED) -o $@ $(LIBRARY_OBJS) $(MODLIBS) $(SHLIBS) $(LIBC) $(LIBM); \
-	fi
-
-libpython3.so:	libpython$(LDVERSION).so
-	$(BLDSHARED) $(NO_AS_NEEDED) -o $@ -Wl,-h$@ $^
-
-libpython$(LDVERSION).dylib: $(LIBRARY_OBJS)
-	 $(CC) -dynamiclib -Wl,-single_module $(PY_CORE_LDFLAGS) -undefined dynamic_lookup -Wl,-install_name,$(prefix)/lib/libpython$(LDVERSION).dylib -Wl,-compatibility_version,$(VERSION) -Wl,-current_version,$(VERSION) -o $@ $(LIBRARY_OBJS) $(DTRACE_OBJS) $(SHLIBS) $(LIBC) $(LIBM); \
+#libpython$(LDVERSION).so: $(LIBRARY_OBJS) $(DTRACE_OBJS)
+#	if test $(INSTSONAME) != $(LDLIBRARY); then \
+#		$(BLDSHARED) -Wl,-h$(INSTSONAME) -o $(INSTSONAME) $(LIBRARY_OBJS) $(MODLIBS) $(SHLIBS) $(LIBC) $(LIBM); \
+#		$(LN) -f $(INSTSONAME) $@; \
+#	else \
+#		$(BLDSHARED) -o $@ $(LIBRARY_OBJS) $(MODLIBS) $(SHLIBS) $(LIBC) $(LIBM); \
+#	fi
+#
+#libpython3.so:	libpython$(LDVERSION).so
+#	$(BLDSHARED) $(NO_AS_NEEDED) -o $@ -Wl,-h$@ $^
+#
+#libpython$(LDVERSION).dylib: $(LIBRARY_OBJS)
+#	 $(CC) -dynamiclib -Wl,-single_module $(PY_CORE_LDFLAGS) -undefined dynamic_lookup -Wl,-install_name,$(prefix)/lib/libpython$#(LDVERSION).dylib -Wl,-compatibility_version,$(VERSION) -Wl,-current_version,$(VERSION) -o $@ $(LIBRARY_OBJS) $(DTRACE_OBJS) $(SHLIBS) $(LIBC) $(LIBM); \
 
 
 libpython$(VERSION).sl: $(LIBRARY_OBJS)
 	$(LDSHARED) -o $@ $(LIBRARY_OBJS) $(MODLIBS) $(SHLIBS) $(LIBC) $(LIBM)
-
-# Copy up the gdb python hooks into a position where they can be automatically
-# loaded by gdb during Lib/test/test_gdb.py
-#
-# Distributors are likely to want to install this somewhere else e.g. relative
-# to the stripped DWARF data for the shared library.
-gdbhooks: $(BUILDPYTHON)-gdb.py
-
-SRC_GDB_HOOKS=$(srcdir)/Tools/gdb/libpython.py
-$(BUILDPYTHON)-gdb.py: $(SRC_GDB_HOOKS)
-	$(INSTALL_DATA) $(SRC_GDB_HOOKS) $(BUILDPYTHON)-gdb.py
 
 Programs/_testembed: Programs/_testembed.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY)
 	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -o $@ Programs/_testembed.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS)
@@ -708,7 +598,7 @@ Modules/pwdmodule.o: $(srcdir)/Modules/pwdmodule.c $(srcdir)/Modules/posixmodule
 Modules/signalmodule.o: $(srcdir)/Modules/signalmodule.c $(srcdir)/Modules/posixmodule.h
 
 Python/dynload_shlib.o: $(srcdir)/Python/dynload_shlib.c
-	$(CC) -c $(PY_CORE_CFLAGS) -DSOABI='"$(SOABI)"' -o $@ $(srcdir)/Python/dynload_shlib.c
+	$(CC) -c $(PY_CORE_CFLAGS) -DSOABI=\"$(SOABI)\" -o $@ $(srcdir)/Python/dynload_shlib.c
 
 Python/sysmodule.o: $(srcdir)/Python/sysmodule.c $(srcdir)/Include/pydtrace.h
 	$(CC) -c $(PY_CORE_CFLAGS) -DABIFLAGS="\"$(ABIFLAGS)\"" -o $@ $(srcdir)/Python/sysmodule.c
@@ -1027,10 +917,10 @@ $(LIBRARY_OBJS) $(MODOBJS) Programs/python.o: $(PYTHON_HEADERS)
 
 TESTOPTS=	$(EXTRATESTOPTS)
 TESTPYTHON=	$(RUNSHARED) ./$(BUILDPYTHON) $(TESTPYTHONOPTS)
-TESTRUNNER=	$(TESTPYTHON) $(srcdir)/Tools/scripts/run_tests.py
+TESTRUNNER=	$(TESTPYTHON) Tools.scripts.run_tests/py
 TESTTIMEOUT=	1200
 
-.PHONY: test testall testuniversal buildbottest pythoninfo
+.PHONY: test testall buildbottest pythoninfo
 
 # Remove "test_python_*" directories of previous failed test jobs.
 # Pass TESTOPTS options because it can contain --tempdir option.
@@ -1051,29 +941,10 @@ test:		all platform
 # sample data.
 testall:	all platform
 		-find $(srcdir)/Lib -name '*.py[co]' -print | xargs rm -f
-		$(TESTPYTHON) -E $(srcdir)/Lib/compileall.py
+		$(TESTPYTHON) -E Lib.compileall/py
 		-find $(srcdir)/Lib -name '*.py[co]' -print | xargs rm -f
 		-$(TESTRUNNER) -u all $(TESTOPTS)
 		$(TESTRUNNER) -u all $(TESTOPTS)
-
-# Run the test suite for both architectures in a Universal build on OSX.
-# Must be run on an Intel box.
-testuniversal:	all platform
-		@if [ `arch` != 'i386' ]; then \
-			echo "This can only be used on OSX/i386" ;\
-			exit 1 ;\
-		fi
-		$(TESTRUNNER) -u all $(TESTOPTS)
-		$(RUNSHARED) /usr/libexec/oah/translate \
-			./$(BUILDPYTHON) -E -m test -j 0 -u all $(TESTOPTS)
-
-# Like testall, but with only one pass and without multiple processes.
-# Run an optional script to include information about the build environment.
-buildbottest:	build_all platform
-		-@if which pybuildbot.identify >/dev/null 2>&1; then \
-			pybuildbot.identify "CC='$(CC)'" "CXX='$(CXX)'"; \
-		fi
-		$(TESTRUNNER) -j 1 -u all -W --slowest --fail-env-changed --timeout=$(TESTTIMEOUT) $(TESTOPTS)
 
 pythoninfo: build_all
 		$(RUNSHARED) ./$(BUILDPYTHON) -m test.pythoninfo
