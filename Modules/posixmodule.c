@@ -53,6 +53,10 @@
 #undef HAVE_FACCESSAT
 #endif
 
+#ifdef RISCOS
+#include <unixlib/local.h>
+#endif
+
 #include <stdio.h>  /* needed for ctermid() */
 
 #ifdef __cplusplus
@@ -3731,7 +3735,11 @@ _posix_listdir(path_t *path, PyObject *list)
             return_str = !PyObject_CheckBuffer(path->object);
         }
         else {
+#ifdef RISCOS
+            name = "@";
+#else
             name = ".";
+#endif
             return_str = 1;
         }
 
@@ -8384,7 +8392,7 @@ os_open_impl(PyObject *module, path_t *path, int flags, int mode, int dir_fd)
         return -1;
     }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
     if (_Py_set_inheritable(fd, 0, atomic_flag_works) < 0) {
         close(fd);
         return -1;
@@ -9267,6 +9275,13 @@ os_pipe_impl(PyObject *module)
     int res;
 #endif
 
+#ifdef RISCOS_PIPEFS
+    fds[0] = open("Pipe:x", O_RDONLY);
+    fds[1] = open("Pipe:x", O_WRONLY);
+    printf("PipeFS fds are read=%d write=%d\n", fds[0], fds[1]);
+    return Py_BuildValue("(ii)", fds[0], fds[1]);
+#endif
+
 #ifdef MS_WINDOWS
     attr.nLength = sizeof(attr);
     attr.lpSecurityDescriptor = NULL;
@@ -9303,6 +9318,7 @@ os_pipe_impl(PyObject *module)
         res = pipe(fds);
         Py_END_ALLOW_THREADS
 
+#ifndef RISCOS
         if (res == 0) {
             if (_Py_set_inheritable(fds[0], 0, NULL) < 0) {
                 close(fds[0]);
@@ -9315,6 +9331,8 @@ os_pipe_impl(PyObject *module)
                 return NULL;
             }
         }
+#endif
+
 #ifdef HAVE_PIPE2
     }
 #endif
@@ -13557,13 +13575,31 @@ get_filetype(PyObject *self, PyObject *args)
          23, filename,
          &objtype, &filetype);
 
-    if (objtype == 0)
-	return PyErr_Format(PyExc_ValueError, "File not found");
-
-    if (filetype == -1)
+    if (objtype == 0 || filetype == -1)
+    {
         return Py_BuildValue("");
+        //PyErr_SetString(PyExc_ValueError, "File not found."));
+        //return NULL;
+    }
     else
         return Py_BuildValue("i", filetype);
+}
+
+
+PyDoc_STRVAR(set_filetype__doc__,
+    "Sets RISC OS filetype of the specified file.\n");
+
+static PyObject*
+set_filetype(PyObject *self, PyObject *args)
+{
+    char *filename;
+    int   filetype;
+    if (!PyArg_ParseTuple(args, "si", &filename, &filetype))
+        return NULL;
+
+    _swi(OS_File, _INR(0,2), 18, filename, filetype);
+
+    return Py_BuildValue("");
 }
 
 #endif /* RISCOS */
@@ -13762,6 +13798,7 @@ static PyMethodDef posix_methods[] = {
 #endif
 #ifdef RISCOS
     {"get_filetype", get_filetype, METH_VARARGS, get_filetype__doc__},
+    {"set_filetype", set_filetype, METH_VARARGS, set_filetype__doc__},
 #endif
     {NULL,              NULL}            /* Sentinel */
 };
