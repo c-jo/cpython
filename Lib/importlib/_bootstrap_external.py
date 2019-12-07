@@ -312,6 +312,7 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
     If sys.implementation.cache_tag is None then NotImplementedError is raised.
 
     """
+    extsep = '/' if sys.platform == 'riscos' else '.'
     if debug_override is not None:
         _warnings.warn('the debug_override parameter is deprecated; use '
                        "'optimization' instead", DeprecationWarning)
@@ -321,7 +322,7 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
         optimization = '' if debug_override else 1
     path = _os.fspath(path)
     head, tail = _path_split(path)
-    base, sep, rest = tail.rpartition('.')
+    base, sep, rest = tail.rpartition(extsep)
     tag = sys.implementation.cache_tag
     if tag is None:
         raise NotImplementedError('sys.implementation.cache_tag is None')
@@ -335,8 +336,10 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
     if optimization != '':
         if not optimization.isalnum():
             raise ValueError('{!r} is not alphanumeric'.format(optimization))
-        almost_filename = '{}.{}{}'.format(almost_filename, _OPT, optimization)
-    filename = almost_filename + BYTECODE_SUFFIXES[0]
+        almost_filename = '{}{}{}{}'.format(almost_filename, extsep, _OPT, optimization)
+    filename = almost_filename
+    if sys.platform != 'riscos':
+        almost_filename += BYTECODE_SUFFIXES[0]
     if sys.pycache_prefix is not None:
         # We need an absolute path to the py file to avoid the possibility of
         # collisions within sys.pycache_prefix, if someone has two different
@@ -363,7 +366,6 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
             filename,
         )
     return _path_join(head, _PYCACHE, filename)
-
 
 def source_from_cache(path):
     """Given the path to a .pyc. file, return the path to its .py file.
@@ -433,6 +435,7 @@ def _get_cached(filename):
     elif filename.endswith(tuple(BYTECODE_SUFFIXES)):
         return filename
     else:
+        # TODO: handle RISC OS types
         return None
 
 
@@ -677,6 +680,7 @@ def spec_from_file_location(name, location=None, *, loader=None,
         type = os.get_filetype(location)
         if type in FILETYPE_MAP:
             equiv_suffix = FILETYPE_MAP[type]
+            _bootstrap._verbose_message('Treating type ({}) of {} as {}', type, location, equiv_suffix)
             for loader_class, suffixes in _get_supported_file_loaders():
                 if equiv_suffix in suffixes:
                     loader = loader_class(name, location)
@@ -1029,6 +1033,7 @@ class SourceFileLoader(FileLoader, SourceLoader):
         return {'mtime': st.st_mtime, 'size': st.st_size}
 
     def _cache_bytecode(self, source_path, bytecode_path, data):
+        _bootstrap._verbose_message('_cache_bytecode {}  {}', source_path, bytecode_path)
         # Adapt between the two APIs
         mode = _calc_mode(source_path)
         return self.set_data(bytecode_path, data, _mode=mode)
@@ -1057,6 +1062,8 @@ class SourceFileLoader(FileLoader, SourceLoader):
                 return
         try:
             _write_atomic(path, data, _mode)
+            if sys.platform == 'riscos':
+                _os.set_filetype(path, PYC_FILETYPE)
             _bootstrap._verbose_message('created {!r}', path)
         except OSError as exc:
             # Same as above: just don't write the bytecode.
@@ -1128,8 +1135,15 @@ class ExtensionFileLoader(FileLoader, _LoaderBasics):
     def is_package(self, fullname):
         """Return True if the extension module is a package."""
         file_name = _path_split(self.path)[1]
-        return any(file_name == '__init__' + suffix
-                   for suffix in EXTENSION_SUFFIXES)
+        _bootstrap._verbose_message('is_package {} {}', fullname, file_name)
+        if any(file_name == '__init__' + suffix
+               for suffix in EXTENSION_SUFFIXES):
+            return True
+        if sys.platform == 'riscos':
+            _bootstrap._verbose_message('file type {}', _os.get_filetype(full_path))
+            if _os.get_filetype(full_path) in FILETYPE_MAP:
+                return True
+        return False
 
     def get_code(self, fullname):
         """Return None as an extension module cannot create a code object."""
@@ -1472,6 +1486,17 @@ class FileFinder:
                 full_path = _path_join(base_path, init_filename)
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path, [base_path], target)
+            if sys.platform == 'riscos':
+                # Try with no suffix but with file type
+                full_path = _path_join(base_path, '__init__')
+                filetype = _os.get_filetype(full_path)
+                if filetype in FILETYPE_MAP:
+                    equiv_suffix = FILETYPE_MAP[filetype]
+                    _bootstrap._verbose_message('treating filetype {:03x} as {}', filetype, equiv_suffix, verbosity=2)
+                    for loader_class, suffixes in _get_supported_file_loaders():
+                        if equiv_suffix in suffixes:
+                            return self._get_spec(loader_class, fullname, full_path, [base_path], target)
+
             else:
                 # If a namespace package, return the path if we don't
                 #  find a module in the next section.
@@ -1484,20 +1509,17 @@ class FileFinder:
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path,
                                           None, target)
-        # On RISC OS, try the base name and use the filetype
-        if sys.platform == 'riscos':
-            full_path = _path_join(self.path, tail_module)
-            if _path_isfile(full_path):
-                filetype = _os.get_filetype(full_path)
-                _bootstrap._verbose_message('trying {}',
-                                            full_path, verbosity=2)
+            if sys.platform == 'riscos':
+                (base,sep,ext_suffix) = full_path.rpartition('/')
+                ext_suffix = sep+ext_suffix
+                filetype = _os.get_filetype(base)
+                _bootstrap._verbose_message('trying {} type {}', base, filetype, verbosity=2)
                 if filetype in FILETYPE_MAP:
                     equiv_suffix = FILETYPE_MAP[filetype]
-                    _bootstrap._verbose_message('treating filetype {:03x} as {}', filetype, equiv_suffix, verbosity=2)
-                    for loader_class, suffixes in _get_supported_file_loaders():
-                        if equiv_suffix in suffixes:
-                            return self._get_spec(loader_class, fullname, full_path,
-                                                  None, target)
+                    if equiv_suffix == ext_suffix:
+                        return self._get_spec(loader_class, fullname, base,
+                                              None, target)
+
         if is_namespace:
             _bootstrap._verbose_message('possible namespace for {}', base_path)
             spec = _bootstrap.ModuleSpec(fullname, None)
@@ -1664,8 +1686,12 @@ def _setup(_bootstrap_module):
         SOURCE_SUFFIXES.append('/py')
         BYTECODE_SUFFIXES.clear()
         BYTECODE_SUFFIXES.append('/pyc')
+        global PY_FILETYPE, PYC_FILETYPE, SO_FILETYPE
+        PY_FILETYPE  = 0xae5
+        PYC_FILETYPE = 0xaec
+        SO_FILETYPE  = 0xaee
         global FILETYPE_MAP
-        FILETYPE_MAP = { 0xfff:'/py', 0xfed:'/pyd', 0xe1f:'/so' }
+        FILETYPE_MAP = { PY_FILETYPE:'/py', PYC_FILETYPE:'/pyc', SO_FILETYPE:'/so' }
 
 def _install(_bootstrap_module):
     """Install the path-based import components."""
