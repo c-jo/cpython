@@ -17,7 +17,7 @@ __unittest = True
 # what about .pyc (etc)
 # we would need to avoid loading the same tests multiple times
 # from '.py', *and* '.pyc'
-VALID_MODULE_NAME = re.compile(r'[_a-z]\w*\.py$', re.IGNORECASE)
+VALID_MODULE_NAME = re.compile(r'[_a-z]\w*\\'+os.path.extsep+'py$', re.IGNORECASE)
 
 
 class _FailedTest(case.TestCase):
@@ -239,7 +239,7 @@ class TestLoader(object):
             testFnNames.sort(key=functools.cmp_to_key(self.sortTestMethodsUsing))
         return testFnNames
 
-    def discover(self, start_dir, pattern='test*.py', top_level_dir=None):
+    def discover(self, start_dir, pattern='test*'+os.path.extsep+'py', top_level_dir=None):
         """Find and return all test modules from the specified start
         directory, recursing into subdirectories to find them and return all
         tests found within them. Only test files that match the pattern will
@@ -291,7 +291,7 @@ class TestLoader(object):
         if os.path.isdir(os.path.abspath(start_dir)):
             start_dir = os.path.abspath(start_dir)
             if start_dir != top_level_dir:
-                is_not_importable = not os.path.isfile(os.path.join(start_dir, '__init__.py'))
+                is_not_importable = not os.path.isfile(os.path.join(start_dir, '__init__'+os.path.extsep+'py'))
         else:
             # support for discovery from dotted module names
             try:
@@ -353,7 +353,7 @@ class TestLoader(object):
         module = sys.modules[module_name]
         full_path = os.path.abspath(module.__file__)
 
-        if os.path.basename(full_path).lower().startswith('__init__.py'):
+        if os.path.basename(full_path).lower().startswith('__init__'+os.path.extsep+'py'):
             return os.path.dirname(os.path.dirname(full_path))
         else:
             # here we have been given a module rather than a package - so
@@ -460,7 +460,7 @@ class TestLoader(object):
                 return self.loadTestsFromModule(module, pattern=pattern), False
         elif os.path.isdir(full_path):
             if (not namespace and
-                not os.path.isfile(os.path.join(full_path, '__init__.py'))):
+                not os.path.isfile(os.path.join(full_path, '__init__'+os.path.extsep+'py'))):
                 return None, False
 
             load_tests = None

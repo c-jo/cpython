@@ -74,7 +74,7 @@ class TestSupport(unittest.TestCase):
         self.assertFalse(os.path.exists(dirpath))
 
     def test_forget(self):
-        mod_filename = TESTFN + '.py'
+        mod_filename = TESTFN + os.path.extsep + 'py'
         with open(mod_filename, 'w') as f:
             print('foo = 1', file=f)
         sys.path.insert(0, os.curdir)
