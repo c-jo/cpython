@@ -40,6 +40,7 @@
 const char *_PyImport_DynLoadFiletab[] = {
 #if defined(RISCOS)
     "/so",
+    "/" SOABI "/so",
 #elif defined(__CYGWIN__)
     ".dll",
 #else  /* !__CYGWIN__ */
