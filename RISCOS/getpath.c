@@ -147,14 +147,10 @@ typedef struct {
 
 
 typedef struct {
-    //wchar_t *path_env;                 /* PATH environment variable */
-    wchar_t *pythonpath;               /* PYTHONPATH environment variable */
-    wchar_t *pythonhome;               /* PYTHONHOME environment variable */
+    wchar_t *pythonpath;               /* <Python$Path> environment variable */
+    wchar_t *pythonhome;               /* <Python$Home> environment variable */
     wchar_t *lib_dir;                  /* <PythonX.YLib$Dir> */
     wchar_t *dynload_dir;              /* <PythonX.YDynLoad$Dir> */
-    //wchar_t *pythonpath;               /* PYTHONPATH define */
-    //wchar_t *prefix;                   /* PREFIX define */
-    //wchar_t *exec_prefix;              /* EXEC_PREFIX define */
 
     wchar_t argv0_path[MAXPATHLEN+1];
     //wchar_t zip_path[MAXPATHLEN+1];    /* ".../lib/pythonXY.zip" */
@@ -412,7 +408,6 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig, wchar_t
             }
         }
     }
-#endif
 
     /* Search from argv0_path, until root is found */
     copy_absolute(prefix, calculate->argv0_path, MAXPATHLEN+1);
@@ -427,7 +422,6 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig, wchar_t
         reduce(prefix);
     } while (prefix[0]);
 
-#ifndef RISCOS
     /* Look at configure's PREFIX */
     wcsncpy(prefix, calculate->prefix, MAXPATHLEN);
     prefix[MAXPATHLEN] = L'\0';
@@ -436,10 +430,10 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig, wchar_t
     if (ismodule(prefix)) {
         return 1;
     }
-#endif
 
     /* Fail */
     return 0;
+#endif
 }
 
 
@@ -714,7 +708,6 @@ calculate_program_full_path(PyCalculatePath *calculate, _PyPathConfig *pathconfi
 }
 
 
-
 static PyStatus
 calculate_argv0_path(PyCalculatePath *calculate, const wchar_t *program_full_path)
 {
@@ -734,6 +727,7 @@ calculate_argv0_path(PyCalculatePath *calculate, const wchar_t *program_full_pat
    If found, open it for use when searching for prefixes.
 */
 
+#ifndef RISCOS
 static void
 calculate_read_pyenv(PyCalculatePath *calculate)
 {
@@ -768,6 +762,7 @@ calculate_read_pyenv(PyCalculatePath *calculate)
     }
     fclose(env_file);
 }
+#endif
 
 #if 0
 static PyStatus
@@ -829,7 +824,7 @@ otherwise it will leave it alone.
 static void
 process_pybuilddir(PyCalculatePath *calculate)
 {
-    /* Check to see if argv[0] is in the build directory. "pybuilddir.txt"
+    /* Check to see if argv[0] is in the build directory. "pybuilddir"
        is written by setup.py and contains the relative path to the location
        of shared library modules. */
     wchar_t pybuilddir[MAXPATHLEN+1];
@@ -856,7 +851,7 @@ process_pybuilddir(PyCalculatePath *calculate)
                 PyMem_RawFree(rel_builddir_path );
 
                 PyMem_RawFree(calculate->dynload_dir);
-                calculate->dynload_dir = PyMem_RawMalloc(wcslen(builddir_path) * sizeof(wchar_t));
+                calculate->dynload_dir = PyMem_RawMalloc((wcslen(builddir_path)+1) * sizeof(wchar_t));
                 wcscpy(calculate->dynload_dir, builddir_path);
             }
         }
@@ -906,7 +901,7 @@ calculate_module_search_path(PyCalculatePath *calculate,
 
 #ifndef RISCOS
     /* Run-time value of $PYTHONPATH goes first */
-    if (calculate->pythonpath_env) {
+    if (calculate->pythonpath) {
         wcscpy(buf, calculate->pythonpath_env);
         wcscat(buf, delimiter);
     }
@@ -947,6 +942,7 @@ calculate_module_search_path(PyCalculatePath *calculate,
     wcscat(buf, delimiter);
 #endif
     size_t bufsz = 0;
+    bufsz += wcslen(calculate->pythonpath ) + 1; // +seperator
     bufsz += wcslen(calculate->lib_dir    ) + 1; // +seperator
     bufsz += wcslen(calculate->dynload_dir) + 1; // +null term.
 
@@ -958,6 +954,16 @@ calculate_module_search_path(PyCalculatePath *calculate,
     buf[0] = '\0';
 
     //wcscat(buf, exec_prefix);
+    if (calculate->pythonpath)
+    {
+        wcscat(buf, calculate->pythonpath);
+        if (wcslen(buf) > 0)
+        {
+            wchar_t last = buf[wcslen(buf)-1];
+            if (last != 0 && last != delimiter)
+              wcscat(buf, delimiter);
+        }
+    }
     wcscat(buf, calculate->lib_dir);
     wcscat(buf, delimiter);
     wcscat(buf, calculate->dynload_dir);
@@ -981,14 +987,19 @@ calculate_init(PyCalculatePath *calculate, const PyConfig *config)
 */
 
     //char *python3_dir          = canonicalise_path("<Python3$Dir>");
+    char *_pythonpath  = getenv("Python$Path");
     char *_lib_dir     = canonicalise_path("<Python3.8Lib$Dir>"    );
     char *_dynload_dir = canonicalise_path("<Python3.8DynLoad$Dir>");
 
-    //calculate->pythonpath = Py_DecodeLocale(python3_dir, &len);
+    if (_pythonpath)
+        calculate->pythonpath = Py_DecodeLocale(_pythonpath, &len);
+    else
+      calculate->pythonpath = 0;
     calculate->lib_dir     = Py_DecodeLocale(_lib_dir,     &len);
     calculate->dynload_dir = Py_DecodeLocale(_dynload_dir, &len);
 
     //free(python3_dir);
+    if (_pythonpath) free(_pythonpath );
     free(_lib_dir    );
     free(_dynload_dir);
 
@@ -1005,7 +1016,7 @@ static void
 calculate_free(PyCalculatePath *calculate)
 {
     PyMem_RawFree(calculate->pythonhome );
-    PyMem_RawFree(calculate->pythonpath );
+    //PyMem_RawFree(calculate->pythonpath );
     //PyMem_RawFree(calculate->prefix);
     //PyMem_RawFree(calculate->exec_prefix);
     PyMem_RawFree(calculate->lib_dir    );
@@ -1187,7 +1198,7 @@ _PyPathConfig_Calculate(_PyPathConfig *pathconfig, const PyConfig *config)
 
     status = _PyStatus_OK();
 
-done:
+    done:
     calculate_free(&calculate);
 /*
     printf("_PyPathConfig_Calculate returning %d\n", status);
