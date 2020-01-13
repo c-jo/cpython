@@ -421,7 +421,9 @@ def _generate_posix_vars():
         pybuilddir += '-pydebug'
 
     os.makedirs(pybuilddir, exist_ok=True)
-    destfile = os.path.join(pybuilddir, name)
+    if sys.platform == 'riscos':
+        ### CMJ FIXME ?? Why is this needed here?
+        destfile = os.path.join(pybuilddir, name+'/py')
 
     with open(destfile, 'w', encoding='utf8') as f:
         f.write('# system configuration generated and used by'
@@ -453,17 +455,17 @@ def _init_non_posix(vars):
     vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
 
 def _init_riscos(vars):
+    """Initialize the module as appropriate for RISCOS"""
     _init_posix(vars)
 
-    """Initialize the module as appropriate for RISCOS"""
     # set basic install directories
-    vars['LIBDEST'] = get_path('stdlib')
-    vars['BINLIBDEST'] = get_path('platstdlib')
-    vars['INCLUDEPY'] = get_path('include')
+    #vars['LIBDEST'] = get_path('stdlib')
+    #vars['BINLIBDEST'] = get_path('platstdlib')
+    #vars['INCLUDEPY'] = get_path('include')
     vars['EXT_SUFFIX'] = ''
     vars['EXE'] = ''
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
-    vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
+    #vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
 
 #
 # public APIs
