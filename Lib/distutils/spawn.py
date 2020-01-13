@@ -32,10 +32,12 @@ def spawn(cmd, search_path=1, verbose=0, dry_run=0):
     # cmd is documented as a list, but just in case some code passes a tuple
     # in, protect our %-formatting code against horrible death
     cmd = list(cmd)
-    if os.name == 'posix' or os.name == 'riscos':
+    if os.name == 'posix':
         _spawn_posix(cmd, search_path, dry_run=dry_run)
     elif os.name == 'nt':
         _spawn_nt(cmd, search_path, dry_run=dry_run)
+    elif os.name == 'riscos':
+        _spawn_riscos(cmd, search_path, dry_run=dry_run)
     else:
         raise DistutilsPlatformError(
               "don't know how to spawn programs on platform '%s'" % os.name)
@@ -73,6 +75,21 @@ def _spawn_nt(cmd, search_path=1, verbose=0, dry_run=0):
                 cmd = executable
             raise DistutilsExecError(
                   "command %r failed: %s" % (cmd, exc.args[-1]))
+        if rc != 0:
+            # and this reflects the command running but failing
+            if not DEBUG:
+                cmd = executable
+            raise DistutilsExecError(
+                  "command %r failed with exit status %d" % (cmd, rc))
+
+def _spawn_riscos(cmd, search_path=1, verbose=0, dry_run=0):
+    print(f'spawn_riscos cmd:{cmd},\nsearch_path:{search_path} verbose:{verbose} dry_run:{dry_run}')
+    executable = cmd[0]
+    if search_path:
+        pass
+    log.info(' '.join([executable] + cmd[1:]))
+    if not dry_run:
+        rc = os.system(' '.join(cmd))
         if rc != 0:
             # and this reflects the command running but failing
             if not DEBUG:
