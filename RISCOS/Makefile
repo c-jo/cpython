@@ -150,7 +150,7 @@ RUNSHARED=
 ENSUREPIP=      upgrade
 
 # OpenSSL options for setup.py so sysconfig can pick up AC_SUBST() vars.
-OPENSSL_INCLUDES=
+OPENSSL_INCLUDES=-ILibSSL:
 OPENSSL_LIBS=-lssl -lcrypto
 OPENSSL_LDFLAGS=
 
@@ -490,13 +490,12 @@ sharedmods: $(BUILDPYTHON) pybuilddir Modules/_math.o
 	Set OPT '$(OPT)'
 	Set _TCLTK_INCLUDES '$(TCLTK_INCLUDES)'
 	Set _TCLTK_LIBS '$(TCLTK_LIBS)'
-	Echo run setup build
-#	$(PYTHON_FOR_BUILD) setup build
+	$(PYTHON_FOR_BUILD) setup/py build
 #	$(RUNSHARED) CC='$(CC)' LDSHARED='$(BLDSHARED)' OPT='$(OPT)' _TCLTK_INCLUDES='$(TCLTK_INCLUDES)' _TCLTK_LIBS='$(TCLTK_LIBS)' $(PYTHON_FOR_BUILD) $(srcdir)/setup $$quiet build
 
 # Build static library
 $(LIBRARY): $(LIBRARY_OBJS)
-	$(RM) $@
+	Wipe $@ ~CF
 	$(AR) $(ARFLAGS) $@ $(LIBRARY_OBJS)
 
 #libpython$(LDVERSION).so: $(LIBRARY_OBJS) $(DTRACE_OBJS)
@@ -966,148 +965,7 @@ multisslcompile: build_all
 multissltest: build_all
 	$(RUNSHARED) ./$(BUILDPYTHON) Tools/ssl/multissltests.py
 
-install:  commoninstall bininstall maninstall
-	if test "x$(ENSUREPIP)" != "xno"  ; then \
-		case $(ENSUREPIP) in \
-			upgrade) ensurepip="--upgrade" ;; \
-			install|*) ensurepip="" ;; \
-		esac; \
-		$(RUNSHARED) $(PYTHON_FOR_BUILD) -m ensurepip \
-			$$ensurepip --root=$(DESTDIR)/ ; \
-	fi
-
-altinstall: commoninstall
-	if test "x$(ENSUREPIP)" != "xno"  ; then \
-		case $(ENSUREPIP) in \
-			upgrade) ensurepip="--altinstall --upgrade" ;; \
-			install|*) ensurepip="--altinstall" ;; \
-		esac; \
-		$(RUNSHARED) $(PYTHON_FOR_BUILD) -m ensurepip \
-			$$ensurepip --root=$(DESTDIR)/ ; \
-	fi
-
-commoninstall:  check-clean-src  \
-		altbininstall libinstall inclinstall libainstall \
-		sharedinstall oldsharedinstall altmaninstall \
-
-
-# Install shared libraries enabled by Setup
-DESTDIRS=	$(exec_prefix) $(LIBDIR) $(BINLIBDEST) $(DESTSHARED)
-
-oldsharedinstall: $(DESTSHARED) $(SHAREDMODS)
-		@for i in X $(SHAREDMODS); do \
-		  if test $$i != X; then \
-		    echo $(INSTALL_SHARED) $$i $(DESTSHARED)/`basename $$i`; \
-		    $(INSTALL_SHARED) $$i $(DESTDIR)$(DESTSHARED)/`basename $$i`; \
-		  fi; \
-		done
-
-$(DESTSHARED):
-		@for i in $(DESTDIRS); \
-		do \
-			if test ! -d $(DESTDIR)$$i; then \
-				echo "Creating directory $$i"; \
-				$(INSTALL) -d -m $(DIRMODE) $(DESTDIR)$$i; \
-			else    true; \
-			fi; \
-		done
-
-# Install the interpreter with $(VERSION) affixed
-# This goes into $(exec_prefix)
-altbininstall: $(BUILDPYTHON)
-	@for i in $(BINDIR) $(LIBDIR); \
-	do \
-		if test ! -d $(DESTDIR)$$i; then \
-			echo "Creating directory $$i"; \
-			$(INSTALL) -d -m $(DIRMODE) $(DESTDIR)$$i; \
-		else	true; \
-		fi; \
-	done
-	if test "$(PYTHONFRAMEWORKDIR)" = "no-framework" ; then \
-		$(INSTALL_PROGRAM) $(BUILDPYTHON) $(DESTDIR)$(BINDIR)/python$(LDVERSION)$(EXE); \
-	else \
-		$(INSTALL_PROGRAM) $(STRIPFLAG) Mac/pythonw $(DESTDIR)$(BINDIR)/python$(LDVERSION)$(EXE); \
-	fi
-	-if test "$(VERSION)" != "$(LDVERSION)"; then \
-		if test -f $(DESTDIR)$(BINDIR)/python$(VERSION)$(EXE) -o -h $(DESTDIR)$(BINDIR)/python$(VERSION)$(EXE); \
-		then rm -f $(DESTDIR)$(BINDIR)/python$(VERSION)$(EXE); \
-		fi; \
-		(cd $(DESTDIR)$(BINDIR); $(LN) python$(LDVERSION)$(EXE) python$(VERSION)$(EXE)); \
-	fi
-	if test -f $(LDLIBRARY) && test "$(PYTHONFRAMEWORKDIR)" = "no-framework" ; then \
-		if test -n "$(DLLLIBRARY)" ; then \
-			$(INSTALL_SHARED) $(DLLLIBRARY) $(DESTDIR)$(BINDIR); \
-		else \
-			$(INSTALL_SHARED) $(LDLIBRARY) $(DESTDIR)$(LIBDIR)/$(INSTSONAME); \
-			if test $(LDLIBRARY) != $(INSTSONAME); then \
-				(cd $(DESTDIR)$(LIBDIR); $(LN) -sf $(INSTSONAME) $(LDLIBRARY)) \
-			fi \
-		fi; \
-		if test -n "$(PY3LIBRARY)"; then \
-			$(INSTALL_SHARED) $(PY3LIBRARY) $(DESTDIR)$(LIBDIR)/$(PY3LIBRARY); \
-		fi; \
-	else	true; \
-	fi
-	if test "x$(LIPO_32BIT_FLAGS)" != "x" ; then \
-		rm -f $(DESTDIR)$(BINDIR)python$(VERSION)-32$(EXE); \
-		lipo $(LIPO_32BIT_FLAGS) \
-			-output $(DESTDIR)$(BINDIR)/python$(VERSION)-32$(EXE) \
-			$(DESTDIR)$(BINDIR)/python$(VERSION)$(EXE); \
-	fi
-
-bininstall: altbininstall
-	if test ! -d $(DESTDIR)$(LIBPC); then \
-		echo "Creating directory $(LIBPC)"; \
-		$(INSTALL) -d -m $(DIRMODE) $(DESTDIR)$(LIBPC); \
-	fi
-	-if test -f $(DESTDIR)$(BINDIR)/python3$(EXE) -o -h $(DESTDIR)$(BINDIR)/python3$(EXE); \
-	then rm -f $(DESTDIR)$(BINDIR)/python3$(EXE); \
-	else true; \
-	fi
-	(cd $(DESTDIR)$(BINDIR); $(LN) -s python$(VERSION)$(EXE) python3$(EXE))
-	-if test "$(VERSION)" != "$(LDVERSION)"; then \
-		rm -f $(DESTDIR)$(BINDIR)/python$(VERSION)-config; \
-		(cd $(DESTDIR)$(BINDIR); $(LN) -s python$(LDVERSION)-config python$(VERSION)-config); \
-		rm -f $(DESTDIR)$(LIBPC)/python-$(LDVERSION).pc; \
-		(cd $(DESTDIR)$(LIBPC); $(LN) -s python-$(VERSION).pc python-$(LDVERSION).pc); \
-		rm -f $(DESTDIR)$(LIBPC)/python-$(LDVERSION)-embed.pc; \
-		(cd $(DESTDIR)$(LIBPC); $(LN) -s python-$(VERSION)-embed.pc python-$(LDVERSION)-embed.pc); \
-	fi
-	-rm -f $(DESTDIR)$(BINDIR)/python3-config
-	(cd $(DESTDIR)$(BINDIR); $(LN) -s python$(VERSION)-config python3-config)
-	-rm -f $(DESTDIR)$(LIBPC)/python3.pc
-	(cd $(DESTDIR)$(LIBPC); $(LN) -s python-$(VERSION).pc python3.pc)
-	-rm -f $(DESTDIR)$(LIBPC)/python3-embed.pc
-	(cd $(DESTDIR)$(LIBPC); $(LN) -s python-$(VERSION)-embed.pc python3-embed.pc)
-	-rm -f $(DESTDIR)$(BINDIR)/idle3
-	(cd $(DESTDIR)$(BINDIR); $(LN) -s idle$(VERSION) idle3)
-	-rm -f $(DESTDIR)$(BINDIR)/pydoc3
-	(cd $(DESTDIR)$(BINDIR); $(LN) -s pydoc$(VERSION) pydoc3)
-	-rm -f $(DESTDIR)$(BINDIR)/2to3
-	(cd $(DESTDIR)$(BINDIR); $(LN) -s 2to3-$(VERSION) 2to3)
-	if test "x$(LIPO_32BIT_FLAGS)" != "x" ; then \
-		rm -f $(DESTDIR)$(BINDIR)/python3-32$(EXE); \
-		(cd $(DESTDIR)$(BINDIR); $(LN) -s python$(VERSION)-32$(EXE) python3-32$(EXE)) \
-	fi
-
-# Install the versioned manual page
-altmaninstall:
-	@for i in $(MANDIR) $(MANDIR)/man1; \
-	do \
-		if test ! -d $(DESTDIR)$$i; then \
-			echo "Creating directory $$i"; \
-			$(INSTALL) -d -m $(DIRMODE) $(DESTDIR)$$i; \
-		else	true; \
-		fi; \
-	done
-	$(INSTALL_DATA) $(srcdir)/Misc/python.man \
-		$(DESTDIR)$(MANDIR)/man1/python$(VERSION).1
-
-# Install the unversioned manual page
-maninstall:	altmaninstall
-	-rm -f $(DESTDIR)$(MANDIR)/man1/python3.1
-	(cd $(DESTDIR)$(MANDIR)/man1; $(LN) -s python$(VERSION).1 python3.1)
-
+#
 # Install the library
 XMLLIBSUBDIRS=  xml xml/dom xml/etree xml/parsers xml/sax
 LIBSUBDIRS=	tkinter tkinter/test tkinter/test/test_tkinter \
