@@ -1,0 +1,4 @@
+| !Run file for RISC OS Python 3
+
+Run <Obey$Dir>.!Boot
+TaskWindow python3 -name "Python" -quit -display -wimpslot 16M
