@@ -25,7 +25,7 @@ TEST_EXTENSIONS = True
 
 # This global variable is used to hold the list of modules to be disabled.
 DISABLED_MODULE_LIST = []
-
+ONLY_BUILD_MODULE_LIST =  ['_md5']
 
 def get_platform():
     # Cross compiling
@@ -369,8 +369,10 @@ class PyBuildExt(build_ext):
             # Setup files, don't build it here.
             if ext.name in sysconf_built:
                 mods_built.append(ext)
-            if ext.name in sysconf_dis:
-                mods_disabled.append(ext)
+            #if ext.name in sysconf_dis:
+            if ONLY_BUILD_MODULE_LIST is not None:
+                if ext.name not in ONLY_BUILD_MODULE_LIST:
+                    mods_disabled.append(ext)
 
         mods_configured = mods_built + mods_disabled
         if mods_configured:
@@ -1351,18 +1353,21 @@ class PyBuildExt(build_ext):
 
     def detect_sqlite(self):
         # The sqlite interface
-        sqlite_setup_debug = False   # verbose debug prints from this script?
+        sqlite_setup_debug = True  # verbose debug prints from this script?
 
         # We hunt for #define SQLITE_VERSION "n.n.n"
         # We need to find >= sqlite version 3.3.9, for sqlite3_prepare_v2
         sqlite_incdir = sqlite_libdir = None
-        sqlite_inc_paths = [ '/usr/include',
-                             '/usr/include/sqlite',
-                             '/usr/include/sqlite3',
-                             '/usr/local/include',
-                             '/usr/local/include/sqlite',
-                             '/usr/local/include/sqlite3',
-                             ]
+        if RISCOS:
+            sqlite_inc_paths = [ '<sqlite3$dir>' ]
+        else:
+            sqlite_inc_paths = [ '/usr/include',
+                                 '/usr/include/sqlite',
+                                 '/usr/include/sqlite3',
+                                 '/usr/local/include',
+                                 '/usr/local/include/sqlite',
+                                 '/usr/local/include/sqlite3',
+                                 ]
         if CROSS_COMPILING:
             sqlite_inc_paths = []
         MIN_SQLITE_VERSION_NUMBER = (3, 7, 2)
@@ -1380,7 +1385,10 @@ class PyBuildExt(build_ext):
             if MACOS and is_macosx_sdk_path(d):
                 d = os.path.join(sysroot, d[1:])
 
-            f = os.path.join(d, "sqlite3.h")
+            if RISCOS:
+                f = os.path.join(d, "h.sqlite3")
+            else:
+                f = os.path.join(d, "sqlite3.h")
             if os.path.exists(f):
                 if sqlite_setup_debug: print("sqlite: found %s"%f)
                 with open(f) as file:
@@ -1415,6 +1423,8 @@ class PyBuildExt(build_ext):
                                 sqlite_dirs_to_check + self.lib_dirs, 'sqlite3')
             if sqlite_libfile:
                 sqlite_libdir = [os.path.abspath(os.path.dirname(sqlite_libfile))]
+            if RISCOS:
+                sqlite_libdir = ['<sqlite3$dir>']
 
         if sqlite_incdir and sqlite_libdir:
             sqlite_srcs = ['_sqlite/cache.c',
@@ -1428,7 +1438,7 @@ class PyBuildExt(build_ext):
                 '_sqlite/util.c', ]
 
             sqlite_defines = []
-            if not MS_WINDOWS:
+            if not MS_WINDOWS and not RISCOS:
                 sqlite_defines.append(('MODULE_NAME', '"sqlite3"'))
             else:
                 sqlite_defines.append(('MODULE_NAME', '\\"sqlite3\\"'))
@@ -1505,10 +1515,15 @@ class PyBuildExt(build_ext):
         #
         # You can upgrade zlib to version 1.1.4 yourself by going to
         # http://www.gzip.org/zlib/
-        zlib_inc = find_file('zlib.h', [], self.inc_dirs)
+        if RISCOS:
+            if os.path.exists('ZLib:zlib.h.zlib'):
+                zlib_inc = 'ZLib:zlib'
+                zlib_h = 'ZLib:zlib.h.zlib'
+        else:
+            zlib_inc = find_file('zlib.h', [], self.inc_dirs)
+            zlib_h = zlib_inc[0] + '/zlib.h'
         have_zlib = False
         if zlib_inc is not None:
-            zlib_h = zlib_inc[0] + '/zlib.h'
             version = '"0.0.0"'
             version_req = '"1.1.3"'
             if MACOS and is_macosx_sdk_path(zlib_h):
@@ -1522,7 +1537,11 @@ class PyBuildExt(build_ext):
                         version = line.split()[2]
                         break
             if version >= version_req:
-                if (self.compiler.find_library_file(self.lib_dirs, 'z')):
+                if RISCOS:
+                    self.add(Extension('zlib', ['zlibmodule.c'],
+                                               include_dirs=['ZLib:zlib'],
+                                               libraries=['z']))
+                elif self.compiler.find_library_file(self.lib_dirs, 'z'):
                     if MACOS:
                         zlib_extra_link_args = ('-Wl,-search_paths_first',)
                     else:
@@ -2223,6 +2242,9 @@ class PyBuildExt(build_ext):
         ssl_incs = find_file(
             'openssl/ssl.h', self.inc_dirs, openssl_includes
         )
+        if ssl_incs is None and sys.platform == 'riscos':
+            if os.path.exists('LibSSL:openssl.h.ssl'):
+                ssl_incs = 'LibSSL:'
         if ssl_incs is None:
             self.missing.extend(['_ssl', '_hashlib'])
             return None, None
@@ -2235,7 +2257,7 @@ class PyBuildExt(build_ext):
         if krb5_h:
             ssl_incs.extend(krb5_h)
 
-        if config_vars.get("HAVE_X509_VERIFY_PARAM_SET1_HOST"):
+        if True: # CMJ FIXME if config_vars.get("HAVE_X509_VERIFY_PARAM_SET1_HOST"):
             self.add(Extension(
                 '_ssl', ['_ssl.c'],
                 include_dirs=openssl_includes,
