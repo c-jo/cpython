@@ -415,8 +415,10 @@ child_exec(char *const exec_array[],
     /* Buffer large enough to hold a hex integer.  We can't malloc. */
     char hex_errno[sizeof(saved_errno)*2+1];
 
+#ifndef RISCOS
     if (make_inheritable(py_fds_to_keep, errpipe_write) < 0)
         goto error;
+#endif
 
     /* Close parent's pipe ends. */
     if (p2cwrite != -1)
@@ -432,24 +434,30 @@ child_exec(char *const exec_array[],
     if (c2pwrite == 0) {
         POSIX_CALL(c2pwrite = dup(c2pwrite));
         /* issue32270 */
+#ifndef RISCOS
         if (_Py_set_inheritable_async_safe(c2pwrite, 0, NULL) < 0) {
             goto error;
         }
+#endif
     }
     while (errwrite == 0 || errwrite == 1) {
         POSIX_CALL(errwrite = dup(errwrite));
         /* issue32270 */
+#ifndef RISCOS
         if (_Py_set_inheritable_async_safe(errwrite, 0, NULL) < 0) {
             goto error;
         }
+#endif
     }
 
     /* Dup fds for child.
        dup2() removes the CLOEXEC flag but we must do it ourselves if dup2()
        would be a no-op (issue #10806). */
     if (p2cread == 0) {
+#ifndef RISCOS
         if (_Py_set_inheritable_async_safe(p2cread, 1, NULL) < 0)
             goto error;
+#endif
     }
     else if (p2cread != -1)
         POSIX_CALL(dup2(p2cread, 0));  /* stdin */
@@ -691,6 +699,8 @@ subprocess_fork_exec(PyObject* self, PyObject *args)
     }
 
     pid = fork();
+    printf("%s %d pid = %d\n", __FILE__, __LINE__, pid);
+
     if (pid == 0) {
         /* Child process */
         /*
