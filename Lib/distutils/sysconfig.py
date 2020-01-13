@@ -475,6 +475,8 @@ def _init_nt():
 
 def _init_riscos():
     _init_posix()
+    _config_vars['EXT_SUFFIX'] = '/so'
+    print('distutils.sysconfig _init_riscos EXT_SUFFIX',_config_vars["EXT_SUFFIX"])
 
 def get_config_vars(*args):
     """With no arguments, return a dictionary of all configuration
