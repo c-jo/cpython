@@ -13564,40 +13564,59 @@ PyDoc_STRVAR(get_filetype__doc__,
     "Return the RISC OS filetype of the specified file.\n");
 
 static PyObject*
-get_filetype(PyObject *self, PyObject *args)
+get_filetype(PyObject *module,
+             PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
-    char *filename;
-    if (!PyArg_ParseTuple(args, "s", &filename))
-        return NULL;
+    static const char * const _keywords[] = {"path", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "get_filetype", 0};
+    PyObject *argsbuf[1];
+    path_t path = PATH_T_INITIALIZE("get_filetype", "path", 0, 0);
+    int objtype = -1, filetype = -1;
 
-    int objtype, filetype;
-    _swi(OS_File, _INR(0,1) | _OUT(0) | _OUT(6),
-         23, filename,
-         &objtype, &filetype);
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames,
+                                 &_parser, 1, 1, 0, argsbuf);
+
+    if (args && path_converter(args[0], &path))
+    {
+
+        _swix(OS_File, _INR(0,1) | _OUT(0)|_OUT(6),
+              23, path.narrow,
+              &objtype, &filetype);
+    }
+
+    /* Cleanup for path */
+    path_cleanup(&path);
 
     if (objtype == 0 || filetype == -1)
-    {
         return Py_BuildValue("");
-        //PyErr_SetString(PyExc_ValueError, "File not found."));
-        //return NULL;
-    }
     else
         return Py_BuildValue("i", filetype);
 }
-
 
 PyDoc_STRVAR(set_filetype__doc__,
     "Sets RISC OS filetype of the specified file.\n");
 
 static PyObject*
-set_filetype(PyObject *self, PyObject *args)
+set_filetype(PyObject *module,
+             PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
-    char *filename;
-    int   filetype;
-    if (!PyArg_ParseTuple(args, "si", &filename, &filetype))
-        return NULL;
+    static const char * const _keywords[] = {"path", "type", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "set_filetype", 0};
+    PyObject *argsbuf[2];
+    path_t path = PATH_T_INITIALIZE("set_filetype", "path", 0, 0);
 
-    _swi(OS_File, _INR(0,2), 18, filename, filetype);
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames,
+                                 &_parser, 2, 2, 0, argsbuf);
+
+    if (args && path_converter(args[0], &path))
+    {
+        int type = _PyLong_AsInt(args[1]);
+
+        _swix(OS_File, _INR(0,2), 18, path.narrow, type);
+    }
+
+    /* Cleanup for path */
+    path_cleanup(&path);
 
     return Py_BuildValue("");
 }
@@ -13797,8 +13816,8 @@ static PyMethodDef posix_methods[] = {
     OS__REMOVE_DLL_DIRECTORY_METHODDEF
 #endif
 #ifdef RISCOS
-    {"get_filetype", get_filetype, METH_VARARGS, get_filetype__doc__},
-    {"set_filetype", set_filetype, METH_VARARGS, set_filetype__doc__},
+    {"get_filetype", get_filetype, METH_FASTCALL|METH_KEYWORDS, get_filetype__doc__},
+    {"set_filetype", set_filetype, METH_FASTCALL|METH_KEYWORDS, set_filetype__doc__},
 #endif
     {NULL,              NULL}            /* Sentinel */
 };
