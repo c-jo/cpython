@@ -6,6 +6,7 @@ import os
 import posixpath
 import re
 import sys
+import riscospath
 from _collections_abc import Sequence
 from errno import EINVAL, ENOENT, ENOTDIR, EBADF, ELOOP
 from operator import attrgetter
@@ -24,10 +25,12 @@ if os.name == 'nt':
 else:
     nt = None
 
+if os.name == 'riscos':
+    supports_symlinks = False
 
 __all__ = [
-    "PurePath", "PurePosixPath", "PureWindowsPath",
-    "Path", "PosixPath", "WindowsPath",
+    "PurePath", "PurePosixPath", "PureWindowsPath", "PureRISCOSPath",
+    "Path", "PosixPath", "WindowsPath", "RISCOSPath",
     ]
 
 #
@@ -286,7 +289,7 @@ class _PosixFlavour(_Flavour):
     has_drv = False
     pathmod = posixpath
 
-    is_supported = (os.name != 'nt')
+    is_supported = (os.name not in ['nt','riscos'])
 
     def splitroot(self, part, sep=sep):
         if part and part[0] == sep:
@@ -357,7 +360,7 @@ class _PosixFlavour(_Flavour):
     def is_reserved(self, parts):
         return False
 
-    def make_uri(self, path):
+    def make_uri(self, ):
         # We represent the path using the local filesystem encoding,
         # for portability to other applications.
         bpath = bytes(path)
@@ -378,10 +381,70 @@ class _PosixFlavour(_Flavour):
                 raise RuntimeError("Can't determine home directory "
                                    "for %r" % username)
 
+class _RISCOSFlavour(_Flavour):
+    # RISC OS paths have a fair number of idosyncracies - just handle
+    # the common case for now. FileSystem::Disc.$.Eggs.Chips.Spam
+    #                          \--- drive-----/ | Path
+    #                                           Root
+    sep = '.'
+    has_drv = True
+    altsep = ''
+    pathmod = riscospath
+
+    is_supported = (os.name == 'riscos')
+
+    def splitroot(self, part, sep=sep):
+        ccpos = part.find('::')
+        if ccpos != -1:
+            first_dot = part.find('.', ccpos)
+            if first_dot != -1:
+                drv  = part[:first_dot+1]
+                root = part[first_dot+1:first_dot+3]
+                part = part[first_dot+3:]
+                print(drv,root,part)
+                return (drv, root, part)
+        else:
+            return '', '', part
+
+    def casefold(self, s):
+        return s.lower()
+
+    def casefold_parts(self, parts):
+        return [p.lower() for p in parts]
+
+    def resolve(self, path, strict=False):
+        sep = self.sep
+
+        if rest.startswith(sep):
+            path = ''
+
+        for name in rest.split(sep):
+            if not name or name == '@':
+                # current dir
+                continue
+            if name == '^':
+                # parent dir
+                path, _, _ = path.rpartition(sep)
+                continue
+            path = path + sep + name
+
+        return path
+
+    def is_reserved(self, parts):
+        return False
+
+    def make_uri(self, path):
+        # Use the Latin-1 encoding.
+        return 'file:///%s' % (
+                urlquote_from_bytes(rest.encode('latin-1')))
+
+    def gethomedir(self, username):
+        # TODO: handle select-like home directory?
+        raise RuntimeError("Can't determine home directory")
 
 _windows_flavour = _WindowsFlavour()
 _posix_flavour = _PosixFlavour()
-
+_riscos_flavour = _RISCOSFlavour()
 
 class _Accessor:
     """An accessor implements a particular (system-specific or not) way of
@@ -412,7 +475,11 @@ class _NormalAccessor(_Accessor):
 
     unlink = os.unlink
 
-    link_to = os.link
+    if os.name != 'riscos':
+        link_to = os.link
+    else:
+        def link_tok(a, b):
+            raise NotImplementedError("link_to() not available on this system")
 
     rmdir = os.rmdir
 
@@ -426,6 +493,10 @@ class _NormalAccessor(_Accessor):
         else:
             def symlink(a, b, target_is_directory):
                 raise NotImplementedError("symlink() not available on this system")
+    elif os.name == 'riscos':
+        def symlink(a, b, target_is_directory):
+            raise NotImplementedError("symlink() not available on this system")
+
     else:
         # Under POSIX, os.symlink() takes two args
         @staticmethod
@@ -995,6 +1066,15 @@ class PureWindowsPath(PurePath):
     __slots__ = ()
 
 
+class PureRISCOSPath(PurePath):
+    """PurePath subclass for RISC OS systems.
+
+    On a RISC OS system, instantiating a PurePath should return this object.
+    However, you can also instantiate it directly on any system.
+    """
+    _flavour = _riscos_flavour
+    __slots__ = ()
+
 # Filesystem-accessing classes
 
 
@@ -1014,7 +1094,12 @@ class Path(PurePath):
 
     def __new__(cls, *args, **kwargs):
         if cls is Path:
-            cls = WindowsPath if os.name == 'nt' else PosixPath
+            if os.name == 'riscos':
+                cls = RISCOSPath
+            elif os.name == 'nt':
+                cls = WindowsPath
+            else:
+                cls = PosixPath
         self = cls._from_parts(args, init=False)
         if not self._flavour.is_supported:
             raise NotImplementedError("cannot instantiate %r on your system"
@@ -1319,6 +1404,7 @@ class Path(PurePath):
         status information is returned, rather than its target's.
         """
         if self._closed:
+
             self._raise_closed()
         return self._accessor.lstat(self)
 
@@ -1533,6 +1619,22 @@ class WindowsPath(Path, PureWindowsPath):
     """Path subclass for Windows systems.
 
     On a Windows system, instantiating a Path should return this object.
+    """
+    __slots__ = ()
+
+    def owner(self):
+        raise NotImplementedError("Path.owner() is unsupported on this system")
+
+    def group(self):
+        raise NotImplementedError("Path.group() is unsupported on this system")
+
+    def is_mount(self):
+        raise NotImplementedError("Path.is_mount() is unsupported on this system")
+
+class RISCOSPath(Path, PureRISCOSPath):
+    """Path subclass for RISCOS systems.
+
+    On a RISC OS system, instantiating a Path should return this object.
     """
     __slots__ = ()
 
