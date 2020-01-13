@@ -320,6 +320,10 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
             message = 'debug_override or optimization must be set to None'
             raise TypeError(message)
         optimization = '' if debug_override else 1
+    if sys.platform == 'riscos':
+        extn = path.endswith('/py')
+        if not extn:
+           path = path + '/py'
     path = _os.fspath(path)
     head, tail = _path_split(path)
     base, sep, rest = tail.rpartition(extsep)
@@ -338,7 +342,7 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
             raise ValueError('{!r} is not alphanumeric'.format(optimization))
         almost_filename = '{}{}{}{}'.format(almost_filename, extsep, _OPT, optimization)
     filename = almost_filename
-    if sys.platform != 'riscos':
+    if sys.platform != 'riscos' or extn:
         almost_filename += BYTECODE_SUFFIXES[0]
     if sys.pycache_prefix is not None:
         # We need an absolute path to the py file to avoid the possibility of
@@ -360,12 +364,18 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
 
         # Strip initial path separator from `head` to complete the conversion
         # back to a root-relative path before joining.
-        return _path_join(
+        rv = _path_join(
             sys.pycache_prefix,
             head.lstrip(path_separators),
             filename,
         )
-    return _path_join(head, _PYCACHE, filename)
+        _bootstrap._verbose_message('cache_from_source({}, {}, {}) -> {}', path, debug_override, optimization, rv)
+        return rv;
+
+    rv = _path_join(head, _PYCACHE, filename)
+    _bootstrap._verbose_message('cache_from_source({}, {}, {}) -> {}', path, debug_override, optimization, rv)
+    return rv
+
 
 def source_from_cache(path):
     """Given the path to a .pyc. file, return the path to its .py file.
@@ -696,6 +706,7 @@ def spec_from_file_location(name, location=None, *, loader=None,
         # Check the loader.
         if hasattr(loader, 'is_package'):
             try:
+                _bootstrap._verbose_message('trying {}.is_package({})', loader, name)
                 is_package = loader.is_package(name)
             except ImportError:
                 pass
@@ -789,6 +800,8 @@ class _LoaderBasics:
         filename = _path_split(self.get_filename(fullname))[1]
         filename_base = filename.rsplit('.', 1)[0]
         tail_name = fullname.rpartition('.')[2]
+        _bootstrap._verbose_message('LoaderBasics.is_package filename={} filename_base={} tail_name={}',
+            filename, filename_base, tail_name)
         return filename_base == '__init__' and tail_name != '__init__'
 
     def create_module(self, spec):
@@ -1140,8 +1153,9 @@ class ExtensionFileLoader(FileLoader, _LoaderBasics):
                for suffix in EXTENSION_SUFFIXES):
             return True
         if sys.platform == 'riscos':
-            _bootstrap._verbose_message('file type {}', _os.get_filetype(full_path))
-            if _os.get_filetype(full_path) in FILETYPE_MAP:
+            _filetype = _os.get_filetype(fullname)
+            _bootstrap._verbose_message('file type {}', _filetype)
+            if _filetype in FILETYPE_MAP:
                 return True
         return False
 
@@ -1338,6 +1352,7 @@ class PathFinder:
             if not isinstance(entry, (str, bytes)):
                 continue
             finder = cls._path_importer_cache(entry)
+            _bootstrap._verbose_message('PathFinder._get_spec finder = {}', finder)
             if finder is not None:
                 if hasattr(finder, 'find_spec'):
                     spec = finder.find_spec(fullname, target)
@@ -1356,6 +1371,7 @@ class PathFinder:
                 #  on path.
                 namespace_path.extend(portions)
         else:
+            _bootstrap._verbose_message('using ModuleSpec fullname = {}', fullname)
             spec = _bootstrap.ModuleSpec(fullname, None)
             spec.submodule_search_locations = namespace_path
             return spec
@@ -1468,6 +1484,7 @@ class FileFinder:
             mtime = _path_stat(self.path or _os.getcwd()).st_mtime
         except OSError:
             mtime = -1
+            _bootstrap._verbose_message('_path_stat failed {}'.self.path)
         if mtime != self._path_mtime:
             self._fill_cache()
             self._path_mtime = mtime
@@ -1478,6 +1495,9 @@ class FileFinder:
         else:
             cache = self._path_cache
             cache_module = tail_module
+
+        _bootstrap._verbose_message('cache_module {}', cache_module)
+
         # Check if the module is the name of a directory (and thus a package).
         if cache_module in cache:
             base_path = _path_join(self.path, tail_module)
@@ -1505,29 +1525,37 @@ class FileFinder:
         for suffix, loader_class in self._loaders:
             full_path = _path_join(self.path, tail_module + suffix)
             _bootstrap._verbose_message('trying {}', full_path, verbosity=2)
+            _bootstrap._verbose_message('{} {}',cache_module+suffix, cache_module+suffix in cache)
             if cache_module + suffix in cache:
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path,
                                           None, target)
+            # On RISC OS also check for no suffix but proper type.
             if sys.platform == 'riscos':
                 (base,sep,ext_suffix) = full_path.rpartition('/')
                 ext_suffix = sep+ext_suffix
                 filetype = _os.get_filetype(base)
-                _bootstrap._verbose_message('trying {} type {}', base, filetype, verbosity=2)
-                if filetype in FILETYPE_MAP:
-                    equiv_suffix = FILETYPE_MAP[filetype]
-                    if equiv_suffix == ext_suffix:
-                        return self._get_spec(loader_class, fullname, base,
-                                              None, target)
+                if filetype is not None:
+                    _bootstrap._verbose_message('trying {} [{:03x}]',
+                                                base, filetype, verbosity=2)
+                    if filetype in FILETYPE_MAP:
+                        equiv_suffix = FILETYPE_MAP[filetype]
+                        for ext_suffix, loader_class in self._loaders:
+                            _bootstrap._verbose_message('treating filetype {:03x} as {} (want {})', filetype, equiv_suffix, ext_suffix, verbosity=2)
+
+                            if equiv_suffix == ext_suffix:
+                                _bootstrap._verbose_message('using loader {}', loader_class)
+                                return self._get_spec(loader_class, fullname, base,
+                                                  None, target)
 
         if is_namespace:
-            _bootstrap._verbose_message('possible namespace for {}', base_path)
             spec = _bootstrap.ModuleSpec(fullname, None)
             spec.submodule_search_locations = [base_path]
             return spec
         return None
 
     def _fill_cache(self):
+        _bootstrap._verbose_message('_fill_cache {}', self)
         """Fill the cache of potential modules and packages for this directory."""
         path = self.path
         try:
@@ -1540,6 +1568,8 @@ class FileFinder:
         # PYTHONCASEOK environment variable.
         if not sys.platform.startswith('win'):
             self._path_cache = set(contents)
+            _bootstrap._verbose_message('_path_cache {}', self._path_cache)
+
         else:
             # Windows users can import modules with case-insensitive file
             # suffixes (for legacy reasons). Make the suffix lowercase here
@@ -1612,7 +1642,6 @@ def _get_supported_file_loaders():
     extensions = ExtensionFileLoader, _imp.extension_suffixes()
     source = SourceFileLoader, SOURCE_SUFFIXES
     bytecode = SourcelessFileLoader, BYTECODE_SUFFIXES
-
     return [extensions, source, bytecode]
 
 def _setup(_bootstrap_module):
@@ -1691,7 +1720,8 @@ def _setup(_bootstrap_module):
         PYC_FILETYPE = 0xaec
         SO_FILETYPE  = 0xaee
         global FILETYPE_MAP
-        FILETYPE_MAP = { PY_FILETYPE:'/py', PYC_FILETYPE:'/pyc', SO_FILETYPE:'/so' }
+        FILETYPE_MAP = {
+            PY_FILETYPE:'/py', PYC_FILETYPE:'/pyc', SO_FILETYPE:'/so' }
 
 def _install(_bootstrap_module):
     """Install the path-based import components."""
