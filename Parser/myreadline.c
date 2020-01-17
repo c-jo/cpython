@@ -15,7 +15,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
 #endif /* MS_WINDOWS */
-
+#ifdef RISCOS
+#include <swis.h>
+#endif
 
 PyThreadState* _PyOS_ReadlineTState = NULL;
 
@@ -267,6 +269,20 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
         fprintf(stderr, "%s", prompt);
     fflush(stderr);
 
+#ifdef RISCOS
+   int got, flags;
+   if (0 == _swix(OS_ReadLine32, _INR(0,4) | _OUT(1) | _OUT(_FLAGS),
+                                 p, n-2, 0x00, 0xff, 0,
+                                 &got, &flags))
+   {
+     if (flags & _C) // Escape
+         *p = '\0';
+       else
+         strcpy(p+got, "\n");
+   }
+   else // Error
+       *p = '\0';
+#else
     switch (my_fgets(p, (int)n, sys_stdin)) {
     case 0: /* Normal case */
         break;
@@ -279,6 +295,8 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
         *p = '\0';
         break;
     }
+#endif
+
     n = strlen(p);
     while (n > 0 && p[n-1] != '\n') {
         size_t incr = n+2;
