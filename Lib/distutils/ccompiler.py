@@ -850,9 +850,8 @@ int main (int argc, char **argv) {
         obj_names = []
         for src_name in source_filenames:
             base, ext = os.path.splitext(src_name)
-            print("src_name",src_name, "strip_dir",strip_dir, "output_dir",output_dir,"base",base,"ext",ext)
-            ###FIXME  - RISC OS hack
-            base = os.path.join('o', os.path.split(base)[-1])
+            if os.name == 'riscos':
+                base = os.path.join('o', os.path.split(base)[-1])
             if ext not in self.src_extensions:
                 raise UnknownFileError(
                       "unknown file type '%s' (from '%s')" % (ext, src_name))

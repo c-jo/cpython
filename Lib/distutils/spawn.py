@@ -83,7 +83,6 @@ def _spawn_nt(cmd, search_path=1, verbose=0, dry_run=0):
                   "command %r failed with exit status %d" % (cmd, rc))
 
 def _spawn_riscos(cmd, search_path=1, verbose=0, dry_run=0):
-    print(f'spawn_riscos cmd:{cmd},\nsearch_path:{search_path} verbose:{verbose} dry_run:{dry_run}')
     executable = cmd[0]
     if search_path:
         pass

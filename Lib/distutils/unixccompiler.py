@@ -206,6 +206,24 @@ class UnixCCompiler(CCompiler):
                 if sys.platform == 'darwin':
                     linker = _osx_support.compiler_fixup(linker, ld_args)
 
+                if sys.platform == 'riscos' and linker[0] == 'gcc':
+                    # Work around RISC OS gcc treating the -o as a unix-format
+                    new_ld_args = []
+                    outname_next = False
+                    for arg in ld_args:
+                        if outname_next == True:
+                            outname_next = False
+                            path, extn = os.path.splitext(arg)
+                            path = path.replace('.','/')
+                            if extn:
+                                path += '.'+extn[1:]
+                            new_ld_args.append(path)
+                        else:
+                            new_ld_args.append(arg)
+                            if arg == '-o':
+                                outname_next = True
+                    ld_args = new_ld_args
+
                 self.spawn(linker + ld_args)
             except DistutilsExecError as msg:
                 raise LinkError(msg)

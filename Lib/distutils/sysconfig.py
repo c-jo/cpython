@@ -121,7 +121,7 @@ def get_python_inc(plat_specific=0, prefix=None):
         return os.path.join(prefix, "include")
     elif os.name == "riscos":
         if python_build:
-            # Include both the include and RISCOS dir to ensure we can find
+            # Include both the Include and RISCOS dir to ensure we can find
             # pyconfig.h
             return (os.path.join(prefix, "Include") + os.path.pathsep +
                     os.path.join(prefix, "RISCOS"))
@@ -474,9 +474,9 @@ def _init_nt():
 
 
 def _init_riscos():
-    _init_posix()
-    _config_vars['EXT_SUFFIX'] = '/so'
-    print('distutils.sysconfig _init_riscos EXT_SUFFIX',_config_vars["EXT_SUFFIX"])
+    """Initiialize the module as appropriate for RISC OS"""
+    _init_posix() # Same as posix
+
 
 def get_config_vars(*args):
     """With no arguments, return a dictionary of all configuration
