@@ -81,9 +81,9 @@ class build(Command):
                             "--plat-name only supported on Windows (try "
                             "using './configure --help' on your platform)")
 
-        if os.name == 'riscos':
-            # No dots for RISC OS
-            plat_specifier = "_%s-%d%d" % (self.plat_name, *sys.version_info[:2])
+        if os.name == 'riscos': # No dots
+            plat_specifier = "_%s-%d%d" % \
+                             (self.plat_name, *sys.version_info[:2])
         else:
             plat_specifier = ".%s-%d.%d" % (self.plat_name, *sys.version_info[:2])
 
