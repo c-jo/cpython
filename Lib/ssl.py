@@ -572,6 +572,9 @@ class SSLContext(_SSLContext):
         if sys.platform == "win32":
             for storename in self._windows_cert_stores:
                 self._load_windows_store_certs(storename, purpose)
+        if sys.platform == "riscos":
+            self.load_verify_locations(
+                cafile="<CaCertificates$Dir>.ca-certificates/crt")
         self.set_default_verify_paths()
 
     if hasattr(_SSLContext, 'minimum_version'):
