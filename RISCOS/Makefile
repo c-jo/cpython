@@ -422,8 +422,9 @@ DTRACE_DEPS = \
 # Default target
 all:		build_all
 #build_all:	check-clean-src $(BUILDPYTHON) oldsharedmods sharedmods gdbhooks
-build_all:	$(BUILDPYTHON)  sharedmods \
-		Programs/_testembed
+build_all:	$(BUILDPYTHON)
+#		Programs/_testembed
+# sharedmods \
 # python-config
 
 # Check that the source is clean when building out of source.

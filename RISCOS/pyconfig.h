@@ -1333,10 +1333,10 @@
 #define HAVE_WRITEV 1
 
 /* Define if libssl has X509_VERIFY_PARAM_set1_host and related function */
-#define HAVE_X509_VERIFY_PARAM_SET1_HOST
+#define HAVE_X509_VERIFY_PARAM_SET1_HOST 1
 
 /* Define if the zlib library has inflateCopy */
-#define HAVE_ZLIB_COPY
+#define HAVE_ZLIB_COPY 1
 
 /* Define to 1 if you have the `_getpty' function. */
 #undef HAVE__GETPTY
