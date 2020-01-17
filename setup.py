@@ -25,7 +25,7 @@ TEST_EXTENSIONS = True
 
 # This global variable is used to hold the list of modules to be disabled.
 DISABLED_MODULE_LIST = []
-ONLY_BUILD_MODULE_LIST =  ['_md5']
+ONLY_BUILD_MODULE_LIST =  ['_ssl']
 
 def get_platform():
     # Cross compiling
@@ -680,6 +680,10 @@ class PyBuildExt(build_ext):
 
         system_lib_dirs = ['/lib64', '/usr/lib64', '/lib', '/usr/lib']
         system_include_dirs = ['/usr/include']
+        if RISCOS:
+            system_lib_dirs = []
+            system_include_dirs = []
+
         # lib_dirs and inc_dirs are used to search for files;
         # if a file is found in one of those directories, it can
         # be assumed that no additional -I,-L directives are needed.
@@ -708,7 +712,7 @@ class PyBuildExt(build_ext):
         if HOST_PLATFORM == 'hp-ux11':
             self.lib_dirs += ['/usr/lib/hpux64', '/usr/lib/hpux32']
 
-        if MACOS:
+        if MACOS or RISCOS:
             # This should work on any unixy platform ;-)
             # If the user has bothered specifying additional -I and -L flags
             # in OPT and LDFLAGS we might as well use them here.
@@ -778,7 +782,8 @@ class PyBuildExt(build_ext):
         self.add(Extension("atexit", ["atexitmodule.c"]))
         # _json speedups
         self.add(Extension("_json", ["_json.c"],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+                           extra_compile_args=['-DPy_BUILD_CORE_MODULE',
+                                               '-IInclude/internal']))
 
         # profiler (_lsprof is for cProfile.py)
         self.add(Extension('_lsprof', ['_lsprof.c', 'rotatingtree.c']))
@@ -867,7 +872,8 @@ class PyBuildExt(build_ext):
 
         # Python Internal C API test module
         self.add(Extension('_testinternalcapi', ['_testinternalcapi.c'],
-                           extra_compile_args=['-DPy_BUILD_CORE_MODULE']))
+                           extra_compile_args=['-DPy_BUILD_CORE_MODULE',
+                                              '-IInclude/internal']))
 
         # Python PEP-3118 (buffer protocol) test module
         self.add(Extension('_testbuffer', ['_testbuffer.c']))
@@ -886,6 +892,9 @@ class PyBuildExt(build_ext):
     def detect_readline_curses(self):
         # readline
         do_readline = self.compiler.find_library_file(self.lib_dirs, 'readline')
+        if RISCOS:
+            do_readline = os.path.exists('LibReadline:readline.h.readline')
+
         readline_termcap_library = ""
         curses_library = ""
         # Cannot use os.popen here in py3k.
@@ -965,7 +974,8 @@ class PyBuildExt(build_ext):
                                                      'termcap'):
                 readline_libs.append('termcap')
             self.add(Extension('readline', ['readline.c'],
-                               library_dirs=['/usr/lib/termcap'],
+                               include_dirs=['LibReadline:'],
+                               #Library_dirs=['/usr/lib/termcap'],
                                extra_link_args=readline_extra_link_args,
                                libraries=readline_libs))
         else:
@@ -1353,7 +1363,7 @@ class PyBuildExt(build_ext):
 
     def detect_sqlite(self):
         # The sqlite interface
-        sqlite_setup_debug = True  # verbose debug prints from this script?
+        sqlite_setup_debug = False # verbose debug prints from this script?
 
         # We hunt for #define SQLITE_VERSION "n.n.n"
         # We need to find >= sqlite version 3.3.9, for sqlite3_prepare_v2
@@ -1539,7 +1549,7 @@ class PyBuildExt(build_ext):
             if version >= version_req:
                 if RISCOS:
                     self.add(Extension('zlib', ['zlibmodule.c'],
-                                               include_dirs=['ZLib:zlib'],
+                                               include_dirs=['zlib:zlib'],
                                                libraries=['z']))
                 elif self.compiler.find_library_file(self.lib_dirs, 'z'):
                     if MACOS:
@@ -1573,7 +1583,11 @@ class PyBuildExt(build_ext):
                            extra_link_args=extra_link_args))
 
         # Gustavo Niemeyer's bz2 module.
-        if (self.compiler.find_library_file(self.lib_dirs, 'bz2')):
+        if RISCOS and os.getenv('LibBZ2$Path'):
+            self.add(Extension('_bz2', ['_bz2module.c'],
+                               include_dirs=['LibBZ2:'],
+                               libraries=['bz2']))
+        elif (self.compiler.find_library_file(self.lib_dirs, 'bz2')):
             if MACOS:
                 bz2_extra_link_args = ('-Wl,-search_paths_first',)
             else:
@@ -1585,7 +1599,11 @@ class PyBuildExt(build_ext):
             self.missing.append('_bz2')
 
         # LZMA compression support.
-        if self.compiler.find_library_file(self.lib_dirs, 'lzma'):
+        if RISCOS and os.path.exists('LibLZMA:h.lzma'):
+                self.add(Extension('_lzma', ['_lzmamodule.c'],
+                                   include_dirs=['LibLZMA:'],
+                                   libraries=['lzma']))
+        elif self.compiler.find_library_file(self.lib_dirs, 'lzma'):
             self.add(Extension('_lzma', ['_lzmamodule.c'],
                                libraries=['lzma']))
         else:
@@ -1598,7 +1616,7 @@ class PyBuildExt(build_ext):
         # developers on SourceForge; see www.libexpat.org for more information.
         # The pyexpat module was written by Paul Prescod after a prototype by
         # Jack Jansen.  The Expat source is included in Modules/expat/.  Usage
-        # of a system shared libexpat.so is possible with --with-system-expat
+        # of a p[ytsystem shared libexpat.so is possible with --with-system-expat
         # configure option.
         #
         # More information on Expat can be found at www.libexpat.org.
@@ -1653,7 +1671,14 @@ class PyBuildExt(build_ext):
         # Fredrik Lundh's cElementTree module.  Note that this also
         # uses expat (via the CAPI hook in pyexpat).
 
-        if os.path.isfile(os.path.join(self.srcdir, 'Modules', '_elementtree.c')):
+        have_elementtree_c = False
+        if os.name == 'riscos':
+            have_elementtree_c = os.path.isfile(os.path.join(
+                                 self.srcdir, 'Modules', 'c', '_elementtree'))
+        else:
+            have_elementtree_c = os.path.isfile(os.path.join(
+                                 self.srcdir, 'Modules', '_elementtree.c'))
+        if have_elementtree_c:
             define_macros.append(('USE_PYEXPAT_CAPI', None))
             self.add(Extension('_elementtree',
                                define_macros=define_macros,
@@ -2053,6 +2078,9 @@ class PyBuildExt(build_ext):
         elif HOST_PLATFORM.startswith('hp-ux'):
             extra_link_args.append('-fPIC')
 
+        elif HOST_PLATFORM == 'riscos':
+            extra_link_args.append('-fPIC')
+
         ext = Extension('_ctypes',
                         include_dirs=include_dirs,
                         extra_compile_args=extra_compile_args,
@@ -2075,20 +2103,24 @@ class PyBuildExt(build_ext):
             # in /usr/include/ffi
             ffi_inc_dirs.append('/usr/include/ffi')
 
-        ffi_inc = [sysconfig.get_config_var("LIBFFI_INCLUDEDIR")]
-        if not ffi_inc or ffi_inc[0] == '':
-            ffi_inc = find_file('ffi.h', [], ffi_inc_dirs)
-        if ffi_inc is not None:
-            ffi_h = ffi_inc[0] + '/ffi.h'
-            if not os.path.exists(ffi_h):
-                ffi_inc = None
-                print('Header file {} does not exist'.format(ffi_h))
-        ffi_lib = None
-        if ffi_inc is not None:
-            for lib_name in ('ffi', 'ffi_pic'):
-                if (self.compiler.find_library_file(self.lib_dirs, lib_name)):
-                    ffi_lib = lib_name
-                    break
+        if RISCOS:
+            ffi_inc = ['<LibFFI6$Dir>']
+            ffi_lib = 'ffi'
+        else:
+            ffi_inc = [sysconfig.get_config_var("LIBFFI_INCLUDEDIR")]
+            if not ffi_inc or ffi_inc[0] == '':
+                ffi_inc = find_file('ffi.h', [], ffi_inc_dirs)
+            if ffi_inc is not None:
+                ffi_h = ffi_inc[0] + '/ffi.h'
+                if not os.path.exists(ffi_h):
+                    ffi_inc = None
+                    print('Header file {} does not exist'.format(ffi_h))
+            ffi_lib = None
+            if ffi_inc is not None:
+                for lib_name in ('ffi', 'ffi_pic'):
+                    if (self.compiler.find_library_file(self.lib_dirs, lib_name)):
+                        ffi_lib = lib_name
+                        break
 
         if ffi_inc and ffi_lib:
             ext.include_dirs.extend(ffi_inc)
@@ -2257,7 +2289,7 @@ class PyBuildExt(build_ext):
         if krb5_h:
             ssl_incs.extend(krb5_h)
 
-        if True: # CMJ FIXME if config_vars.get("HAVE_X509_VERIFY_PARAM_SET1_HOST"):
+        if config_vars.get("HAVE_X509_VERIFY_PARAM_SET1_HOST"):
             self.add(Extension(
                 '_ssl', ['_ssl.c'],
                 include_dirs=openssl_includes,
