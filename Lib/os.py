@@ -747,6 +747,32 @@ else:
     if "unsetenv" not in __all__:
         __all__.append("unsetenv")
 
+def _riscos_envdata():
+    environ = {}
+    import swi
+
+    blk = swi.block(4096)
+    nameptr = 0
+
+    while(True):
+        try:
+            ln,nameptr,type = swi.swi(
+                'OS_ReadVarVal','sbiii;..iii',
+                '*',blk,4096,nameptr,0)
+        except swi.error:
+            break
+
+        val = None
+        if type in (0,2):
+            val = blk.tobytes(0,ln)
+        elif type == 1:
+            val = blk[0]
+
+        if val:
+            environ[swi.bytes(nameptr)] = val
+
+    return environ
+
 def _createenviron():
     if name == 'nt':
         # Where Env Var Names Must Be UPPERCASE
@@ -771,7 +797,10 @@ def _createenviron():
         def decode(value):
             return value.decode(encoding, 'surrogateescape')
         encodekey = encode
-        data = environ
+        if name == 'riscos':
+            data = _riscos_envdata()
+        else:
+            data = environ
     return _Environ(data,
         encodekey, decode,
         encode, decode,
