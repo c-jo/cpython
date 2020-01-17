@@ -26,14 +26,19 @@
 
 #define PyBlock_Check(op) ((op)->ob_type == &PyBlockType)
 
-
 static PyObject *SwiError; /* Exception swi.error */
 static PyObject *ArgError; /* Exception swi.ArgError */
 static os_error *e;
 
 static PyObject *swi_oserror(void)
-{ PyErr_SetString(SwiError,e->errmess);
-  PyObject_SetAttrString(PyErr_Occurred(), "errnum", PyLong_FromLong(e->errnum));
+{
+  //printf("swi_oserror %s\n", e->errmess);
+  PyErr_SetString(SwiError,e->errmess);
+  //printf("%x\n", PyErr_Occurred());
+  PyObject *errnum =  PyLong_FromLong(e->errnum);
+  //printf("%x\n", errnum);
+  //int rv = PyObject_SetAttrString(PyErr_Occurred(), "errnum", errnum);
+  //printf("%d\n", rv);
   return 0;
 }
 
@@ -116,7 +121,7 @@ static PyObject *PyBlock_ToString(PyBlockObject *self,PyObject *arg)
   { PyErr_SetString(PyExc_IndexError,"block index out of range");
     return NULL;
   }
-  return PyUnicode_FromStringAndSize((char*)self->block+s,e-s);
+  return PyUnicode_DecodeLatin1((char*)self->block+s,e-s,NULL);
 }
 
 static PyObject *PyBlock_NullString(PyBlockObject *self,PyObject *arg)
@@ -128,7 +133,7 @@ static PyObject *PyBlock_NullString(PyBlockObject *self,PyObject *arg)
     return NULL;
   }
   for(i=s;i<e;i++) if(p[i]==0) break;
-  return PyUnicode_FromStringAndSize((char*)self->block+s,i-s);
+  return PyUnicode_DecodeLatin1((char*)self->block+s,i-s,NULL);
 }
 
 static PyObject *PyBlock_CtrlString(PyBlockObject *self,PyObject *arg)
@@ -140,7 +145,7 @@ static PyObject *PyBlock_CtrlString(PyBlockObject *self,PyObject *arg)
     return NULL;
   }
   for(i=s;i<e;i++) if(p[i]<32) break;
-  return PyUnicode_FromStringAndSize((char*)self->block+s,i-s);
+  return PyUnicode_DecodeLatin1((char*)self->block+s,i-s,NULL);
 }
 
 static PyObject *PyBlock_PadString(PyBlockObject *self,PyObject *arg)
@@ -201,6 +206,16 @@ static PyObject *PyBlock_ToFile(PyBlockObject *self,PyObject *arg)
   Py_INCREF(Py_None);return Py_None;
 }
 
+static PyObject *PyBlock_ToBytes(PyBlockObject *self,PyObject *arg)
+{ int s=0,e=self->length;
+  if(!PyArg_ParseTuple(arg,"|ii",&s,&e)) return NULL;
+  if(s<0||e>self->length||s>e)
+  { PyErr_SetString(PyExc_IndexError,"block index out of range");
+    return NULL;
+  }
+  return PyBytes_FromStringAndSize((char*)self->block+s,e-s);
+}
+
 static struct PyMethodDef PyBlock_Methods[]=
 { { "tostring",   (PyCFunction)PyBlock_ToString,   METH_VARARGS, NULL},
   { "padstring",  (PyCFunction)PyBlock_PadString,  METH_VARARGS, NULL},
@@ -209,6 +224,7 @@ static struct PyMethodDef PyBlock_Methods[]=
   { "bitset",     (PyCFunction)PyBlock_BitSet,     METH_VARARGS, NULL},
   { "resize",     (PyCFunction)PyBlock_Resize,     METH_VARARGS, NULL},
   { "tofile",     (PyCFunction)PyBlock_ToFile,     METH_VARARGS, NULL},
+  { "tobytes",    (PyCFunction)PyBlock_ToBytes,    METH_VARARGS, NULL},
   { NULL,NULL, 0, 0 }		/* sentinel */
 };
 
@@ -332,7 +348,7 @@ static PyTypeObject PyBlockType =
   .tp_dealloc = (destructor)PyBlock_Dealloc,
   .tp_getattr = (getattrfunc)PyBlock_GetAttr,
   .tp_as_sequence = &block_as_sequence,
-  .tp_getattro = 0,
+  .tp_getattro = 0, .tp_methods = &PyBlock_Methods,
 };
 
 #if 0
@@ -435,7 +451,7 @@ static PyObject *swi_string(PyObject *self, PyObject *arg)
   if(!PyArg_ParseTuple(arg,"i|i",(unsigned int *)&s, &l)) return NULL;
   if (l==-1)
     l = strlen(s);
-  return PyUnicode_FromStringAndSize((char*)s, l);
+  return PyUnicode_DecodeLatin1((char*)s, l, NULL);
 }
 
 static char swi_string__doc__[] =
@@ -560,6 +576,15 @@ static PyObject *swi_tuple(PyObject *self, PyObject *arg)
   return result;
 }
 
+static PyObject *swi_bytes(PyObject *self, PyObject *arg)
+{ char *s;
+  int l=-1;
+  if(!PyArg_ParseTuple(arg,"i|i",(unsigned int *)&s, &l)) return NULL;
+  if (l==-1)
+    l = strlen(s);
+  return PyBytes_FromStringAndSize((char*)s,l);
+}
+
 static char swi_tuple__doc__[] =
 "tuple(address[, count=1]]) -> tuple\n\
 Read count bytes from given address.";
@@ -574,6 +599,7 @@ static PyMethodDef SwiMethods[]=
   { "integers", swi_integers, METH_VARARGS, swi_integers__doc__},
   { "tuples", swi_tuples, METH_VARARGS, swi_tuples__doc__},
   { "tuple", swi_tuple, METH_VARARGS, swi_tuple__doc__},
+  { "bytes", swi_bytes, METH_VARARGS},
   { NULL,NULL,0,NULL}		 /* Sentinel */
 };
 
