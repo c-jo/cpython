@@ -5369,10 +5369,18 @@ _ssl_get_default_verify_paths_impl(PyObject *module)
         if (!target) goto error; \
     }
 
+#ifdef RISCOS
+    // The defaults from the X509_... calls are somewhat useless.
+    ofile_env = Py_None; Py_INCREF(Py_None);
+    ofile     = Py_None; Py_INCREF(Py_None);
+    odir_env  = Py_None; Py_INCREF(Py_None);
+    odir      = Py_None; Py_INCREF(Py_None);
+#else
     CONVERT(X509_get_default_cert_file_env(), ofile_env);
     CONVERT(X509_get_default_cert_file(), ofile);
     CONVERT(X509_get_default_cert_dir_env(), odir_env);
     CONVERT(X509_get_default_cert_dir(), odir);
+#endif
 #undef CONVERT
 
     return Py_BuildValue("NNNN", ofile_env, ofile, odir_env, odir);
