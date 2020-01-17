@@ -12,4 +12,4 @@ set File$Type_ae5 Python
 set File$Type_aec PytnCode
 set File$Type_aee PytnExtn
 
-set Alias$python3 Run <Python$Dir>.python3 %*0
+set Alias$python3 Wimpslot -min 8M|MRun <Python$Dir>.python3 %*0

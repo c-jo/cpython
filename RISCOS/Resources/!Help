@@ -1,7 +1,7 @@
 Python 3.8 for RISC OS
 ----------------------
 
-** Alpha Release 2 **
+** Alpha Release 3 **
 
 PLEASE NOTE: This is an alpha release of Python 3.8 for RISC OS. Please treat as such. Feedback, comments or bugs can be sent to chris@lessthan3.org.uk
 
@@ -37,4 +37,26 @@ Currently subprocess.Popen supprt is very limited. It will attempt to start the 
 
 The filetypes used for python bytecode and extensions are not registered.
 
-Some of rhe standard library modules have not been built.
+Some of the standard library modules have not been built.
+
+History
+-------
+3.8.0a1
+Initial RISC OS Alpha Release.
+
+3.8.0a2
+Added support for Pythom$Path.
+Fixed get/set filetype calls to handle non-ASCII characters.
+Added SSL and SQLite3 modules.
+
+3.8.0a3
+Fixed bug that was preventing sockets being created.
+Use OS_ReadLine32 to get innput in interactive mode.
+os.getenv reads the RISC OS environment.
+Added support to get data as bytes from the swi module.
+Fixed SSL to get the CA certificates from <CaCertificates$Dir>.
+Added lzma and bz2 modules.
+Added ctypes module.
+Various build fixes.
+
+
