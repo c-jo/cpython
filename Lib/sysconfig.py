@@ -422,7 +422,7 @@ def _generate_posix_vars():
 
     os.makedirs(pybuilddir, exist_ok=True)
     if sys.platform == 'riscos':
-        ### CMJ FIXME ?? Why is this needed here?
+        # Add /py on so it will import without type
         destfile = os.path.join(pybuilddir, name+'/py')
 
     with open(destfile, 'w', encoding='utf8') as f:
