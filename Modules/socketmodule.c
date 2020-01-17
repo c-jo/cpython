@@ -1029,7 +1029,7 @@ init_sockobject(PySocketSockObject *s,
     {
         s->sock_timeout = defaulttimeout;
         if (defaulttimeout >= 0) {
-            if (internal_setblocking(s, 0) == -1) {
+          if (internal_setblocking(s, 0) == -1) {
                 return -1;
             }
         }
@@ -5256,7 +5256,7 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwds)
         else
 #endif
         {
-            fd = socket(family, type, proto);
+          fd = socket(family, type, proto);
         }
         Py_END_ALLOW_THREADS
 
@@ -5264,20 +5264,19 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwds)
             set_error();
             return -1;
         }
-
+#ifndef RISCOS
         if (_Py_set_inheritable(fd, 0, atomic_flag_works) < 0) {
             SOCKETCLOSE(fd);
             return -1;
         }
+#endif
 #endif
     }
     if (init_sockobject(s, fd, family, type, proto) == -1) {
         SOCKETCLOSE(fd);
         return -1;
     }
-
     return 0;
-
 }
 
 
