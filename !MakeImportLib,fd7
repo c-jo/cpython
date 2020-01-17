@@ -1,9 +1,11 @@
 Dir <Obey$Dir>
 | HostFS::HostFS.cpython
 
+WimpSlot -min 16M
+
 Programs._freeze_importlib importlib._bootstrap_external Lib/importlib/_bootstrap_external.py Python/importlib_external.h.new
 
 Programs._freeze_importlib importlib._bootstrap Lib/importlib/_bootstrap.py Python/importlib.h.new
 
-Copy Python.importlib/h/new Python.h.importlib ~C~VFD
-Copy Python.importlib_external/h/new Python.h.importlib_external ~C~VFD
+Copy Python.importlib/h/new Python.h.importlib ~CFD
+Copy Python.importlib_external/h/new Python.h.importlib_external ~CFD

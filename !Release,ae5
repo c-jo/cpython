@@ -1,0 +1,109 @@
+import os
+import sys
+import swi
+
+here = os.path.split(__file__)[0]
+if not here:
+    here = os.getcwd()
+
+dry_run = False
+
+os.system('Wipe build.!Python rf~c~v { > null: }')
+
+# Copy a file
+def copy(src,dst,typ=None):
+    if typ is None:
+        print('Copy {} -> {}'.format(src, dst))
+    else:
+        print("Copy {} -> {} ({:x})".format(src, dst, typ))
+
+    if dry_run:
+        return
+
+    swi.swi('OS_FSControl','issi',26,src,dst,0b01)
+    #if os.system('%Copy {} {} ~C~RF~V'.format(src,dst)) != 0:
+    #    exit(1)
+
+    if typ is not None:
+        os.set_filetype(dst, typ)
+
+# Strip a file
+def strip(src,dst,typ=None):
+    if typ is None:
+        print('Strip {} -> {}'.format(src, dst))
+    else:
+        print("Strip {} -> {} ({:x})".format(src, dst, typ))
+
+    if dry_run:
+        return
+
+    if os.system('strip {} -s -o {}'.format(src,dst)) != 0:
+        exit(1)
+
+    if typ is not None:
+        os.set_filetype(dst, typ)
+
+
+# Create the !Python application
+os.makedirs('build.!Python.Lib')
+os.makedirs('build.!Python.Lib.lib-dynload')
+
+target = os.path.join('build','!Python')
+
+# Copy over the !Boot, !Run, !Sprites etc.
+for path,dirs,files in os.walk("RISCOS.Resources"):
+   for file in files:
+     if ',' in file:
+         dest,typ = file.split(file, ',')
+         ## TODO
+         pass
+     else:
+         dest = os.path.join(here, target, file)
+
+     src = os.path.join(path, file)
+     copy(src,dest)
+
+# Use a stripped version of the executable
+strip(os.path.join(here,'python3'), os.path.join(here,target,'python3'))
+
+ext_map = {'/py':(0xae5,False, ''),
+           '/so':(0xaee,True,  '/cpython-38-arm-riscos')}
+
+
+# The library
+def lib_copy(srcdir,tgtroot,exclude):
+    for path,dirs,files in os.walk(srcdir):
+        if exclude and path.startswith(exclude):
+            continue
+
+        if os.path.split(path)[1] == '__pycache__':
+            continue
+
+        rel = os.path.relpath(path, srcdir)
+        tgtdir = tgtroot if rel == '@' else os.path.join(tgtroot, rel)
+
+        os.makedirs(os.path.join(target,tgtdir),exist_ok=True)
+
+        print('lib_copy',here, target, path, srcdir, tgtdir)
+
+        for file in files:
+            name, ext = os.path.splitext(file)
+            if ext:
+                if ext in ext_map:
+                    src = os.path.join(path,   file)
+                    dst = os.path.join(tgtdir, name)
+                    print(src,'->',dst)
+                    typ,st,suf = ext_map[ext]
+                    if st:
+                        strip(os.path.join(here, src),
+                              os.path.join(here, target, dst+suf),typ)
+                    else:
+                        copy(os.path.join(here, src),
+                             os.path.join(here, target, dst+suf),typ)
+            else:
+               src = os.path.join(here, path,   file)
+               dst = os.path.join(here, tgtdir, file)
+               copy(src,dst)
+
+lib_copy('Lib','Lib','Lib.test')
+lib_copy('build.lib_riscos-38', 'Lib.lib-dynload','')
