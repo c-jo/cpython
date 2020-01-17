@@ -129,7 +129,7 @@ if _os.name == "nt":
     if WINFUNCTYPE.__doc__:
         WINFUNCTYPE.__doc__ = CFUNCTYPE.__doc__.replace("CFUNCTYPE", "WINFUNCTYPE")
 
-elif _os.name == "posix":
+elif _os.name == "posix" or _os.name == "riscos":
     from _ctypes import dlopen as _dlopen
 
 from _ctypes import sizeof, byref, addressof, alignment, resize
