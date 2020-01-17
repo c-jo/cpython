@@ -1,5 +1,7 @@
 Dir <Obey$Dir>
 Run <Obey$Dir>.SetPyPath
 
+WimpSlot -min 24M
+
 Make -f RISCOS/Makefile
-Copy python3 HostFS::HostFS.$.!Python3.python3 ~CVF
+|Copy python3 build.!Python.python3 ~CVF

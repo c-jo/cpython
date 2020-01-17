@@ -1,0 +1,26 @@
+Set Python$Dir <Obey$Dir>
+Set Python3$Dir <Python$Dir>
+
+Set Python3.8Lib$Dir <Python$Dir>.Lib
+Set Python3.8DynLoad$Dir <Python$Dir>.Lib.lib-dynLoad
+
+Set Python$Prefix <Python$Dir>
+Set Python$Home <Python$Dir>
+
+Filer_Run  SDFS::Chipmunk.$.Develop.!GCC
+Filer_Run  SDFS::Chipmunk.$.Apps.Library.!OSLib.SetVarsELFUnixLib
+Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibSSL
+Filer_Boot SDFS::Chipmunk.$.Apps.Library.!sqlite3
+Filer_Run  SDFS::Chipmunk.$.Apps.Library.!SDL
+Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibGCrypt20
+|Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibGNUTLS
+Filer_Boot SDFS::Chipmunk.$.Apps.Library.!LibFFI6
+Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibBZ2
+Filer_Run  SDFS::Chipmunk.$.Work.LibLZMA.!Run
+Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibExpat1
+
+WimpSlot -min 24M
+
+Alias python3 <Python$Dir>.python3 %*0
+Dir <Python$Dir>
+
