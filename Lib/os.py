@@ -766,7 +766,7 @@ def _riscos_envdata():
         if type in (0,2):
             val = blk.tobytes(0,ln)
         elif type == 1:
-            val = blk[0]
+            val = str(blk[0]).encode('latin-1')
 
         if val:
             environ[swi.bytes(nameptr)] = val
