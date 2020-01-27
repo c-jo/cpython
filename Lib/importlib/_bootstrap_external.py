@@ -1716,9 +1716,9 @@ def _setup(_bootstrap_module):
         BYTECODE_SUFFIXES.clear()
         BYTECODE_SUFFIXES.append('/pyc')
         global PY_FILETYPE, PYC_FILETYPE, SO_FILETYPE
-        PY_FILETYPE  = 0xae5
-        PYC_FILETYPE = 0xaec
-        SO_FILETYPE  = 0xaee
+        PY_FILETYPE  = 0xa73
+        PYC_FILETYPE = 0xa74
+        SO_FILETYPE  = 0xa75
         global FILETYPE_MAP
         FILETYPE_MAP = {
             PY_FILETYPE:'/py', PYC_FILETYPE:'/pyc', SO_FILETYPE:'/so' }
