@@ -25,7 +25,7 @@ TEST_EXTENSIONS = True
 
 # This global variable is used to hold the list of modules to be disabled.
 DISABLED_MODULE_LIST = []
-ONLY_BUILD_MODULE_LIST =  ['_ssl']
+ONLY_BUILD_MODULE_LIST =  None
 
 def get_platform():
     # Cross compiling
