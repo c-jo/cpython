@@ -8,8 +8,8 @@ Set Python3.8Lib$Dir <Python$Dir>.Lib
 Set Python3.8DynLoad$Dir <Python$Dir>.Lib.lib-dynLoad
 
 set Alias$@RunType_ae5 TaskWindow |"python3 %%*0|" -name |"Python|" -quit -wimpslot 16M
-set File$Type_ae5 Python
-set File$Type_aec PytnCode
-set File$Type_aee PytnExtn
+set File$Type_a73 Python3
+set File$Type_a74 PytnCode
+set File$Type_a75 PytnExtn
 
 set Alias$python3 Wimpslot -min 8M|MRun <Python$Dir>.python3 %*0
