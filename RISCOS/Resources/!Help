@@ -21,6 +21,14 @@ So the 'RISC OS way' is to have a file called spam with the filetype of Python. 
 
 Types are also used for the cached bytecode (.pyc) and extensions (.so).
 
+The subprocess module on RISC OS
+--------------------------------
+Compared to unix-like systems, RISC OS has limited control over subrpocesses, and what can be done with them, so the subprocess module is somewhat restricted on this platform.
+
+While using the TaskWindow module provides the most control over tasks, it can only be used from Wimp programs, so isn't suitable for a general solution.
+
+In order to provide a way to run subprocesses, RISC OS will use the system command, and redirection using PipeFS. While less than ideal, it will allow programs that need to use subprocess to function. A 'taskwindow' package could be developed in the future to allow the use of the TaskWindow module in Wimp applications.
+
 RISC OS additions
 -----------------
 os.get_filetype(object) will return the file type of the given object os.set_filetype(object, type) will set it.
@@ -33,11 +41,7 @@ eg, swi.swi('OS_Write0','s','Hello RISC OS World')
 
 Known Bugs
 ----------
-Currently subprocess.Popen supprt is very limited. It will attempt to start the child process with Wimp_StartTask, but is limited in what it can do.
-
-The filetypes used for python bytecode and extensions are not registered.
-
-Some of the standard library modules have not been built.
+Much of the standard library is still largley untested.
 
 History
 -------
@@ -58,5 +62,5 @@ Fixed SSL to get the CA certificates from <CaCertificates$Dir>.
 Added lzma and bz2 modules.
 Added ctypes module.
 Various build fixes.
-
+Renamed to !Python3 and uses allocated types.
 
