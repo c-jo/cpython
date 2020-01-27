@@ -2318,7 +2318,7 @@ def reap_children():
     global environment_altered
 
     # Need os.waitpid(-1, os.WNOHANG): Windows is not supported
-    if not (hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG')):
+    if os.name == 'riscos' or not (hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG')):
         return
 
     # Reap all our dead child processes so we don't leave zombies around.
