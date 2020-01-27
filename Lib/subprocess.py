@@ -64,17 +64,13 @@ try:
     import msvcrt
     import _winapi
     _mswindows = True
-    _riscos = False
 except ModuleNotFoundError:
     _mswindows = False
-    if os.name == 'riscos':
-        import swi
-        _riscos = True
-    else:
+    _riscos = sys.platform == 'riscos'
+    if not _riscos:
         import _posixsubprocess
         import select
         import selectors
-        _riscos = False
 else:
     from _winapi import (CREATE_NEW_CONSOLE, CREATE_NEW_PROCESS_GROUP,
                          STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
@@ -492,7 +488,7 @@ def run(*popenargs,
             raise ValueError('stdout and stderr arguments may not be used '
                              'with capture_output.')
         kwargs['stdout'] = PIPE
-        kwargs['stderr'] = PIPE
+        kwargs['stderr'] = STDOUT if _riscos else PIPE
 
     with Popen(*popenargs, **kwargs) as process:
         try:
@@ -688,6 +684,18 @@ def _use_posix_spawn():
 
 _USE_POSIX_SPAWN = _use_posix_spawn()
 
+if _riscos:
+    import random
+    def generate_scrap_name():
+        scrap_dir = '<Wimp$ScrapDir>.Python3'
+        os.makedirs(scrap_dir, exist_ok=True)
+        chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        while True:
+            name = os.path.join(scrap_dir,'')
+            for c in range(0,10):
+                name += chars[random.randint(0,len(chars)-1)]
+            if not os.path.exists(name):
+                return name
 
 class Popen(object):
     """ Execute a child program in a new process.
@@ -698,7 +706,7 @@ class Popen(object):
       args: A string, or a sequence of program arguments.
 
       bufsize: supplied as the buffering argument to the open() function when
-          creating the stdin/stdout/stderr pipe file objects
+          creating the stdin/stdout/stderr pipe file objects.
 
       executable: A replacement program to execute.
 
@@ -734,6 +742,8 @@ class Popen(object):
 
     Attributes:
         stdin, stdout, stderr, pid, returncode
+
+    RISC OS only provides a very limited implementation of Popen.
     """
     _child_created = False  # Set here since __del__ checks it
 
@@ -764,9 +774,6 @@ class Popen(object):
             if preexec_fn is not None:
                 raise ValueError("preexec_fn is not supported on Windows "
                                  "platforms")
-        elif _riscos:
-            if stderr is not None:
-                raise ValueError("stderr redirection is not supported on RISC OS")
         else:
             # POSIX
             if pass_fds and not close_fds:
@@ -795,50 +802,37 @@ class Popen(object):
                                   'and universal_newlines are supplied but '
                                   'different. Pass one or the other.')
 
+        # RISC OS has a very limited implemenation. We bascially os.system the
+        # command using either native redirection or C-style if stderr capture is
+        # requested. We can't be sure it will work, but it's about the best we can
+        # do. If stdin redirection is needed we delay the command until later,
+        # as we need to put the data into the pipe before we os.system.
         if _riscos:
-            print(args, bufsize, executable,
-                 stdin, stdout, stderr,
-                 preexec_fn, close_fds,
-                 shell, cwd, env, universal_newlines,
-                 startupinfo, creationflags,
-                 restore_signals, start_new_session,
-                 pass_fds, encoding, errors, text)
+            self.redirection = ''
+            ro_redir = stdin or stdout and (not stderr or stderr == STDOUT)
+            if ro_redir:
+                self.redirection += ' {'
+            if stdin == PIPE:
+                self.stdin = generate_scrap_name()
+                redirection += ' < ' + self.stdin
+            if stdin == DEVNULL:
+                self.redirection += ' < null:'
+            if stdout == PIPE:
+                self.stdout = generate_scrap_name()
+                self.redirection += ' > ' + self.stdout
+            if stdout == DEVNULL:
+                self.redirection += ' > null:'
+            if stderr == PIPE:
+                self.stderr = generate_scrap_name()
+                self.redirection += ' 2> ' + self.stderr
+            if stderr == DEVNULL:
+                self.redirection += ' 2> null:'
+            if ro_redir:
+                self.redirection += ' }'
 
-            redirects = []
-            if stdin is not None:
-                self.in_pipe = "Pipe:sp_in"
-                redirects.append('< '+self.in_pipe)
-            else:
-                self.in_pipe = None
-
-            if stdout is not None:
-                self.out_pipe = "Pipe:sp_out"
-                redirects.append('> '+self.out_pipe)
-            else:
-                self.out_pipe = None
-
-            redir_string = ' '.join(redirects)
-
-            if args.__class__ == str.__class__:
-                cmd = args
-            else:
-                cmd = None
-                for arg in args:
-                    if ' ' in arg:
-                        arg = '"' + arg + '"'
-                    if cmd:
-                        cmd += ' '+arg
-                    else:
-                        cmd = arg
-             
-            if redir_string:
-                cmd = cmd + ' { ' + redir_string + ' }'
-
-            task_handle = swi.swi('Wimp_StartTask','s;i',cmd)
-            print("cmd: {} task hanldle={}".format(cmd,task_handle))
-            self.returncode = 0
+            if not self.stdin:
+                self.returncode = os.system(' '.join(self.args)+self.redirection)
             return
-
 
         # Input and output objects. The general principle is like
         # this:
@@ -1051,22 +1045,32 @@ class Popen(object):
         universal_newlines.
         """
 
-        if _riscos:
-            if input:
-                fh = os.open(self.in_pipe, os.O_WRONLY)
-                data = os.write(fh,input.encode('latin-1'))
-                os.close(fh)
-
-            if self.out_pipe:
-                fh = os.open(self.out_pipe, os.O_RDONLY)
-                data = os.read(fh,64*1024)
-                os.close(fh)
-                return (data,None)
-            else:
-                return (None,None)
-
         if self._communication_started and input:
             raise ValueError("Cannot send input after starting communication")
+
+        if _riscos:
+            self._communication_started = True
+            if self.returncode is None:
+                if self.stdin:
+                    with open(self.stdin, 'wb') as f:
+                        if input:
+                            f.write(input)
+                self.returncode = os.system(' '.join(self.args)+self.redirection)
+            def read_file(filename):
+                 data = b''
+                 with open(filename, 'rb') as f:
+                     while True:
+                         block = f.read(1024)
+                         if len(block) == 0:
+                             break
+                         data += block
+                 os.remove(filename)
+                 return data
+            stdout = read_file(self.stdout) if self.stdout else None
+            stderr = read_file(self.stderr) if self.stderr else None
+            if self.stdin:
+                os.remove(self.stdin)
+            return (stdout,stderr)
 
         # Optimization: If we are not worried about timeouts, we haven't
         # started communicating, and we have one or zero pipes, using select()
@@ -1118,6 +1122,8 @@ class Popen(object):
     def poll(self):
         """Check if child process has terminated. Set and return returncode
         attribute."""
+        if _riscos:
+            return self.returncode
         return self._internal_poll()
 
 
@@ -1142,6 +1148,8 @@ class Popen(object):
 
 
     def wait(self, timeout=None):
+        if _riscos:
+            return self.returncode
         """Wait for child process to terminate; returns self.returncode."""
         if timeout is not None:
             endtime = _time() + timeout
@@ -1519,11 +1527,7 @@ class Popen(object):
                 self.returncode = rc
 
         kill = terminate
-
-    elif _riscos:
-        pass
-
-    else:
+    elif not _riscos:
         #
         # POSIX methods
         #
@@ -1774,6 +1778,7 @@ class Popen(object):
                         err_msg = os.strerror(errno_num)
                     raise child_exception_type(errno_num, err_msg, err_filename)
                 raise child_exception_type(err_msg)
+
 
         def _handle_exitstatus(self, sts, _WIFSIGNALED=os.WIFSIGNALED,
                 _WTERMSIG=os.WTERMSIG, _WIFEXITED=os.WIFEXITED,
