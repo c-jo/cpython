@@ -17,6 +17,9 @@
 
  1.10  21 September 2019 Chris Johns
    * Updated to Python 3
+
+ 1.11  06 February 2020 Chris Johns
+   * Added 'u' for unsigned intger.
 */
 
 #include "oslib/os.h"
@@ -400,6 +403,8 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
     switch(*fmt)
     { case 'i':if(!PyArg_Parse(v,"i",&r.r[rno])) return NULL;
                break;
+      case 'u':if(!PyArg_Parse(v,"I",(unsigned)&r.r[rno])) return NULL;
+               break;
       case 's':if(!PyArg_Parse(v,"s",(char**)(&r.r[rno]))) return NULL;
                break;
       case 'b':if(!PyArg_Parse(v,"O",(PyObject**)&ao)) return NULL;
@@ -419,7 +424,7 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
   if(*fmt==0) { Py_INCREF(Py_None);return Py_None;}
   n=0;
   for(outfmt=++fmt;*outfmt;outfmt++)  switch(*outfmt)
-  { case 'i':case 's':case '*':n++;break;
+  { case 'i':case 'u':case 's':case '*':n++;break;
     case '.':break;
     default:return swi_error("Odd format character");
   }
@@ -432,6 +437,7 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
   for(;*fmt;fmt++)
   {  switch(*fmt)
     { case 'i':v=PyLong_FromLong((long)r.r[rno++]); break;
+      case 'u':v=PyLong_FromUnsignedLong((unsigned long)r.r[rno++]); break;
       case 's':v=PyUnicode_FromString((char*)(r.r[rno++])); break;
       case '.':rno++; continue;
       case '*':v=PyLong_FromLong((long)carry); break;
