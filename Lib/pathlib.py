@@ -401,7 +401,6 @@ class _RISCOSFlavour(_Flavour):
                 drv  = part[:first_dot+1]
                 root = part[first_dot+1:first_dot+3]
                 part = part[first_dot+3:]
-                print(drv,root,part)
                 return (drv, root, part)
         else:
             return '', '', part
