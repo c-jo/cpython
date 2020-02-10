@@ -751,7 +751,7 @@ _PyPathConfig_ComputeSysPath0(const PyWideStringList *argv, PyObject **path0_p)
     }
     if (p != NULL) {
         n = p + 1 - path0;
-#if SEP == '/' /* Special case for Unix filename syntax */
+#if SEP == '/' || SEP == '.' /* for Unix and RISC OS filename syntax */
         if (n > 1) {
             /* Drop trailing separator */
             n--;
