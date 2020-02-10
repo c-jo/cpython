@@ -1,15 +1,13 @@
 | !Boot file for RISC OS Python 3.
 
-set Python$Dir <Obey$Dir>
-IconSprites <Python$Dir>.!Sprites
+set Python3$Dir <Obey$Dir>
+Set Python3.8$Prefix <Python3$Dir>.Lib
+Set Python3.8$ExecPrefix <Python3$Dir>.Lib.lib-dynLoad
+IconSprites <Python3$Dir>.!Sprites
 
-Set Python3$Dir <Python$Dir>
-Set Python3.8Lib$Dir <Python$Dir>.Lib
-Set Python3.8DynLoad$Dir <Python$Dir>.Lib.lib-dynLoad
-
-set Alias$@RunType_ae5 TaskWindow |"python3 %%*0|" -name |"Python|" -quit -wimpslot 16M
+set Alias$@RunType_a73 TaskWindow |"python3 %%*0|" -name |"Python|" -quit -wimpslot 16M
 set File$Type_a73 Python3
 set File$Type_a74 PytnCode
 set File$Type_a75 PytnExtn
 
-set Alias$python3 Wimpslot -min 8M|MRun <Python$Dir>.python3 %*0
+set Alias$python3 Wimpslot -min 8M|MRun <Python3$Dir>.python3 %*0
