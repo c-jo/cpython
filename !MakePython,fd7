@@ -1,5 +1,5 @@
 Dir <Obey$Dir>
-Run <Obey$Dir>.SetPyPath
+Run <Obey$Dir>.!Env
 
 WimpSlot -min 24M
 

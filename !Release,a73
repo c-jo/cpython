@@ -7,15 +7,21 @@ if not here:
     here = os.getcwd()
 
 dry_run = False
+verbose = True
+keep_suffix = [ \
+'Lib.test.test_importlib.namespace_pkgs.module_and_namespace_package.a_test/py',
+]
 
-os.system('Wipe build.!Python rf~c~v { > null: }')
+
+os.system('Wipe build.!Python3 rf~c~v { > null: }')
 
 # Copy a file
 def copy(src,dst,typ=None):
-    if typ is None:
-        print('Copy {} -> {}'.format(src, dst))
-    else:
-        print("Copy {} -> {} ({:x})".format(src, dst, typ))
+    if verbose:
+        if typ is None:
+            print('Copy {} -> {}'.format(src, dst))
+        else:
+            print("Copy {} -> {} ({:x})".format(src, dst, typ))
 
     if dry_run:
         return
@@ -29,10 +35,11 @@ def copy(src,dst,typ=None):
 
 # Strip a file
 def strip(src,dst,typ=None):
-    if typ is None:
-        print('Strip {} -> {}'.format(src, dst))
-    else:
-        print("Strip {} -> {} ({:x})".format(src, dst, typ))
+    if verbose:
+        if typ is None:
+            print('Strip {} -> {}'.format(src, dst))
+        else:
+            print("Strip {} -> {} ({:x})".format(src, dst, typ))
 
     if dry_run:
         return
@@ -44,11 +51,11 @@ def strip(src,dst,typ=None):
         os.set_filetype(dst, typ)
 
 
-# Create the !Python application
-os.makedirs('build.!Python.Lib')
-os.makedirs('build.!Python.Lib.lib-dynload')
+# Create the !Python3 application
+os.makedirs('build.!Python3.Lib')
+os.makedirs('build.!Python3.Lib.lib-dynload')
 
-target = os.path.join('build','!Python')
+target = os.path.join('build','!Python3')
 
 # Copy over the !Boot, !Run, !Sprites etc.
 for path,dirs,files in os.walk("RISCOS.Resources"):
@@ -66,16 +73,13 @@ for path,dirs,files in os.walk("RISCOS.Resources"):
 # Use a stripped version of the executable
 strip(os.path.join(here,'python3'), os.path.join(here,target,'python3'))
 
-ext_map = {'/py':(0xae5,False, ''),
-           '/so':(0xaee,True,  '/cpython-38-arm-riscos')}
+ext_map = {'/py':(0xa73,False, ''),
+           '/so':(0xa75,True,  '/cpython-38-arm-riscos')}
 
 
 # The library
-def lib_copy(srcdir,tgtroot,exclude):
+def lib_copy(srcdir,tgtroot):
     for path,dirs,files in os.walk(srcdir):
-        if exclude and path.startswith(exclude):
-            continue
-
         if os.path.split(path)[1] == '__pycache__':
             continue
 
@@ -84,16 +88,17 @@ def lib_copy(srcdir,tgtroot,exclude):
 
         os.makedirs(os.path.join(target,tgtdir),exist_ok=True)
 
-        print('lib_copy',here, target, path, srcdir, tgtdir)
-
         for file in files:
             name, ext = os.path.splitext(file)
             if ext:
                 if ext in ext_map:
                     src = os.path.join(path,   file)
                     dst = os.path.join(tgtdir, name)
-                    print(src,'->',dst)
                     typ,st,suf = ext_map[ext]
+                    print(src)
+                    if src in keep_suffix:
+
+                        dst = os.path.join(tgtdir, name+ext)
                     if st:
                         strip(os.path.join(here, src),
                               os.path.join(here, target, dst+suf),typ)
@@ -105,5 +110,5 @@ def lib_copy(srcdir,tgtroot,exclude):
                dst = os.path.join(here, tgtdir, file)
                copy(src,dst)
 
-lib_copy('Lib','Lib','Lib.test')
-lib_copy('build.lib_riscos-38', 'Lib.lib-dynload','')
+lib_copy('Lib','Lib')
+lib_copy('build.lib_riscos-38', 'Lib.lib-dynload')

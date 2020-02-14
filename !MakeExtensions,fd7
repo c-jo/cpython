@@ -1,0 +1,3 @@
+Dir <Obey$Dir>
+WimpSlot -min 24M
+Run Python3 setup/py build

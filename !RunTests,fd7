@@ -1,0 +1,5 @@
+Dir <Obey$Dir>
+
+WimpSlot -min 24M
+
+Run python3 Tools.scripts.run_tests/py
