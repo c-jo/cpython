@@ -479,7 +479,7 @@ RISCOS/swimodule.o: RISCOS/swimodule.c
 
 # RISC OS getpath (needs OSLib)
 RISCOS/getpath.o: RISCOS/getpath.c
-	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -DVERSION='"$(VERSION)"' -o $@ $<
+	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -DVERSION=\"$(VERSION)\" -o $@ $<
 #		-DPREFIX='"$(prefix)"' \
 #		-DEXEC_PREFIX='"$(exec_prefix)"' \
 #		-DVPATH='"$(VPATH)"' \
