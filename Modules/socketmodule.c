@@ -2629,6 +2629,7 @@ sock_accept_impl(PySocketSockObject *s, void *data)
     struct sock_accept *ctx = data;
     struct sockaddr *addr = SAS2SA(ctx->addrbuf);
     socklen_t *paddrlen = ctx->addrlen;
+
 #ifdef HAVE_SOCKADDR_ALG
     /* AF_ALG does not support accept() with addr and raises
      * ECONNABORTED instead. */
@@ -2699,10 +2700,12 @@ sock_accept(PySocketSockObject *s, PyObject *Py_UNUSED(ignored))
     if (!accept4_works)
 #endif
     {
+#ifndef RISCOS
         if (_Py_set_inheritable(newfd, 0, NULL) < 0) {
             SOCKETCLOSE(newfd);
             goto finally;
         }
+#endif
     }
 #endif
 
@@ -6018,10 +6021,12 @@ socket_socketpair(PyObject *self, PyObject *args)
     if (ret < 0)
         return set_error();
 
+#ifndef RISCOS
     if (_Py_set_inheritable(sv[0], 0, atomic_flag_works) < 0)
         goto finally;
     if (_Py_set_inheritable(sv[1], 0, atomic_flag_works) < 0)
         goto finally;
+#endif
 
     s0 = new_sockobject(sv[0], family, type, proto);
     if (s0 == NULL)
