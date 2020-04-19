@@ -350,8 +350,18 @@ class ZipInfo (object):
         # This is used to ensure paths in generated ZIP files always use
         # forward slashes as the directory separator, as required by the
         # ZIP format specification.
-        if os.sep != "/" and os.sep in filename:
-            filename = filename.replace(os.sep, "/")
+        # Also convert extensions to . if they aren't already (eg. RISC OS)
+        if ( os.sep != "/" and os.sep in filename) or \
+           (os.extsep != "." and os.extsep in filename):
+           filename2 = ''
+           for c in filename:
+               if c == os.extsep:
+                   filename2 += '.'
+               elif c == os.sep:
+                   filename2 += '/'
+               else:
+                   filename2 += c
+           filename = filename2
 
         self.filename = filename        # Normalized file name
         self.date_time = date_time      # year, month, day, hour, min, sec
@@ -366,6 +376,8 @@ class ZipInfo (object):
         self.extra = b""                # ZIP extra data
         if sys.platform == 'win32':
             self.create_system = 0          # System which created ZIP archive
+        elif sys.platform == 'riscos':
+            self.create_system = 11         # System which created ZIP archive
         else:
             # Assume everything else is unix-y
             self.create_system = 3          # System which created ZIP archive
@@ -520,6 +532,13 @@ class ZipInfo (object):
         arcname = os.path.normpath(os.path.splitdrive(arcname)[1])
         while arcname[0] in (os.sep, os.altsep):
             arcname = arcname[1:]
+        if sys.platform == 'riscos':
+            pos = arcname.find('$.')
+            if pos > -1:
+                arcname = arcname[pos+2:]
+            pos = arcname.find('@.')
+            if pos > -1:
+                arcname = arcname[pos+2:]
         if isdir:
             arcname += '/'
         zinfo = cls(arcname, date_time)
@@ -529,7 +548,10 @@ class ZipInfo (object):
             zinfo.external_attr |= 0x10  # MS-DOS directory flag
         else:
             zinfo.file_size = st.st_size
-
+        if sys.platform == 'riscos':
+            _,load,exec,_,attr = os.read_catalogue_info(filename)
+            zinfo.extra = struct.pack('HHIIIII',
+            0x4341, 20, 0x30435241, load, exec, attr, 0)
         return zinfo
 
     def is_dir(self):
@@ -1145,6 +1167,7 @@ class _ZipWriteFile(io.BufferedIOBase):
                 self._fileobj.seek(self._zinfo.header_offset)
                 self._fileobj.write(self._zinfo.FileHeader(self._zip64))
                 self._fileobj.seek(self._zipfile.start_dir)
+
 
             # Successfully written: Add file to our caches
             self._zipfile.filelist.append(self._zinfo)
@@ -1823,6 +1846,12 @@ class ZipFile:
             self.fp = None
             self._fpclose(fp)
 
+        if self.mode == 'w' and sys.platform == 'riscos':
+            try:
+                os.set_filetype(self.filename, 0xa91)
+            finally:
+                pass
+
     def _write_end_record(self):
         for zinfo in self.filelist:         # write central directory
             dt = zinfo.date_time
@@ -1977,13 +2006,14 @@ class PyZipFile(ZipFile):
                     print("Adding", arcname)
                 self.write(fname, arcname)
                 dirlist = sorted(os.listdir(pathname))
-                dirlist.remove("__init__.py")
+                dirlist.remove(f"__init__{os.extsep}py")
                 # Add all *.py files and package subdirectories
                 for filename in dirlist:
                     path = os.path.join(pathname, filename)
                     root, ext = os.path.splitext(filename)
                     if os.path.isdir(path):
-                        if os.path.isfile(os.path.join(path, "__init__.py")):
+                        if os.path.isfile(
+                            os.path.join(path, f"__init__{os.extsep}py")):
                             # This is a package directory, add it
                             self.writepy(path, basename,
                                          filterfunc=filterfunc)  # Recursive call
@@ -2004,7 +2034,7 @@ class PyZipFile(ZipFile):
                 for filename in sorted(os.listdir(pathname)):
                     path = os.path.join(pathname, filename)
                     root, ext = os.path.splitext(filename)
-                    if ext == ".py":
+                    if ext == os.extsep+"py":
                         if filterfunc and not filterfunc(path):
                             if self.debug:
                                 print('file %r skipped by filterfunc' % path)
@@ -2015,7 +2045,7 @@ class PyZipFile(ZipFile):
                             print("Adding", arcname)
                         self.write(fname, arcname)
         else:
-            if pathname[-3:] != ".py":
+            if pathname[-3:] != os.extsep+"py":
                 raise RuntimeError(
                     'Files added with writepy() must end with ".py"')
             fname, arcname = self._get_codename(pathname[0:-3], basename)
@@ -2041,8 +2071,8 @@ class PyZipFile(ZipFile):
                 return False
             return True
 
-        file_py  = pathname + ".py"
-        file_pyc = pathname + ".pyc"
+        file_py  = pathname + os.extsep+"py"
+        file_pyc = pathname + os.extsep+"pyc"
         pycache_opt0 = importlib.util.cache_from_source(file_py, optimization='')
         pycache_opt1 = importlib.util.cache_from_source(file_py, optimization=1)
         pycache_opt2 = importlib.util.cache_from_source(file_py, optimization=2)
