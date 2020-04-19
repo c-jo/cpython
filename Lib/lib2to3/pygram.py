@@ -12,10 +12,10 @@ from .pgen2 import driver
 from . import pytree
 
 # The grammar file
-_GRAMMAR_FILE = os.path.join(os.path.dirname(__file__), "Grammar.txt")
+_GRAMMAR_FILE = os.path.join(os.path.dirname(__file__),
+                             f"Grammar{os.extsep}txt")
 _PATTERN_GRAMMAR_FILE = os.path.join(os.path.dirname(__file__),
-                                     "PatternGrammar.txt")
-
+                                     f"PatternGrammar{os.extsep}txt")
 
 class Symbols(object):
 

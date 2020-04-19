@@ -105,9 +105,10 @@ class Driver(object):
 
 def _generate_pickle_name(gt):
     head, tail = os.path.splitext(gt)
-    if tail == ".txt":
+    if tail == os.extsep+"txt":
         tail = ""
-    return head + tail + ".".join(map(str, sys.version_info)) + ".pickle"
+    return head + tail + \
+           os.extsep.join(map(str, sys.version_info)) + os.extsep+"pickle"
 
 
 def load_grammar(gt="Grammar.txt", gp=None,
