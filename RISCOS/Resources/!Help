@@ -1,47 +1,53 @@
 Python 3.8 for RISC OS
 ----------------------
 
-** Alpha Release 4 **
+** Alpha Release 5 **
 
 PLEASE NOTE: This is an alpha release of Python 3.8 for RISC OS. Please treat as such. Feedback, comments or bugs can be sent to chris@lessthan3.org.uk
 
-Port by Chris Johns, developmnet supported by RISC OS Developments Ltd.
+Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
 Welcome to Python on RISC OS, bringing the power and flexibility of the Python language to RISC OS.
 
-This document does not go into any detail about the python programming language itself, but details the RISC OS specific items. There are lots of documents and tutorials online and in books about python itself.
+This document does not go into any detail about the python programming language itself, but details the RISC OS specific items. There are lots of documents and tutorials online and in books about Python itself.
+
 
 Filetypes
 ---------
-One of the major differences between RISC OS and other operating systems is the use of fiiletpes rather than extensions to identify the content of a file, and the use of the . as a directory seprator.
+One of the major differences between RISC OS and other operating systems is the use of filetypes rather than extensions to identify the content of a file, and the use of the . as a directory separator.
 
-So on linux a python file may be named spam.py (file spam with extension of .py), on RISC OS 'spam.py' would mean the file called py in directory spam, which is almost certainly not what you want!
+So on Linux a Python file may be named spam.py (file spam with extension of .py), on RISC OS 'spam.py' would mean the file called py in directory spam, which is almost certainly not what you want!
 
-So the 'RISC OS way' is to have a file called spam with the filetype of Python. To assist with running code from other platforms, you can also call the file spam/py (with any type). As long as !Python has been 'seen' double-clicking on a python file will run it in a Task Window.
+So the 'RISC OS way' is to have a file called spam with the filetype of Python. To assist with running code from other platforms, you can also call the file spam/py (with any type). As long as !Python has been 'seen', double-clicking on a Python file will run it in a TaskWindow.
 
 Types are also used for the cached bytecode (.pyc) and extensions (.so).
 
+
 The subprocess module on RISC OS
 --------------------------------
-Compared to unix-like systems, RISC OS has limited control over subrpocesses, and what can be done with them, so the subprocess module is somewhat restricted on this platform.
+Compared to Unix-like systems, RISC OS has limited control over subprocesses, and what can be done with them, so the subprocess module is somewhat restricted on this platform.
 
 While using the TaskWindow module provides the most control over tasks, it can only be used from Wimp programs, so isn't suitable for a general solution.
 
-In order to provide a way to run subprocesses, RISC OS will use the system command, and redirection using PipeFS. While less than ideal, it will allow programs that need to use subprocess to function. A 'taskwindow' package could be developed in the future to allow the use of the TaskWindow module in Wimp applications.
+In order to provide a way to run subprocesses, RISC OS will use the system command, and redirection using PipeFS. While less than ideal, it will allow programs that need to use subprocess to function. A 'taskwindow' package could be developed in the future, to allow the use of the TaskWindow module in Wimp applications.
+
 
 RISC OS additions
 -----------------
-os.get_filetype(object) will return the file type of the given object os.set_filetype(object, type) will set it.
+os.get_filetype(object) returns the file type of a given object.
+os.set_filetype(object,type) will set it.
 
-swi.swi allows python code to call RISC OS SWIs.
+swi.swi(arg1,arg2,arg3) allows Python code to call RISC OS SWIs.
+  arg1 is the SWI number or name,
+  arg2 is a format string for arg3,
+  arg3 is the rest of the arguments.
+eg: swi.swi("OS_Write0","s","Hello RISC OS World")
 
-the first argument is the SWI number or name, the second is a format sring for the rest of the arguments.
-
-eg, swi.swi('OS_Write0','s','Hello RISC OS World')
 
 Known Bugs
 ----------
-Much of the standard library is still largley untested.
+Much of the standard library is still largely untested.
+
 
 History
 -------
@@ -49,13 +55,13 @@ History
 Initial RISC OS Alpha Release.
 
 3.8.0a2
-Added support for Pythom$Path.
+Added support for Python$Path.
 Fixed get/set filetype calls to handle non-ASCII characters.
 Added SSL and SQLite3 modules.
 
 3.8.0a3
 Fixed bug that was preventing sockets being created.
-Use OS_ReadLine32 to get innput in interactive mode.
+Use OS_ReadLine32 to get input in interactive mode.
 os.getenv reads the RISC OS environment.
 Added support to get data as bytes from the swi module.
 Fixed SSL to get the CA certificates from <CaCertificates$Dir>.
@@ -71,4 +77,17 @@ Fixed !Boot/!Run files to use Python3$Dir
 Changed env vars to PythonX.Y$Prefix and PythonX.Y$ExecPrefix
 Fixed imports from script directory.
 Added 'u' (unsigned integer) to swi interface.
+
+3.8.0a5 Fixed bug in socket.accept
+*!* Changed unsigned int swi to 'I' ('u' now deprecated)
+Work-around for partial-second waits in timermodule.
+Where available, use 'TimerMod' for higher resolution monotonic time.
+swi.block[] now uses UNsigned integers.
+Added swi.block to/from signed/unsigned.
+Added RISCOSError exception, and derived SwiError from it. 
+Added cannonicalise function to risospath (FSControl 37) 
+Fixed Lib2to3 to not assume '.ext' in filenmes.
+Added os.read_catalogue_into / os.write_catalogue_info
+Added RISC OS support to zipfile.
+Fixed RISC OS time handling in xmlrpc client.
 
