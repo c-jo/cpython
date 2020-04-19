@@ -17,6 +17,6 @@ Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibExpat1
 
 WimpSlot -min 24M
 
-Alias python3 <Python3$Dir>.python3 %*0
+Alias python3 WimpSlot -min 16M|M<Python3$Dir>.python3 %*0
 Dir <Python3$Dir>
 
