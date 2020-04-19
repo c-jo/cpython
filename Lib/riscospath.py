@@ -31,7 +31,7 @@ __all__ = ["normcase","isabs","join","splitdrive","split","splitext",
            "samefile","sameopenfile","samestat",
            "curdir","pardir","sep","pathsep","defpath","altsep","extsep",
            "devnull","realpath","supports_unicode_filenames","relpath",
-           "commonpath"]
+           "commonpath","canonicalise"]
 
 
 def _get_sep(path):
@@ -495,3 +495,9 @@ def commonpath(paths):
     except (TypeError, AttributeError):
         genericpath._check_arg_types('commonpath', *paths)
         raise
+
+def canonicalise(path):
+    import swi
+    buffer = swi.block(256)
+    swi.swi('OS_FSControl','isbiii',37,path,buffer,0,0,256*4)
+    return buffer.nullstring()
