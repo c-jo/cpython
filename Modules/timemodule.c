@@ -48,6 +48,10 @@
 #define _Py_tzname tzname
 #endif
 
+#ifdef RISCOS
+#include "swis.h"
+#endif
+
 #define SEC_TO_NS (1000 * 1000 * 1000)
 
 /* Forward declarations */
@@ -1813,7 +1817,6 @@ PyInit_time(void)
     if (gmtime_r(&zero, &tm) != NULL)
         utc_string = tm.tm_zone;
 #endif
-
     if (PyErr_Occurred()) {
         return NULL;
     }
@@ -1845,8 +1848,14 @@ pysleep(_PyTime_t secs)
         if (_PyTime_AsTimeval(secs, &timeout, _PyTime_ROUND_CEILING) < 0)
             return -1;
 
-        Py_BEGIN_ALLOW_THREADS
+            Py_BEGIN_ALLOW_THREADS
+#ifdef RISCOS
+        unsigned int end = _swi(OS_ReadMonotonicTime, _RETURN(0)) +
+                           (timeout.tv_sec * 100 + timeout.tv_usec / 10000);
+       while ((unsigned)_swi(OS_ReadMonotonicTime, _RETURN(0)) < end) ;
+#else
         err = select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &timeout);
+#endif
         Py_END_ALLOW_THREADS
 
         if (err == 0)
