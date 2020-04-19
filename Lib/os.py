@@ -105,7 +105,6 @@ if 'riscos' in _names:
     __all__.extend(_get_exports_list(riscos))
     del riscos
 
-
 else:
     raise ImportError('no os specific module found')
 
@@ -114,7 +113,6 @@ from os.path import (curdir, pardir, sep, pathsep, defpath, extsep, altsep,
     devnull)
 
 del _names
-
 
 if _exists("_have_functions"):
     _globals = globals()
@@ -1158,3 +1156,14 @@ if name == 'nt':
             cookie,
             nt._remove_dll_directory
         )
+
+if name == 'riscos':
+    import swi
+    def read_catalogue_info(object):
+        return swi.swi('OS_File','is;i.IIII',17,object)
+
+    def write_catalogue_info(object, load, exec, attribs):
+        swi.swi('OS_File','isIII',1, object, load, exec, attribs)
+
+    __all__.extend(['read_catalogue_info','write_catalogue_info'])
+
