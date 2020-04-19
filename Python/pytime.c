@@ -7,6 +7,11 @@
 #include <mach/mach_time.h>   /* mach_absolute_time(), mach_timebase_info() */
 #endif
 
+#ifdef RISCOS
+#include "swis.h"
+static int use_timermod = -1;
+#endif
+
 #define _PyTime_check_mul_overflow(a, b) \
     (assert(b > 0), \
      (_PyTime_t)(a) < _PyTime_MIN / (_PyTime_t)(b) \
@@ -877,6 +882,39 @@ pymonotonic(_PyTime_t *tp, _Py_clock_info_t *info, int raise)
         info->adjustable = 0;
     }
 
+#elif defined(RISCOS)
+    if (use_timermod == -1) {
+        use_timermod = (_swix(0x490c2, 0) == 0);
+        printf("Use TimerMod : %d\n", use_timermod);
+    }
+
+    if (use_timermod)
+    {
+        if (info) {
+            info->monotonic      = 1;
+            info->adjustable     = 0;
+            info->implementation = "Timer_Value";
+            info->resolution     = 1.0/SEC_TO_NS;
+        }
+
+        unsigned int mt_sec = 0, mt_usec = 0;
+        _swi(0x490c2, _OUTR(0,1), &mt_sec, &mt_usec); // Timer_Value
+        printf("Timer_Value : %d %d\n", mt_sec, mt_usec);
+        *tp = ((int64_t)mt_sec * SEC_TO_NS) + ((int64_t)mt_usec * US_TO_NS);
+    }
+    else
+    {
+        if (info) {
+            info->monotonic      = 1;
+            info->adjustable     = 0;
+            info->implementation = "OS_ReadMonotonicTime";
+            info->resolution     = 1.0/100;
+        }
+
+        unsigned int mt_csec;
+        _swi(OS_ReadMonotonicTime, _OUT(0), &mt_csec);
+        *tp = (int64_t)mt_csec * SEC_TO_NS/100;
+    }
 #else
     struct timespec ts;
 #ifdef CLOCK_HIGHRES
