@@ -19,13 +19,22 @@
    * Updated to Python 3
 
  1.11  06 February 2020 Chris Johns
-   * Added 'u' for unsigned intger.
+   * Added 'I' / 'u' for unsigned intger.
+
+ 1.12  16 March 2020 Chris Johns.
+   * Added 'y' for bytes.
+
+ 2.00  10 April 2020 Chris Johns.
+   * Major version bump as block[] now uses unsigned rather than signed.
+   * Added block.signed / .unsigned to set values.
+   * Added block.tosigned / .tounsigned to get values.
+   * Added block.toutf8
+   * Changed SwiError to use PyExc_RISCOSError
 */
 
 #include "oslib/os.h"
 #include <kernel.h>
 #include "Python.h"
-
 
 #define PyBlock_Check(op) ((op)->ob_type == &PyBlockType)
 
@@ -36,9 +45,14 @@ static os_error *e;
 static PyObject *swi_oserror(void)
 {
   //printf("swi_oserror %s\n", e->errmess);
-  PyErr_SetString(SwiError,e->errmess);
+    PyObject *exc_args = PyTuple_New(2);
+    PyTuple_SetItem(exc_args, 0, PyUnicode_FromString(e->errmess));
+    PyTuple_SetItem(exc_args, 1, PyLong_FromLong     (e->errnum ));
+    PyErr_SetObject(SwiError, exc_args);
+
+//    PyErr_SetString(SwiError,e->errmess);
   //printf("%x\n", PyErr_Occurred());
-  PyObject *errnum =  PyLong_FromLong(e->errnum);
+  //PyObject *errnum =  PyLong_FromLong(e->errnum);
   //printf("%x\n", errnum);
   //int rv = PyObject_SetAttrString(PyErr_Occurred(), "errnum", errnum);
   //printf("%d\n", rv);
@@ -151,6 +165,18 @@ static PyObject *PyBlock_CtrlString(PyBlockObject *self,PyObject *arg)
   return PyUnicode_DecodeLatin1((char*)self->block+s,i-s,NULL);
 }
 
+static PyObject *PyBlock_ToUTF8(PyBlockObject *self,PyObject *arg)
+{ int s=0,e=self->length,i;
+  char *p=(char*)self->block;
+  if(!PyArg_ParseTuple(arg,"|ii",&s,&e)) return NULL;
+  if(s<0||e>self->length||s>e)
+  { PyErr_SetString(PyExc_IndexError,"block index out of range");
+    return NULL;
+  }
+  for(i=s;i<e;i++) if(p[i]==0) break;
+  return PyUnicode_DecodeUTF8((char*)self->block+s,e-s,NULL);
+}
+
 static PyObject *PyBlock_PadString(PyBlockObject *self,PyObject *arg)
 { int s=0,e=self->length,n,m;
   char *str;
@@ -170,7 +196,7 @@ static PyObject *PyBlock_PadString(PyBlockObject *self,PyObject *arg)
 static PyObject *PyBlock_BitSet(PyBlockObject *self,PyObject *arg)
 { int i,x,y;
   int *p=(int*)self->block;
-  if(!PyArg_ParseTuple(arg,"iii",&i,&x,&y)) return NULL;
+  if(!PyArg_ParseTuple(arg,"III",&i,&x,&y)) return NULL;
   if(i<0||i>=self->length/4)
   { PyErr_SetString(PyExc_IndexError,"block index out of range");
     return NULL;
@@ -219,16 +245,63 @@ static PyObject *PyBlock_ToBytes(PyBlockObject *self,PyObject *arg)
   return PyBytes_FromStringAndSize((char*)self->block+s,e-s);
 }
 
+static PyObject *PyBlock_ToSigned(PyBlockObject *self,PyObject *arg)
+{ int i=0;
+  if(!PyArg_ParseTuple(arg,"i",&i)) return NULL;
+  if(i<0||i>self->length)
+  { PyErr_SetString(PyExc_IndexError,"block index out of range");
+    return NULL;
+  }
+  return PyLong_FromLong(((long*)(self->block))[i]);
+}
+
+static PyObject *PyBlock_Signed(PyBlockObject *self,PyObject *arg)
+{ int i=0, v=0;
+  if(!PyArg_ParseTuple(arg,"ii",&i,&v)) return NULL;
+  if(i<0||i>self->length)
+  { PyErr_SetString(PyExc_IndexError,"block index out of range");
+    return NULL;
+  }
+  ((int*)self->block)[i] = v;
+  Py_INCREF(Py_None);return Py_None;
+}
+
+static PyObject *PyBlock_ToUnsigned(PyBlockObject *self,PyObject *arg)
+{ int i=0;
+  if(!PyArg_ParseTuple(arg,"i",&i)) return NULL;
+  if(i<0||i>self->length)
+  { PyErr_SetString(PyExc_IndexError,"block index out of range");
+    return NULL;
+  }
+  return PyLong_FromUnsignedLong(((long*)(self->block))[i]);
+}
+
+static PyObject *PyBlock_Unsigned(PyBlockObject *self,PyObject *arg)
+{ int i=0; unsigned v=0;
+  if(!PyArg_ParseTuple(arg,"iI",&i,&v)) return NULL;
+  if(i<0||i>self->length)
+  { PyErr_SetString(PyExc_IndexError,"block index out of range");
+    return NULL;
+  }
+  ((int*)self->block)[i] = v;
+  Py_INCREF(Py_None);return Py_None;
+}
+
 static struct PyMethodDef PyBlock_Methods[]=
 { { "tostring",   (PyCFunction)PyBlock_ToString,   METH_VARARGS, NULL},
   { "padstring",  (PyCFunction)PyBlock_PadString,  METH_VARARGS, NULL},
   { "nullstring", (PyCFunction)PyBlock_NullString, METH_VARARGS, NULL},
   { "ctrlstring", (PyCFunction)PyBlock_CtrlString, METH_VARARGS, NULL},
+  { "toutf8",     (PyCFunction)PyBlock_ToUTF8,     METH_VARARGS, NULL},
   { "bitset",     (PyCFunction)PyBlock_BitSet,     METH_VARARGS, NULL},
   { "resize",     (PyCFunction)PyBlock_Resize,     METH_VARARGS, NULL},
   { "tofile",     (PyCFunction)PyBlock_ToFile,     METH_VARARGS, NULL},
   { "tobytes",    (PyCFunction)PyBlock_ToBytes,    METH_VARARGS, NULL},
-  { NULL,NULL, 0, 0 }		/* sentinel */
+  { "signed",     (PyCFunction)PyBlock_Signed,     METH_VARARGS, NULL},
+  { "unsigned",   (PyCFunction)PyBlock_Unsigned,   METH_VARARGS, NULL},
+  { "tosigned",   (PyCFunction)PyBlock_ToSigned,   METH_VARARGS, NULL},
+  { "tounsigned", (PyCFunction)PyBlock_ToUnsigned, METH_VARARGS, NULL},
+  { NULL,NULL, 0, 0 } /* sentinel */
 };
 
 static int block_len(PyBlockObject *b)
@@ -250,7 +323,7 @@ static PyObject *block_item(PyBlockObject *b,Py_ssize_t i)
   { PyErr_SetString(PyExc_IndexError,"block index out of range");
     return NULL;
   }
-  return PyLong_FromLong(((long*)(b->block))[i]);
+  return PyLong_FromUnsignedLong(((long*)(b->block))[i]);
 }
 
 static PyObject *block_slice(PyBlockObject *b,Py_ssize_t i,Py_ssize_t j)
@@ -277,7 +350,7 @@ static int block_ass_item(PyBlockObject *b,Py_ssize_t i,PyObject *v)
   { PyErr_SetString(PyExc_TypeError,"block item must be integer");
     return -1;
   }
-  ((long*)(b->block))[i]=PyLong_AsLong(v);
+  ((long*)(b->block))[i]=PyLong_AsUnsignedLong(v);
   return 0;
 }
 
@@ -346,28 +419,14 @@ static void PyBlock_Dealloc(PyBlockObject *b)
 
 static PyTypeObject PyBlockType =
 { PyVarObject_HEAD_INIT(&PyType_Type, 0)
-  .tp_name = "swi.block",
-  .tp_basicsize = sizeof(PyBlockObject),
-  .tp_dealloc = (destructor)PyBlock_Dealloc,
-  .tp_getattr = (getattrfunc)PyBlock_GetAttr,
+  .tp_name        = "swi.block",
+  .tp_basicsize   = sizeof(PyBlockObject),
+  .tp_dealloc     = (destructor)PyBlock_Dealloc,
+  .tp_getattr     = (getattrfunc)PyBlock_GetAttr,
   .tp_as_sequence = &block_as_sequence,
-  .tp_getattro = 0, .tp_methods = &PyBlock_Methods,
+  .tp_getattro    = 0,
+  .tp_methods     = PyBlock_Methods,
 };
-
-#if 0
-  "swi.block",			/*tp_name*/
-  sizeof(PyBlockObject),	/*tp_size*/
-  0,				/*tp_itemsize */
-  (destructor)PyBlock_Dealloc,	/*tp_dealloc*/
-  0,                            /*tp_vectorcall_offset*/
-  (getattrfunc)PyBlock_GetAttr,	/*tp_getattr*/
-  0,				/*tp_setattr*/
-  0,				/*tp_as_async*/
-  0,				/*tp_repr*/
-  0,				/*tp_as_number*/
-  &block_as_sequence,		/*tp_as_sequence*/
-  0,				/*tp_as_mapping*/
-#endif
 
 /* swi commands */
 
@@ -403,9 +462,12 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
     switch(*fmt)
     { case 'i':if(!PyArg_Parse(v,"i",&r.r[rno])) return NULL;
                break;
+      case 'I':
       case 'u':if(!PyArg_Parse(v,"I",(unsigned)&r.r[rno])) return NULL;
                break;
       case 's':if(!PyArg_Parse(v,"s",(char**)(&r.r[rno]))) return NULL;
+               break;
+      case 'y':if(!PyArg_Parse(v,"y",(char**)(&r.r[rno]))) return NULL;
                break;
       case 'b':if(!PyArg_Parse(v,"O",(PyObject**)&ao)) return NULL;
                if(!PyBlock_Check(v)) return swi_error("Not a block");
@@ -424,7 +486,7 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
   if(*fmt==0) { Py_INCREF(Py_None);return Py_None;}
   n=0;
   for(outfmt=++fmt;*outfmt;outfmt++)  switch(*outfmt)
-  { case 'i':case 'u':case 's':case '*':n++;break;
+  { case 'i':case 'u':case 'I':case 's':case 'y':case '*':n++;break;
     case '.':break;
     default:return swi_error("Odd format character");
   }
@@ -437,8 +499,11 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
   for(;*fmt;fmt++)
   {  switch(*fmt)
     { case 'i':v=PyLong_FromLong((long)r.r[rno++]); break;
-      case 'u':v=PyLong_FromUnsignedLong((unsigned long)r.r[rno++]); break;
+      case 'u':
+      case 'I':v=PyLong_FromUnsignedLong((unsigned long)r.r[rno++]); break;
       case 's':v=PyUnicode_FromString((char*)(r.r[rno++])); break;
+      case 'y':
+      case 'S':v=PyBytes_FromString((char*)(r.r[rno++])); break;
       case '.':rno++; continue;
       case '*':v=PyLong_FromLong((long)carry); break;
     }
@@ -623,15 +688,15 @@ static struct PyModuleDef SwiModuleDef = {
 
 PyObject* PyInit_swi()
 { 
-   PyObject *m, *d;
-  //m = Py_InitModule("swi", SwiMethods);
-  m = PyModule_Create(&SwiModuleDef); 
-  d = PyModule_GetDict(m);
+  PyObject *m = PyModule_Create(&SwiModuleDef);
 
-  SwiError=PyErr_NewException("swi.error", NULL, NULL);
-  PyDict_SetItemString(d,"error",SwiError);
+  SwiError = PyErr_NewException("swi.error", PyExc_RISCOSError, NULL);
+  Py_INCREF(SwiError);
+  PyModule_AddObject(m, "error", SwiError);
+
   ArgError=PyErr_NewException("swi.ArgError", NULL, NULL);
-  PyDict_SetItemString(d,"ArgError",ArgError);
+  Py_INCREF(ArgError);
+  PyModule_AddObject(m, "ArgError", ArgError);
 
   return m;
 }
