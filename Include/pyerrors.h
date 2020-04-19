@@ -127,7 +127,6 @@ PyAPI_DATA(PyObject *) PyExc_ProcessLookupError;
 PyAPI_DATA(PyObject *) PyExc_TimeoutError;
 #endif
 
-
 /* Compatibility aliases */
 PyAPI_DATA(PyObject *) PyExc_EnvironmentError;
 PyAPI_DATA(PyObject *) PyExc_IOError;
@@ -147,6 +146,9 @@ PyAPI_DATA(PyObject *) PyExc_ImportWarning;
 PyAPI_DATA(PyObject *) PyExc_UnicodeWarning;
 PyAPI_DATA(PyObject *) PyExc_BytesWarning;
 PyAPI_DATA(PyObject *) PyExc_ResourceWarning;
+#ifdef RISCOS
+PyAPI_DATA(PyObject *) PyExc_RISCOSError;
+#endif
 
 
 /* Convenience functions */
