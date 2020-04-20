@@ -885,7 +885,6 @@ pymonotonic(_PyTime_t *tp, _Py_clock_info_t *info, int raise)
 #elif defined(RISCOS)
     if (use_timermod == -1) {
         use_timermod = (_swix(0x490c2, 0) == 0);
-        printf("Use TimerMod : %d\n", use_timermod);
     }
 
     if (use_timermod)
@@ -899,7 +898,6 @@ pymonotonic(_PyTime_t *tp, _Py_clock_info_t *info, int raise)
 
         unsigned int mt_sec = 0, mt_usec = 0;
         _swi(0x490c2, _OUTR(0,1), &mt_sec, &mt_usec); // Timer_Value
-        printf("Timer_Value : %d %d\n", mt_sec, mt_usec);
         *tp = ((int64_t)mt_sec * SEC_TO_NS) + ((int64_t)mt_usec * US_TO_NS);
     }
     else

@@ -1,3 +1,5 @@
 Dir <Obey$Dir>
 WimpSlot -min 24M
+Make -f RISCOS/Makefile pybuilddir
+Make -f RISCOS/Makefile Modules/_math.o
 Run Python3 setup/py build

@@ -496,7 +496,7 @@ sharedmods: $(BUILDPYTHON) pybuilddir Modules/_math.o
 
 # Build static library
 $(LIBRARY): $(LIBRARY_OBJS)
-	Wipe $@ ~CF
+	X Wipe $@ ~CF
 	$(AR) $(ARFLAGS) $@ $(LIBRARY_OBJS)
 
 #libpython$(LDVERSION).so: $(LIBRARY_OBJS) $(DTRACE_OBJS)
