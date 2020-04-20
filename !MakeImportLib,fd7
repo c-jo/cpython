@@ -1,7 +1,7 @@
 Dir <Obey$Dir>
-| HostFS::HostFS.cpython
 
-WimpSlot -min 16M
+WimpSlot -min 26M
+Make -f RISCOS/Makefile Programs/_freeze_importlib
 
 Programs._freeze_importlib importlib._bootstrap_external Lib/importlib/_bootstrap_external.py Python/importlib_external.h.new
 

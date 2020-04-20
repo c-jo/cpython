@@ -13,7 +13,7 @@ keep_suffix = [ \
 ]
 
 
-os.system('Wipe build.!Python3 rf~c~v { > null: }')
+os.system('X Wipe build.!Python3 rf~c~v')
 
 # Copy a file
 def copy(src,dst,typ=None):
@@ -107,7 +107,7 @@ def lib_copy(srcdir,tgtroot):
                              os.path.join(here, target, dst+suf),typ)
             else:
                src = os.path.join(here, path,   file)
-               dst = os.path.join(here, tgtdir, file)
+               dst = os.path.join(here, target, tgtdir, file)
                copy(src,dst)
 
 lib_copy('Lib','Lib')
