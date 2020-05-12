@@ -196,7 +196,7 @@ class build_py (Command):
 
         # Require __init__.py for all but the "root package"
         if package:
-            init_py = os.path.join(package_dir, "__init__.py")
+            init_py = os.path.join(package_dir, f"__init__{os.extsep}py")
             if os.path.isfile(init_py):
                 return init_py
             else:
@@ -216,7 +216,7 @@ class build_py (Command):
 
     def find_package_modules(self, package, package_dir):
         self.check_package(package, package_dir)
-        module_files = glob(os.path.join(package_dir, "*.py"))
+        module_files = glob(os.path.join(package_dir, f"*{os.extsep}py"))
         modules = []
         setup_script = os.path.abspath(self.distribution.script_name)
 
@@ -273,7 +273,8 @@ class build_py (Command):
             # XXX perhaps we should also check for just .pyc files
             # (so greedy closed-source bastards can distribute Python
             # modules too)
-            module_file = os.path.join(package_dir, module_base + ".py")
+            module_file = os.path.join(package_dir,
+                                       module_base + os.extsep + "py")
             if not self.check_module(module, module_file):
                 continue
 
@@ -293,6 +294,7 @@ class build_py (Command):
         if self.packages:
             for package in self.packages:
                 package_dir = self.get_package_dir(package)
+                print("package:",package,package_dir)
                 m = self.find_package_modules(package, package_dir)
                 modules.extend(m)
         return modules
@@ -301,7 +303,7 @@ class build_py (Command):
         return [module[-1] for module in self.find_all_modules()]
 
     def get_module_outfile(self, build_dir, package, module):
-        outfile_path = [build_dir] + list(package) + [module + ".py"]
+        outfile_path = [build_dir] + list(package) + [module + os.extsep + "py"]
         return os.path.join(*outfile_path)
 
     def get_outputs(self, include_bytecode=1):

@@ -151,6 +151,16 @@ def change_root (new_root, pathname):
             path = path[1:]
         return os.path.join(new_root, path)
 
+    elif os.name == 'riscos':
+        if pathname[-1:] == '.':
+            print(".")
+            pathname = pathname[:-1]
+        path = os.path.canonicalise(pathname)
+        pos = path.find('$')
+        if pos > -1:
+            path = path[pos+2:]
+        return os.path.join(new_root, path)
+
     else:
         raise DistutilsPlatformError("nothing known about platform '%s'" % os.name)
 
@@ -195,13 +205,15 @@ def subst_vars (s, local_vars):
     check_environ()
     def _subst (match, local_vars=local_vars):
         var_name = match.group(1)
+        if var_name == '$':
+            return '$'
         if var_name in local_vars:
             return str(local_vars[var_name])
         else:
             return os.environ[var_name]
 
     try:
-        return re.sub(r'\$([a-zA-Z_][a-zA-Z_0-9]*)', _subst, s)
+        return re.sub(r'\$(\$|[a-zA-Z_][a-zA-Z_0-9]*)', _subst, s)
     except KeyError as var:
         raise ValueError("invalid variable '$%s'" % var)
 
@@ -433,7 +445,7 @@ byte_compile(files, optimize=%r, force=%r,
         from py_compile import compile
 
         for file in py_files:
-            if file[-3:] != ".py":
+            if file[-3:] != os.extsep+"py":
                 # This lets us be lazy and not filter filenames in
                 # the "install_lib" command.
                 continue

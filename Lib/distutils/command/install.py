@@ -43,6 +43,13 @@ INSTALL_SCHEMES = {
         'data'   : '$base',
         },
     'nt': WINDOWS_SCHEME,
+    'riscos': {
+        'purelib': '<Python$py_version_short$$Prefix>.Site-Packages',
+        'platlib': '<Python$py_version_short$$Prefix>.Site-Packages',
+        'headers': '<Python3$$Dir>.Include',
+        'scripts': '<Python3$$Dir>.Scripts',
+        'data'   : '<Python3$$Dir>',
+        },
     }
 
 # user site schemes
@@ -585,7 +592,7 @@ class install(Command):
     def create_path_file(self):
         """Creates the .pth file"""
         filename = os.path.join(self.install_libbase,
-                                self.path_file + ".pth")
+                                self.path_file + os.extsep + "pth")
         if self.install_path_file:
             self.execute(write_file,
                          (filename, [self.extra_dirs]),
@@ -609,7 +616,7 @@ class install(Command):
 
         if self.path_file and self.install_path_file:
             outputs.append(os.path.join(self.install_libbase,
-                                        self.path_file + ".pth"))
+                                        self.path_file + os.extsep + "pth"))
 
         return outputs
 

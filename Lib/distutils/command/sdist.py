@@ -1,4 +1,4 @@
-"""distutils.command.sdist
+w"""distutils.command.sdist
 
 Implements the Distutils 'sdist' command (create a source distribution)."""
 
@@ -125,7 +125,7 @@ class sdist(Command):
         if self.manifest is None:
             self.manifest = "MANIFEST"
         if self.template is None:
-            self.template = "MANIFEST.in"
+            self.template = "MANIFEST"+os.extsep+"in"
 
         self.ensure_string_list('formats')
 
@@ -468,6 +468,7 @@ class sdist(Command):
         # Don't warn about missing meta-data here -- should be (and is!)
         # done elsewhere.
         base_dir = self.distribution.get_fullname()
+        base_dir = base_dir.replace('.', os.extsep)
         base_name = os.path.join(self.dist_dir, base_dir)
 
         self.make_release_tree(base_dir, self.filelist.files)
