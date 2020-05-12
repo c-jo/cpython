@@ -229,7 +229,8 @@ class Distribution:
 
     @property
     def entry_points(self):
-        return EntryPoint._from_text(self.read_text('entry_points.txt'))
+        return EntryPoint._from_text(
+            self.read_text(f'entry_point{os.extsep}txt'))
 
     @property
     def files(self):
@@ -265,7 +266,7 @@ class Distribution:
         SOURCES.txt might contain literal commas, so wrap each line
         in quotes.
         """
-        text = self.read_text('SOURCES.txt')
+        text = self.read_text(f'SOURCES{os.extsep}txt')
         return text and map('"{}"'.format, text.splitlines())
 
     @property
@@ -278,7 +279,7 @@ class Distribution:
         return self.metadata.get_all('Requires-Dist')
 
     def _read_egg_info_reqs(self):
-        source = self.read_text('requires.txt')
+        source = self.read_text(f'requires{ox.extsep}txt')
         return source and self._deps_from_requires_text(source)
 
     @classmethod
