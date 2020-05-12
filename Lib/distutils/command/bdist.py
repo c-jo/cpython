@@ -58,7 +58,8 @@ class bdist(Command):
     # This won't do in reality: will need to distinguish RPM-ish Linux,
     # Debian-ish Linux, Solaris, FreeBSD, ..., Windows, Mac OS.
     default_format = {'posix': 'gztar',
-                      'nt': 'zip'}
+                      'nt': 'zip',
+                      'riscos': 'zip'}
 
     # Establish the preferred order (for the --help-formats option).
     format_commands = ['rpm', 'gztar', 'bztar', 'xztar', 'ztar', 'tar',

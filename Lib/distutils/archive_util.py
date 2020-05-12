@@ -71,8 +71,8 @@ def make_tarball(base_name, base_dir, compress="gzip", verbose=0, dry_run=0,
     """
     tar_compression = {'gzip': 'gz', 'bzip2': 'bz2', 'xz': 'xz', None: '',
                        'compress': ''}
-    compress_ext = {'gzip': '.gz', 'bzip2': '.bz2', 'xz': '.xz',
-                    'compress': '.Z'}
+    compress_ext = {'gzip': os.extsep+'gz', 'bzip2': os.extsep+'bz2',
+                    'xz': os.extsep+'xz', 'compress': os.extsep+'Z'}
 
     # flags for compression program, each element of list will be an argument
     if compress is not None and compress not in compress_ext.keys():
@@ -80,7 +80,7 @@ def make_tarball(base_name, base_dir, compress="gzip", verbose=0, dry_run=0,
               "bad value for 'compress': must be None, 'gzip', 'bzip2', "
               "'xz' or 'compress'")
 
-    archive_name = base_name + '.tar'
+    archive_name = base_name + os.extsep + 'tar'
     if compress != 'compress':
         archive_name += compress_ext.get(compress, '')
 
@@ -133,7 +133,7 @@ def make_zipfile(base_name, base_dir, verbose=0, dry_run=0):
     available, raises DistutilsExecError.  Returns the name of the output zip
     file.
     """
-    zip_filename = base_name + ".zip"
+    zip_filename = base_name + os.extsep + "zip"
     mkpath(os.path.dirname(zip_filename), dry_run=dry_run)
 
     # If zipfile module is not available, try spawning an external

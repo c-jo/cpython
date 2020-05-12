@@ -352,7 +352,7 @@ Common commands: (see '--help-commands' for more)
         sys_dir = os.path.dirname(sys.modules['distutils'].__file__)
 
         # Look for the system config file
-        sys_file = os.path.join(sys_dir, "distutils.cfg")
+        sys_file = os.path.join(sys_dir, f"distutils{os.extsep}cfg")
         if os.path.isfile(sys_file):
             files.append(sys_file)
 
@@ -360,7 +360,7 @@ Common commands: (see '--help-commands' for more)
         if os.name == 'posix':
             user_filename = ".pydistutils.cfg"
         else:
-            user_filename = "pydistutils.cfg"
+            user_filename = f"pydistutils{os.extsep}cfg"
 
         # And look for the user config file
         if self.want_user_cfg:
@@ -369,7 +369,7 @@ Common commands: (see '--help-commands' for more)
                 files.append(user_file)
 
         # All platforms support local setup.cfg
-        local_file = "setup.cfg"
+        local_file = f"setup{os.extsep}cfg"
         if os.path.isfile(local_file):
             files.append(local_file)
 
