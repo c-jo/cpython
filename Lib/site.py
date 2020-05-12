@@ -91,6 +91,8 @@ ENABLE_USER_SITE = None
 USER_SITE = None
 USER_BASE = None
 
+if os.name == 'riscos':
+    ENABLE_USER_SITE = False
 
 def makepath(*paths):
     dir = os.path.join(*paths)
@@ -207,7 +209,7 @@ def addsitedir(sitedir, known_paths=None):
         names = os.listdir(sitedir)
     except OSError:
         return
-    names = [name for name in names if name.endswith(".pth")]
+    names = [name for name in names if name.endswith(os.extsep+"pth")]
     for name in sorted(names):
         addpackage(sitedir, name, known_paths)
     if reset:
