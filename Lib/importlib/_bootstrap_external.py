@@ -1445,7 +1445,10 @@ class FileFinder:
             loaders.extend((suffix, loader) for suffix in suffixes)
         self._loaders = loaders
         # Base (directory) path
-        self.path = path or '.'
+        if sys.platform == 'riscos':
+            self.path = path or '@'
+        else:
+            self.path = path or '.'
         self._path_mtime = -1
         self._path_cache = set()
         self._relaxed_path_cache = set()
