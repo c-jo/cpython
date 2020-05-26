@@ -19,6 +19,9 @@ from site import USER_BASE
 from site import USER_SITE
 HAS_USER_SITE = True
 
+if os.name == 'riscos':
+    HAS_USER_SITE = False
+
 WINDOWS_SCHEME = {
     'purelib': '$base/Lib/site-packages',
     'platlib': '$base/Lib/site-packages',

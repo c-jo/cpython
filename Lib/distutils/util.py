@@ -152,8 +152,12 @@ def change_root (new_root, pathname):
         return os.path.join(new_root, path)
 
     elif os.name == 'riscos':
+        if len(pathname) == 0:
+            return new_root
+        else:
+            return os.path.join(new_root,pathname)
+
         if pathname[-1:] == '.':
-            print(".")
             pathname = pathname[:-1]
         path = os.path.canonicalise(pathname)
         pos = path.find('$')

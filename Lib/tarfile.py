@@ -418,10 +418,14 @@ class _Stream:
                                             0)
         timestamp = struct.pack("<L", int(time.time()))
         self.__write(b"\037\213\010\010" + timestamp + b"\002\377")
-        if self.name.endswith(".gz"):
+        if self.name.endswith(os.extsep+"gz"):
             self.name = self.name[:-3]
         # RFC1952 says we must use ISO-8859-1 for the FNAME field.
-        self.__write(self.name.encode("iso-8859-1", "replace") + NUL)
+        if os.name == 'riscos':
+            name = self.name.translate(str.maketrans('./','/.'))
+        else:
+            name = self.name
+        self.__write(name.encode("iso-8859-1", "replace") + NUL)
 
     def write(self, s):
         """Write string s to the stream.
@@ -1583,7 +1587,6 @@ class TarFile(object):
            'w|bz2'      open a bzip2 compressed stream for writing
            'w|xz'       open an lzma compressed stream for writing
         """
-
         if not name and not fileobj:
             raise ValueError("nothing to open")
 
@@ -1941,6 +1944,9 @@ class TarFile(object):
 
         if arcname is None:
             arcname = name
+
+        if os.name == 'riscos':
+            arcname = arcname.translate(str.maketrans('./','/.'))
 
         # Skip if somebody tries to archive the archive...
         if self.name is not None and os.path.abspath(name) == self.name:
