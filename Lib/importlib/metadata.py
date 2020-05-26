@@ -400,13 +400,21 @@ class MetadataPathFinder(DistributionFinder):
     def _matches_info(cls, normalized, item):
         template = r'{pattern}(-.*)?\.(dist|egg)-info'
         manifest = template.format(pattern=normalized)
-        return re.match(manifest, item.name, flags=re.IGNORECASE)
+        if os.name == 'riscos':
+            name = item.name.translate(str.maketrans('./','/.'))
+        else:
+            name = item.name
+        return re.match(manifest, name, flags=re.IGNORECASE)
 
     @classmethod
     def _matches_legacy(cls, normalized, item):
         template = r'{pattern}-.*\.egg[\\/]EGG-INFO'
         manifest = template.format(pattern=normalized)
-        return re.search(manifest, str(item), flags=re.IGNORECASE)
+        if os.name == 'riscos':
+            name = str(item).translate(str.maketrans('./','/.'))
+        else:
+            name = str(item)
+        return re.search(manifest, name, flags=re.IGNORECASE)
 
     @classmethod
     def _search_path(cls, root, pattern):

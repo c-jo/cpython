@@ -114,6 +114,10 @@ class EnvBuilder:
             binname = 'Scripts'
             incpath = 'Include'
             libpath = os.path.join(env_dir, 'Lib', 'site-packages')
+        elif sys.platform == 'riscos':
+            binname = 'Scripts'
+            incpath = 'h'
+            libpath = os.path.join(env_dir, 'Lib', 'site-packages')
         else:
             binname = 'bin'
             incpath = 'include'
@@ -144,7 +148,8 @@ class EnvBuilder:
         :param context: The information for the environment creation request
                         being processed.
         """
-        context.cfg_path = path = os.path.join(context.env_dir, 'pyvenv.cfg')
+        context.cfg_path = path = os.path.join(context.env_dir,
+                                               'pyvenv'+os.path.extsep+'cfg')
         with open(path, 'w', encoding='utf-8') as f:
             f.write('home = %s\n' % context.python_dir)
             if self.system_site_packages:
