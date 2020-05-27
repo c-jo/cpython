@@ -1,8 +1,16 @@
 | !Run file for RISC OS Python 3
 
-| Enure we claim these
-Unset Alias$@RunType_a73
+Unset Python3$Dir
+Unset Python3.8$Prefix
+Unset Python3.8$ExecPrefix
+
+Unset File$Type_a73
+Unset File$Type_a74
+Unset File$Type_a75
+
+Unset Alias$RunType_a73
 Unset Alias$python3
 
 Run <Obey$Dir>.!Boot
-TaskWindow "<Python3$Dir>.python3 %*0" -name "Python 3" -ctrl -quit -wimpslot 16M
+
+TaskWindow "python3 %*0" -name "Python 3" -ctrl -quit -wimpslot 8M
