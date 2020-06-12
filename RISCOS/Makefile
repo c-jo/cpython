@@ -456,7 +456,7 @@ platform: $(BUILDPYTHON) pybuilddir
 # initialization to succeed.  It will be overwritten by generate-posix-vars
 # or removed in case of failure.
 pybuilddir: $(BUILDPYTHON)
-	@echo "none" > ./pybuilddir
+	@echo "none" > ./pybuilddir.txt
 	$(RUNSHARED) $(PYTHON_FOR_BUILD) -S -m sysconfig --generate-posix-vars ;\
 	if test $$? -ne 0 ; then \
 		echo "generate-posix-vars failed" ; \

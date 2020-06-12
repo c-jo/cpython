@@ -413,7 +413,7 @@ def _generate_posix_vars():
 
     if sys.platform == 'riscos':
        pybuilddir = 'build.lib_%s-%s' % (get_platform(), _PY_VERSION_SHORT_NO_DOT)
-       builddir = 'pybuilddir'
+       builddir = 'pybuilddir/txt'
     else:
         pybuilddir = 'build/lib.%s-%s' % (get_platform(), _PY_VERSION_SHORT)
         builddir = 'pybuilddir.txt'

@@ -1646,6 +1646,18 @@ MAXFTPCACHE = 10        # Trim the ftp cache beyond this size
 # Helper for non-unix systems
 if os.name == 'nt':
     from nturl2path import url2pathname, pathname2url
+elif os.name == 'riscos':
+    def url2pathname(pathname):
+        """OS-specific conversion from a relative URL of the 'file' scheme
+        to a file system path; not recommended for general use."""
+        while pathname[0] == '/':
+            pathname = pathname[1:]
+        return unquote(pathname.translate(str.maketrans('./','/.')))
+
+    def pathname2url(pathname):
+        """OS-specific conversion from a file system path to a relative URL
+        of the 'file' scheme; not recommended for general use."""
+        return quote(pathname.translate(str.maketrans('/.','./')))
 else:
     def url2pathname(pathname):
         """OS-specific conversion from a relative URL of the 'file' scheme
