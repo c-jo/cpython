@@ -78,8 +78,7 @@ Changed env vars to PythonX.Y$Prefix and PythonX.Y$ExecPrefix
 Fixed imports from script directory.
 Added 'u' (unsigned integer) to swi interface.
 
-3.8.0a5
-Fixed bug in socket.accept
+3.8.0a5 Fixed bug in socket.accept
 *!* Changed unsigned int swi to 'I' ('u' now deprecated)
 Work-around for partial-second waits in timermodule.
 Where available, use 'TimerMod' for higher resolution monotonic time.
@@ -92,5 +91,7 @@ Added os.read_catalogue_into / os.write_catalogue_info
 Added RISC OS support to zipfile.
 Fixed RISC OS time handling in xmlrpc client.
 
-3.8.0a6
-Iniital pip support.
+3.8.0rc6
+UrlLib: Added RISC OS url2pathname/pathname2url
+Subprocess; Use TaskRunner module on RISC OS
+Initial PIP support.

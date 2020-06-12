@@ -7,7 +7,7 @@
 # Licensed to PSF under a Contributor Agreement.
 # See http://www.python.org/2.4/license for licensing details.
 
-r"""Subprocesses with accessible I/O streams
+"""Subprocesses with accessible I/O streams
 
 This module allows you to spawn processes, connect to their
 input/output/error pipes, and obtain their return codes.
@@ -66,8 +66,12 @@ try:
     _mswindows = True
 except ModuleNotFoundError:
     _mswindows = False
-    _riscos = sys.platform == 'riscos'
-    if not _riscos:
+    try:
+        import swi
+        swi.swi('OS_CLI','s','RMEnsure TaskRunner 0.10')
+        _riscos = True
+    except ModuleNotFoundError:
+        _riscos = False
         import _posixsubprocess
         import select
         import selectors
@@ -93,6 +97,47 @@ else:
                     "CREATE_NO_WINDOW", "DETACHED_PROCESS",
                     "CREATE_DEFAULT_ERROR_MODE", "CREATE_BREAKAWAY_FROM_JOB"])
 
+if _riscos:
+    def escape_arg(arg):
+        if arg.find(' ') == -1:
+            return arg
+        return '"' + arg.replace('"', '""') + '"'
+
+    def escape_args(args):
+        if isinstance(args,str):
+            return [escape_arg(args)]
+        else:
+            return [escape_arg(a) for a in args]
+
+    class TaskRunnerInput(object):
+        def __init__(self, task_id):
+            self._task_id = task_id
+            self._open    = True
+
+        def close(self):
+            self._open = False
+
+    class TaskRunnerOutput(object):
+        def __init__(self, task_id):
+            self._task_id = task_id
+            self._data = b''
+
+        def readline(self):
+            block = swi.block(256)
+            while True:
+                got = swi.swi('TaskRunner_Output','ibi;i',
+                              self._task_id, block, 256)
+                st  = swi.swi('TaskRunner_Poll','i;i',self._task_id)
+                if got > 0:
+                    self._data += block.tobytes(0, got)
+                parts = self._data.split(b'\n', 1)
+                if len(parts) > 1:
+                    self._data = parts[1]
+                    return parts[0]+b'\n'
+                if st == 0b1000 or st == 0b1001:
+                    rest = self._data
+                    self._data = b''
+                    return rest
 
 # Exception classes used by this module.
 class SubprocessError(Exception): pass
@@ -205,9 +250,7 @@ if _mswindows:
             return "%s(%d)" % (self.__class__.__name__, int(self))
 
         __del__ = Close
-elif _riscos:
-    pass
-else:
+elif not _riscos:
     # When select or poll has indicated that the file is writable,
     # we can write up to _PIPE_BUF bytes without risk of blocking.
     # POSIX defines PIPE_BUF as >= 512.
@@ -488,7 +531,7 @@ def run(*popenargs,
             raise ValueError('stdout and stderr arguments may not be used '
                              'with capture_output.')
         kwargs['stdout'] = PIPE
-        kwargs['stderr'] = STDOUT if _riscos else PIPE
+        kwargs['stderr'] = PIPE
 
     with Popen(*popenargs, **kwargs) as process:
         try:
@@ -684,18 +727,6 @@ def _use_posix_spawn():
 
 _USE_POSIX_SPAWN = _use_posix_spawn()
 
-if _riscos:
-    import random
-    def generate_scrap_name():
-        scrap_dir = '<Wimp$ScrapDir>.Python3'
-        os.makedirs(scrap_dir, exist_ok=True)
-        chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        while True:
-            name = os.path.join(scrap_dir,'')
-            for c in range(0,10):
-                name += chars[random.randint(0,len(chars)-1)]
-            if not os.path.exists(name):
-                return name
 
 class Popen(object):
     """ Execute a child program in a new process.
@@ -706,19 +737,20 @@ class Popen(object):
       args: A string, or a sequence of program arguments.
 
       bufsize: supplied as the buffering argument to the open() function when
-          creating the stdin/stdout/stderr pipe file objects.
+          creating the stdin/stdout/stderr pipe file objects
 
       executable: A replacement program to execute.
 
       stdin, stdout and stderr: These specify the executed programs' standard
           input, standard output and standard error file handles, respectively.
+          RISC OS ignores stderr (as if stderr=stdout)
 
       preexec_fn: (POSIX only) An object to be called in the child process
           just before the child is executed.
 
-      close_fds: Controls closing or inheriting of file descriptors.
+      close_fds: (POSIX/Windows) Controls closing or inheriting of file descriptors.
 
-      shell: If true, the command will be executed through the shell.
+      shell: (POSIX/Windows) If true, the command will be executed through the shell.
 
       cwd: Sets the current directory before the child is executed.
 
@@ -737,13 +769,13 @@ class Popen(object):
 
       pass_fds (POSIX only)
 
+      wimpslot (RISCOS only) Wimpslot to allocate for child (in KB)
+
       encoding and errors: Text mode encoding and error handling to use for
           file objects stdin, stdout and stderr.
 
     Attributes:
         stdin, stdout, stderr, pid, returncode
-
-    RISC OS only provides a very limited implementation of Popen.
     """
     _child_created = False  # Set here since __del__ checks it
 
@@ -753,7 +785,8 @@ class Popen(object):
                  shell=False, cwd=None, env=None, universal_newlines=None,
                  startupinfo=None, creationflags=0,
                  restore_signals=True, start_new_session=False,
-                 pass_fds=(), *, encoding=None, errors=None, text=None):
+                 pass_fds=(), *, encoding=None, errors=None, text=None,
+                 wimpslot=None):
         """Create new Popen instance."""
         _cleanup()
         # Held while anything is calling waitpid before returncode has been
@@ -773,6 +806,13 @@ class Popen(object):
         if _mswindows:
             if preexec_fn is not None:
                 raise ValueError("preexec_fn is not supported on Windows "
+                                 "platforms")
+        elif _riscos:
+            self._task_id = 0 # TaskRunner ID
+            self._output_redirected = False
+
+            if preexec_fn is not None:
+                raise ValueError("preexec_fn is not supported on RISC OS "
                                  "platforms")
         else:
             # POSIX
@@ -801,38 +841,6 @@ class Popen(object):
             raise SubprocessError('Cannot disambiguate when both text '
                                   'and universal_newlines are supplied but '
                                   'different. Pass one or the other.')
-
-        # RISC OS has a very limited implemenation. We bascially os.system the
-        # command using either native redirection or C-style if stderr capture is
-        # requested. We can't be sure it will work, but it's about the best we can
-        # do. If stdin redirection is needed we delay the command until later,
-        # as we need to put the data into the pipe before we os.system.
-        if _riscos:
-            self.redirection = ''
-            ro_redir = stdin or stdout and (not stderr or stderr == STDOUT)
-            if ro_redir:
-                self.redirection += ' {'
-            if stdin == PIPE:
-                self.stdin = generate_scrap_name()
-                redirection += ' < ' + self.stdin
-            if stdin == DEVNULL:
-                self.redirection += ' < null:'
-            if stdout == PIPE:
-                self.stdout = generate_scrap_name()
-                self.redirection += ' > ' + self.stdout
-            if stdout == DEVNULL:
-                self.redirection += ' > null:'
-            if stderr == PIPE:
-                self.stderr = generate_scrap_name()
-                self.redirection += ' 2> ' + self.stderr
-            if stderr == DEVNULL:
-                self.redirection += ' 2> null:'
-            if ro_redir:
-                self.redirection += ' }'
-
-            if not self.stdin:
-                self.returncode = os.system(' '.join(self.args)+self.redirection)
-            return
 
         # Input and output objects. The general principle is like
         # this:
@@ -883,18 +891,38 @@ class Popen(object):
             else:
                 line_buffering = False
 
-        try:
-            if p2cwrite != -1:
-                self.stdin = io.open(p2cwrite, 'wb', bufsize)
+        if _riscos:
+            cmd = ' '.join(escape_args(self.args))
+            #print("cmd: {}".format(cmd))
+            if cwd:
+                flags = 1
+                self._task_id = \
+                    swi.swi('TaskRunner_Run','isis;i', 1, cmd,
+                            wimpslot if wimpslot else 16*1024, cwd )
+            else:
+                self._task_id = \
+                    swi.swi('TaskRunner_Run','isi0;i', 0, cmd,
+                            wimpslot if wimpslot else 16*1024 )
+
+            if stdin is not None:
+                self.stdin = TaskRunnerInput(self._task_id)
                 if self.text_mode:
-                    self.stdin = io.TextIOWrapper(self.stdin, write_through=True,
+                    self.stdin = io.TextIOWrapper(self.stdin,
+                            write_through=True,
                             line_buffering=line_buffering,
                             encoding=encoding, errors=errors)
-            if c2pread != -1:
-                self.stdout = io.open(c2pread, 'rb', bufsize)
+
+            if stdout is not None:
+                self._output_redirected = True
+                self.stdout = TaskRunnerOutput(self._task_id)
                 if self.text_mode:
                     self.stdout = io.TextIOWrapper(self.stdout,
                             encoding=encoding, errors=errors)
+            return
+
+        try:
+            if p2cwrite != -1:
+                self.stdin = io.open(p2cwrite, 'wb', bufsize)
             if errread != -1:
                 self.stderr = io.open(errread, 'rb', bufsize)
                 if self.text_mode:
@@ -1003,6 +1031,8 @@ class Popen(object):
         return self._devnull
 
     def _stdin_write(self, input):
+        if _riscos:
+            raise RunTimeError('stdin_write not implemented.')
         if input:
             try:
                 self.stdin.write(input)
@@ -1047,30 +1077,6 @@ class Popen(object):
 
         if self._communication_started and input:
             raise ValueError("Cannot send input after starting communication")
-
-        if _riscos:
-            self._communication_started = True
-            if self.returncode is None:
-                if self.stdin:
-                    with open(self.stdin, 'wb') as f:
-                        if input:
-                            f.write(input)
-                self.returncode = os.system(' '.join(self.args)+self.redirection)
-            def read_file(filename):
-                 data = b''
-                 with open(filename, 'rb') as f:
-                     while True:
-                         block = f.read(1024)
-                         if len(block) == 0:
-                             break
-                         data += block
-                 os.remove(filename)
-                 return data
-            stdout = read_file(self.stdout) if self.stdout else None
-            stderr = read_file(self.stderr) if self.stderr else None
-            if self.stdin:
-                os.remove(self.stdin)
-            return (stdout,stderr)
 
         # Optimization: If we are not worried about timeouts, we haven't
         # started communicating, and we have one or zero pipes, using select()
@@ -1122,8 +1128,6 @@ class Popen(object):
     def poll(self):
         """Check if child process has terminated. Set and return returncode
         attribute."""
-        if _riscos:
-            return self.returncode
         return self._internal_poll()
 
 
@@ -1148,8 +1152,6 @@ class Popen(object):
 
 
     def wait(self, timeout=None):
-        if _riscos:
-            return self.returncode
         """Wait for child process to terminate; returns self.returncode."""
         if timeout is not None:
             endtime = _time() + timeout
@@ -1527,7 +1529,104 @@ class Popen(object):
                 self.returncode = rc
 
         kill = terminate
-    elif not _riscos:
+
+    elif _riscos:
+        #
+        # RISC OS methods
+        #
+        def _get_handles(self, stdin, stdout, stderr):
+            """Construct and return tuple with IO objects:
+            p2cread, p2cwrite, c2pread, c2pwrite, errread, errwrite
+            """
+            return (-1, -1, -1, -1, -1, -1)
+
+        def _handle_output(self):
+            if not self._output_redirect:
+                block = swi.block(1024)
+                while True:
+                    got = swi.swi('TaskRunner_Output','ibi;i',
+                                   self._task_id, block, 1024)
+                    if got == 0:
+                        break
+                    swi.swi('OS_WriteN','bi', block, got)
+
+        def _internal_poll(self):
+            if self._task_id:
+                st,rc = swi.swi( \
+                    'TaskRunner_Poll','i;ii',self._task_id)
+            if st == 0b1000 or st == 0b1001:
+                 self.returncode = rc
+                 self._handle_output()
+                 swi.swi('TaskRunner_Close','i',self._task_id)
+            return self.returncode
+
+        def _wait(self, timeout):
+            """Internal implementation of wait() on RISC OS."""
+            if self.returncode is not None:
+                return self.returncode
+
+            if timeout is not None:
+                endtime = _time() + timeout
+                delay = 0.0005 # 500 us -> initial delay of 1 ms
+                while True:
+                    remaining = self._remaining_time(endtime)
+                    if remaining <= 0:
+                        raise TimeoutExpired(self.args, timeout)
+                    delay = min(delay * 2, remaining, .05)
+                    time.sleep(delay)
+
+                    st, rc = swi.swi('TaskRunner_Poll','i;ii', self._task_id)
+                    if st == 0b1000 or st == 0b1001:
+                         self.returncode = rc
+            else:
+                while self.returncode is None:
+                    time.sleep(0.010)
+                    st, rc = swi.swi('TaskRunner_Poll','i;ii', self._task_id)
+                    if st == 0b1000 or st == 0b1001:
+                         self.returncode = rc
+
+            return self.returncode
+
+        def _communicate(self, input, endtime, orig_timeout):
+            # Wait for the task to start running
+            _state = 0
+            while _state < 0x8:
+                if endtime and _time() > endtime:
+                    break
+
+                time.sleep(0.005)
+                _state = swi.swi('TaskRunner_State','i;i',self._task_id)
+
+            if input:
+                swi.swi('TaskRunner_Input','iyi',
+                             self._task_id, input, len(input))
+
+            stdout = None
+            stderr = None
+
+            while self.returncode is None:
+                if endtime and _time() > endtime:
+                    break
+
+                time.sleep(0.005)
+                _state,rc=swi.swi('TaskRunner_State','i;ii',self._task_id)
+                self._handle_output()
+                if _state == 0x0f:
+                    self.returncode = rc
+
+                # Translate newlines, if requested.
+                # This also turns bytes into strings.
+                if self.text_mode:
+                    if stdout is not None:
+                        stdout = self._translate_newlines(stdout,
+                                      self.stdout.encoding, self.stdout.errors)
+                    if stderr is not None:
+                        stderr = self._translate_newlines(stderr,
+                                      self.stderr.encoding, self.stderr.errors)
+
+            return (stdout, stderr)
+
+    else:
         #
         # POSIX methods
         #
@@ -2000,7 +2099,21 @@ class Popen(object):
                     self._input = self._input.encode(self.stdin.encoding,
                                                      self.stdin.errors)
 
+    if _riscos:
+        def send_signal(self, sig):
+            raise RuntimeError('send_signal not supported on RISC OS')
 
+        def terminate(self):
+            """Terminate the process
+            """
+            swi.swi('TaskRunner_Kill','i', self._task_id)
+
+        def kill(self):
+            """Kill the process
+            """
+            swi.swi('TaskRunner_Kill','i', self._task_id)
+
+    else:
         def send_signal(self, sig):
             """Send a signal to the process."""
             # Skip signalling a process that we know has already died.

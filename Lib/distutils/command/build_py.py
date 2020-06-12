@@ -294,7 +294,6 @@ class build_py (Command):
         if self.packages:
             for package in self.packages:
                 package_dir = self.get_package_dir(package)
-                print("package:",package,package_dir)
                 m = self.find_package_modules(package, package_dir)
                 modules.extend(m)
         return modules
