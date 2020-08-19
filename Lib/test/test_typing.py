@@ -220,6 +220,13 @@ class TypeVarTests(BaseTestCase):
         with self.assertRaises(TypeError):
             TypeVar('X', str, float, bound=Employee)
 
+    def test_missing__name__(self):
+        # See bpo-39942
+        code = ("import typing\n"
+                "T = typing.TypeVar('T')\n"
+                )
+        exec(code, {})
+
     def test_no_bivariant(self):
         with self.assertRaises(ValueError):
             TypeVar('T', covariant=True, contravariant=True)
@@ -2778,6 +2785,16 @@ except StopIteration as e:
 
 gth = get_type_hints
 
+class ForRefExample:
+    @ann_module.dec
+    def func(self: 'ForRefExample'):
+        pass
+
+    @ann_module.dec
+    @ann_module.dec
+    def nested(self: 'ForRefExample'):
+        pass
+
 
 class GetTypeHintTests(BaseTestCase):
     def test_get_type_hints_from_various_objects(self):
@@ -2876,6 +2893,11 @@ class GetTypeHintTests(BaseTestCase):
                           'x': ClassVar[Optional[B]]})
         self.assertEqual(gth(G), {'lst': ClassVar[List[T]]})
 
+    def test_get_type_hints_wrapped_decoratored_func(self):
+        expects = {'self': ForRefExample}
+        self.assertEqual(gth(ForRefExample.func), expects)
+        self.assertEqual(gth(ForRefExample.nested), expects)
+
 
 class GetUtilitiesTestCase(TestCase):
     def test_get_origin(self):
@@ -2891,6 +2913,9 @@ class GetUtilitiesTestCase(TestCase):
         self.assertIs(get_origin(Generic), Generic)
         self.assertIs(get_origin(Generic[T]), Generic)
         self.assertIs(get_origin(List[Tuple[T, T]][int]), list)
+        self.assertIs(get_origin(List), list)
+        self.assertIs(get_origin(Tuple), tuple)
+        self.assertIs(get_origin(Callable), collections.abc.Callable)
 
     def test_get_args(self):
         T = TypeVar('T')
@@ -2906,11 +2931,15 @@ class GetUtilitiesTestCase(TestCase):
                          (int, Tuple[str, int]))
         self.assertEqual(get_args(typing.Dict[int, Tuple[T, T]][Optional[int]]),
                          (int, Tuple[Optional[int], Optional[int]]))
-        self.assertEqual(get_args(Callable[[], T][int]), ([], int,))
+        self.assertEqual(get_args(Callable[[], T][int]), ([], int))
+        self.assertEqual(get_args(Callable[..., int]), (..., int))
         self.assertEqual(get_args(Union[int, Callable[[Tuple[T, ...]], str]]),
                          (int, Callable[[Tuple[T, ...]], str]))
         self.assertEqual(get_args(Tuple[int, ...]), (int, ...))
         self.assertEqual(get_args(Tuple[()]), ((),))
+        self.assertEqual(get_args(List), ())
+        self.assertEqual(get_args(Tuple), ())
+        self.assertEqual(get_args(Callable), ())
 
 
 class CollectionsAbcTests(BaseTestCase):

@@ -8,7 +8,7 @@ import os
 import re
 import sys
 import sysconfig
-from glob import glob
+from glob import glob, escape
 
 from distutils import log
 from distutils.command.build_ext import build_ext
@@ -146,7 +146,7 @@ def macosx_sdk_root():
         return MACOS_SDK_ROOT
 
     cflags = sysconfig.get_config_var('CFLAGS')
-    m = re.search(r'-isysroot\s+(\S+)', cflags)
+    m = re.search(r'-isysroot\s*(\S+)', cflags)
     if m is not None:
         MACOS_SDK_ROOT = m.group(1)
     else:
@@ -341,10 +341,11 @@ class PyBuildExt(build_ext):
 
         # Python header files
         headers = [sysconfig.get_config_h_filename()]
+
         if RISCOS:
             headers += glob(os.path.join(sysconfig.get_path('include'),'h',"*"))
         else:
-            headers += glob(os.path.join(sysconfig.get_path('include'), "*.h"))
+            headers += glob(os.path.join(escape(sysconfig.get_path('include')), "*.h"))
 
         # The sysconfig variables built by makesetup that list the already
         # built modules and the disabled modules as configured by the Setup
@@ -2319,7 +2320,7 @@ class PyBuildExt(build_ext):
         self.add(Extension('_sha1', ['sha1module.c'],
                            depends=['hashlib.h']))
 
-        blake2_deps = glob(os.path.join(self.srcdir,
+        blake2_deps = glob(os.path.join(escape(self.srcdir),
                                         'Modules/_blake2/impl/*'))
         blake2_deps.append('hashlib.h')
 
@@ -2329,7 +2330,7 @@ class PyBuildExt(build_ext):
                             '_blake2/blake2s_impl.c'],
                            depends=blake2_deps))
 
-        sha3_deps = glob(os.path.join(self.srcdir,
+        sha3_deps = glob(os.path.join(escape(self.srcdir),
                                       'Modules/_sha3/kcp/*'))
         sha3_deps.append('hashlib.h')
         self.add(Extension('_sha3',

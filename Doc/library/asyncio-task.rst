@@ -385,6 +385,14 @@ Running Tasks Concurrently
       #     Task C: Compute factorial(4)...
       #     Task C: factorial(4) = 24
 
+   .. note::
+      If *return_exceptions* is False, cancelling gather() after it
+      has been marked done won't cancel any submitted awaitables.
+      For instance, gather can be marked done after propagating an
+      exception to the caller, therefore, calling ``gather.cancel()``
+      after catching an exception (raised by one of the awaitables) from
+      gather won't cancel any other awaitables.
+
    .. versionchanged:: 3.7
       If the *gather* itself is cancelled, the cancellation is
       propagated regardless of *return_exceptions*.
@@ -580,9 +588,9 @@ Waiting Primitives
 .. function:: as_completed(aws, \*, loop=None, timeout=None)
 
    Run :ref:`awaitable objects <asyncio-awaitables>` in the *aws*
-   set concurrently.  Return an iterator of :class:`Future` objects.
-   Each Future object returned represents the earliest result
-   from the set of the remaining awaitables.
+   set concurrently.  Return an iterator of coroutines.
+   Each coroutine returned can be awaited to get the earliest next
+   result from the set of the remaining awaitables.
 
    Raises :exc:`asyncio.TimeoutError` if the timeout occurs before
    all Futures are done.
@@ -592,8 +600,8 @@ Waiting Primitives
 
    Example::
 
-       for f in as_completed(aws):
-           earliest_result = await f
+       for coro in as_completed(aws):
+           earliest_result = await coro
            # ...
 
 

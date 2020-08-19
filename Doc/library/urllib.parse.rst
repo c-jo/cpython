@@ -68,15 +68,15 @@ or on combining URL components into a URL string.
    .. doctest::
       :options: +NORMALIZE_WHITESPACE
 
-       >>> from urllib.parse import urlparse
-       >>> urlparse('//www.cwi.nl:80/%7Eguido/Python.html')
-       ParseResult(scheme='', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
+      >>> from urllib.parse import urlparse
+      >>> urlparse('//www.cwi.nl:80/%7Eguido/Python.html')
+      ParseResult(scheme='', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
                   params='', query='', fragment='')
-       >>> urlparse('www.cwi.nl/%7Eguido/Python.html')
-       ParseResult(scheme='', netloc='', path='www.cwi.nl/%7Eguido/Python.html',
+      >>> urlparse('www.cwi.nl/%7Eguido/Python.html')
+      ParseResult(scheme='', netloc='', path='www.cwi.nl/%7Eguido/Python.html',
                   params='', query='', fragment='')
-       >>> urlparse('help/Python.html')
-       ParseResult(scheme='', netloc='', path='help/Python.html', params='',
+      >>> urlparse('help/Python.html')
+      ParseResult(scheme='', netloc='', path='help/Python.html', params='',
                   query='', fragment='')
 
    The *scheme* argument gives the default addressing scheme, to be
@@ -138,14 +138,14 @@ or on combining URL components into a URL string.
    .. doctest::
       :options: +NORMALIZE_WHITESPACE
 
-       >>> from urllib.parse import urlparse
-       >>> u = urlparse('//www.cwi.nl:80/%7Eguido/Python.html')
-       >>> u
-       ParseResult(scheme='', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
-                   params='', query='', fragment='')
-       >>> u._replace(scheme='http')
-       ParseResult(scheme='http', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
-                   params='', query='', fragment='')
+      >>> from urllib.parse import urlparse
+      >>> u = urlparse('//www.cwi.nl:80/%7Eguido/Python.html')
+      >>> u
+      ParseResult(scheme='', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
+                  params='', query='', fragment='')
+      >>> u._replace(scheme='http')
+      ParseResult(scheme='http', netloc='www.cwi.nl:80', path='/%7Eguido/Python.html',
+                  params='', query='', fragment='')
 
 
    .. versionchanged:: 3.2
@@ -529,7 +529,7 @@ task isn't already covered by the URL parsing functions above.
 
    .. versionchanged:: 3.7
       Moved from :rfc:`2396` to :rfc:`3986` for quoting URL strings. "~" is now
-      included in the set of reserved characters.
+      included in the set of unreserved characters.
 
    The optional *encoding* and *errors* parameters specify how to deal with
    non-ASCII characters, as accepted by the :meth:`str.encode` method.

@@ -3361,6 +3361,37 @@ class ConfigDictTest(BaseTest):
         self.assertRaises(ValueError, bc.convert, 'cfg://!')
         self.assertRaises(KeyError, bc.convert, 'cfg://adict[2]')
 
+    def test_namedtuple(self):
+        # see bpo-39142
+        from collections import namedtuple
+
+        class MyHandler(logging.StreamHandler):
+            def __init__(self, resource, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.resource: namedtuple = resource
+
+            def emit(self, record):
+                record.msg += f' {self.resource.type}'
+                return super().emit(record)
+
+        Resource = namedtuple('Resource', ['type', 'labels'])
+        resource = Resource(type='my_type', labels=['a'])
+
+        config = {
+            'version': 1,
+            'handlers': {
+                'myhandler': {
+                    '()': MyHandler,
+                    'resource': resource
+                }
+            },
+            'root':  {'level': 'INFO', 'handlers': ['myhandler']},
+        }
+        with support.captured_stderr() as stderr:
+            self.apply_config(config)
+            logging.info('some log')
+        self.assertEqual(stderr.getvalue(), 'some log my_type\n')
+
 class ManagerTest(BaseTest):
     def test_manager_loggerclass(self):
         logged = []
@@ -3590,9 +3621,9 @@ if hasattr(logging.handlers, 'QueueListener'):
 
         @patch.object(logging.handlers.QueueListener, 'handle')
         def test_handle_called_with_mp_queue(self, mock_handle):
-            # Issue 28668: The multiprocessing (mp) module is not functional
+            # bpo-28668: The multiprocessing (mp) module is not functional
             # when the mp.synchronize module cannot be imported.
-            support.import_module('multiprocessing.synchronize')
+            support.skip_if_broken_multiprocessing_synchronize()
             for i in range(self.repeat):
                 log_queue = multiprocessing.Queue()
                 self.setup_and_log(log_queue, '%s_%s' % (self.id(), i))
@@ -3616,9 +3647,9 @@ if hasattr(logging.handlers, 'QueueListener'):
             indicates that messages were not registered on the queue until
             _after_ the QueueListener stopped.
             """
-            # Issue 28668: The multiprocessing (mp) module is not functional
+            # bpo-28668: The multiprocessing (mp) module is not functional
             # when the mp.synchronize module cannot be imported.
-            support.import_module('multiprocessing.synchronize')
+            support.skip_if_broken_multiprocessing_synchronize()
             for i in range(self.repeat):
                 queue = multiprocessing.Queue()
                 self.setup_and_log(queue, '%s_%s' %(self.id(), i))

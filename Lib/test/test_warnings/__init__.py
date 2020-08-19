@@ -43,6 +43,10 @@ def warnings_state(module):
         module.filters = original_filters
 
 
+class TestWarning(Warning):
+    pass
+
+
 class BaseTest:
 
     """Basic bookkeeping required for testing."""
@@ -566,8 +570,27 @@ class WCmdLineTests(BaseTest):
                               self.module._setoption, 'bogus::Warning')
             self.assertRaises(self.module._OptionError,
                               self.module._setoption, 'ignore:2::4:-5')
+            with self.assertRaises(self.module._OptionError):
+                self.module._setoption('ignore::123')
+            with self.assertRaises(self.module._OptionError):
+                self.module._setoption('ignore::123abc')
+            with self.assertRaises(self.module._OptionError):
+                self.module._setoption('ignore::===')
+            with self.assertRaisesRegex(self.module._OptionError, 'Wärning'):
+                self.module._setoption('ignore::Wärning')
             self.module._setoption('error::Warning::0')
             self.assertRaises(UserWarning, self.module.warn, 'convert to error')
+
+    def test_import_from_module(self):
+        with original_warnings.catch_warnings(module=self.module):
+            self.module._setoption('ignore::Warning')
+            with self.assertRaises(self.module._OptionError):
+                self.module._setoption('ignore::TestWarning')
+            with self.assertRaises(self.module._OptionError):
+                self.module._setoption('ignore::test.test_warnings.bogus')
+            self.module._setoption('error::test.test_warnings.TestWarning')
+            with self.assertRaises(TestWarning):
+                self.module.warn('test warning', TestWarning)
 
 
 class CWCmdLineTests(WCmdLineTests, unittest.TestCase):
@@ -1176,13 +1199,13 @@ class EnvironmentVariableTests(BaseTest):
     @unittest.skipUnless(sys.getfilesystemencoding() != 'ascii',
                          'requires non-ascii filesystemencoding')
     def test_nonascii(self):
+        PYTHONWARNINGS="ignore:DeprecationWarning" + (support.FS_NONASCII or '')
         rc, stdout, stderr = assert_python_ok("-c",
             "import sys; sys.stdout.write(str(sys.warnoptions))",
             PYTHONIOENCODING="utf-8",
-            PYTHONWARNINGS="ignore:DeprecaciónWarning",
+            PYTHONWARNINGS=PYTHONWARNINGS,
             PYTHONDEVMODE="")
-        self.assertEqual(stdout,
-            "['ignore:DeprecaciónWarning']".encode('utf-8'))
+        self.assertEqual(stdout, str([PYTHONWARNINGS]).encode())
 
 class CEnvironmentVariableTests(EnvironmentVariableTests, unittest.TestCase):
     module = c_warnings

@@ -1509,18 +1509,15 @@ PyNumber_Float(PyObject *o)
 PyObject *
 PyNumber_ToBase(PyObject *n, int base)
 {
-    PyObject *res = NULL;
+    if (!(base == 2 || base == 8 || base == 10 || base == 16)) {
+        PyErr_SetString(PyExc_SystemError,
+                        "PyNumber_ToBase: base must be 2, 8, 10 or 16");
+        return NULL;
+    }
     PyObject *index = PyNumber_Index(n);
-
     if (!index)
         return NULL;
-    if (PyLong_Check(index))
-        res = _PyLong_Format(index, base);
-    else
-        /* It should not be possible to get here, as
-           PyNumber_Index already has a check for the same
-           condition */
-        PyErr_SetString(PyExc_ValueError, "PyNumber_ToBase: index not int");
+    PyObject *res = _PyLong_Format(index, base);
     Py_DECREF(index);
     return res;
 }
@@ -2002,7 +1999,9 @@ _PySequence_IterSearch(PyObject *seq, PyObject *obj, int operation)
 
     it = PyObject_GetIter(seq);
     if (it == NULL) {
-        type_error("argument of type '%.200s' is not iterable", seq);
+        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+            type_error("argument of type '%.200s' is not iterable", seq);
+        }
         return -1;
     }
 
@@ -2336,9 +2335,16 @@ abstract_issubclass(PyObject *derived, PyObject *cls)
     int r = 0;
 
     while (1) {
-        if (derived == cls)
+        if (derived == cls) {
+            Py_XDECREF(bases); /* See below comment */
             return 1;
-        bases = abstract_get_bases(derived);
+        }
+        /* Use XSETREF to drop bases reference *after* finishing with
+           derived; bases might be the only reference to it.
+           XSETREF is used instead of SETREF, because bases is NULL on the
+           first iteration of the loop.
+        */
+        Py_XSETREF(bases, abstract_get_bases(derived));
         if (bases == NULL) {
             if (PyErr_Occurred())
                 return -1;
@@ -2352,7 +2358,6 @@ abstract_issubclass(PyObject *derived, PyObject *cls)
         /* Avoid recursivity in the single inheritance case */
         if (n == 1) {
             derived = PyTuple_GET_ITEM(bases, 0);
-            Py_DECREF(bases);
             continue;
         }
         for (i = 0; i < n; i++) {

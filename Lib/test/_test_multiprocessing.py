@@ -31,7 +31,7 @@ from test import support
 # Skip tests if _multiprocessing wasn't built.
 _multiprocessing = test.support.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
-test.support.import_module('multiprocessing.synchronize')
+support.skip_if_broken_multiprocessing_synchronize()
 import threading
 
 import multiprocessing.connection
@@ -366,6 +366,28 @@ class _TestProcess(BaseTestCase):
         self.assertEqual(p.is_alive(), False)
         self.assertNotIn(p, self.active_children())
         close_queue(q)
+
+    @unittest.skipUnless(threading._HAVE_THREAD_NATIVE_ID, "needs native_id")
+    def test_process_mainthread_native_id(self):
+        if self.TYPE == 'threads':
+            self.skipTest('test not appropriate for {}'.format(self.TYPE))
+
+        current_mainthread_native_id = threading.main_thread().native_id
+
+        q = self.Queue(1)
+        p = self.Process(target=self._test_process_mainthread_native_id, args=(q,))
+        p.start()
+
+        child_mainthread_native_id = q.get()
+        p.join()
+        close_queue(q)
+
+        self.assertNotEqual(current_mainthread_native_id, child_mainthread_native_id)
+
+    @classmethod
+    def _test_process_mainthread_native_id(cls, q):
+        mainthread_native_id = threading.main_thread().native_id
+        q.put(mainthread_native_id)
 
     @classmethod
     def _sleep_some(cls):
@@ -2756,6 +2778,24 @@ class _TestPoolWorkerLifetime(BaseTestCase):
         for (j, res) in enumerate(results):
             self.assertEqual(res.get(), sqr(j))
 
+    def test_worker_finalization_via_atexit_handler_of_multiprocessing(self):
+        # tests cases against bpo-38744 and bpo-39360
+        cmd = '''if 1:
+            from multiprocessing import Pool
+            problem = None
+            class A:
+                def __init__(self):
+                    self.pool = Pool(processes=1)
+            def test():
+                global problem
+                problem = A()
+                problem.pool.map(float, tuple(range(10)))
+            if __name__ == "__main__":
+                test()
+        '''
+        rc, out, err = test.support.script_helper.assert_python_ok('-c', cmd)
+        self.assertEqual(rc, 0)
+
 #
 # Test of creating a customized manager class
 #
@@ -3249,6 +3289,19 @@ class _TestListener(BaseTestCase):
 
         if self.TYPE == 'processes':
             self.assertRaises(OSError, l.accept)
+
+    @unittest.skipUnless(util.abstract_sockets_supported,
+                         "test needs abstract socket support")
+    def test_abstract_socket(self):
+        with self.connection.Listener("\0something") as listener:
+            with self.connection.Client(listener.address) as client:
+                with listener.accept() as d:
+                    client.send(1729)
+                    self.assertEqual(d.recv(), 1729)
+
+        if self.TYPE == 'processes':
+            self.assertRaises(OSError, listener.accept)
+
 
 class _TestListenerClient(BaseTestCase):
 
@@ -3775,7 +3828,9 @@ class _TestSharedMemory(BaseTestCase):
         sms.close()
 
     def test_shared_memory_across_processes(self):
-        sms = shared_memory.SharedMemory('test02_tsmap', True, size=512)
+        # bpo-40135: don't define shared memory block's name in case of
+        # the failure when we run multiprocessing tests in parallel.
+        sms = shared_memory.SharedMemory(create=True, size=512)
         self.addCleanup(sms.unlink)
 
         # Verify remote attachment to existing block by name is working.
@@ -3911,9 +3966,21 @@ class _TestSharedMemory(BaseTestCase):
         sl[4] = 'some'  # Change type at a given position.
         self.assertEqual(sl[4], 'some')
         self.assertEqual(sl.format, '8s8sdq8sxxxxxxx?q')
-        with self.assertRaises(ValueError):
-            sl[4] = 'far too many'  # Exceeds available storage.
+        with self.assertRaisesRegex(ValueError,
+                                    "exceeds available storage"):
+            sl[4] = 'far too many'
         self.assertEqual(sl[4], 'some')
+        sl[0] = 'encodés'  # Exactly 8 bytes of UTF-8 data
+        self.assertEqual(sl[0], 'encodés')
+        self.assertEqual(sl[1], b'HoWdY')  # no spillage
+        with self.assertRaisesRegex(ValueError,
+                                    "exceeds available storage"):
+            sl[0] = 'encodées'  # Exactly 9 bytes of UTF-8 data
+        self.assertEqual(sl[1], b'HoWdY')
+        with self.assertRaisesRegex(ValueError,
+                                    "exceeds available storage"):
+            sl[1] = b'123456789'
+        self.assertEqual(sl[1], b'HoWdY')
 
         # Exercise count().
         with warnings.catch_warnings():
@@ -4155,7 +4222,7 @@ class _TestImportStar(unittest.TestCase):
     def get_module_names(self):
         import glob
         folder = os.path.dirname(multiprocessing.__file__)
-        pattern = os.path.join(folder, '*.py')
+        pattern = os.path.join(glob.escape(folder), '*.py')
         files = glob.glob(pattern)
         modules = [os.path.splitext(os.path.split(f)[1])[0] for f in files]
         modules = ['multiprocessing.' + m for m in modules]
@@ -4940,7 +5007,9 @@ class TestStartMethod(unittest.TestCase):
             self.assertEqual(methods, ['spawn'])
         else:
             self.assertTrue(methods == ['fork', 'spawn'] or
-                            methods == ['fork', 'spawn', 'forkserver'])
+                            methods == ['spawn', 'fork'] or
+                            methods == ['fork', 'spawn', 'forkserver'] or
+                            methods == ['spawn', 'fork', 'forkserver'])
 
     def test_preload_resources(self):
         if multiprocessing.get_start_method() != 'forkserver':
@@ -5245,10 +5314,9 @@ class TestSyncManagerTypes(unittest.TestCase):
             dt = time.monotonic() - start_time
             if dt >= 5.0:
                 test.support.environment_altered = True
-                print("Warning -- multiprocessing.Manager still has %s active "
-                      "children after %s seconds"
-                      % (multiprocessing.active_children(), dt),
-                      file=sys.stderr)
+                support.print_warning(f"multiprocessing.Manager still has "
+                                      f"{multiprocessing.active_children()} "
+                                      f"active children after {dt} seconds")
                 break
 
     def run_worker(self, worker, obj):
@@ -5448,15 +5516,13 @@ class BaseMixin(object):
         processes = set(multiprocessing.process._dangling) - set(cls.dangling[0])
         if processes:
             test.support.environment_altered = True
-            print('Warning -- Dangling processes: %s' % processes,
-                  file=sys.stderr)
+            support.print_warning(f'Dangling processes: {processes}')
         processes = None
 
         threads = set(threading._dangling) - set(cls.dangling[1])
         if threads:
             test.support.environment_altered = True
-            print('Warning -- Dangling threads: %s' % threads,
-                  file=sys.stderr)
+            support.print_warning(f'Dangling threads: {threads}')
         threads = None
 
 
@@ -5524,10 +5590,9 @@ class ManagerMixin(BaseMixin):
             dt = time.monotonic() - start_time
             if dt >= 5.0:
                 test.support.environment_altered = True
-                print("Warning -- multiprocessing.Manager still has %s active "
-                      "children after %s seconds"
-                      % (multiprocessing.active_children(), dt),
-                      file=sys.stderr)
+                support.print_warning(f"multiprocessing.Manager still has "
+                                      f"{multiprocessing.active_children()} "
+                                      f"active children after {dt} seconds")
                 break
 
         gc.collect()                       # do garbage collection
@@ -5536,9 +5601,9 @@ class ManagerMixin(BaseMixin):
             # ensure that all processes which hold a reference to a
             # managed object have been joined.
             test.support.environment_altered = True
-            print('Warning -- Shared objects which still exist at manager '
-                  'shutdown:')
-            print(cls.manager._debug_info())
+            support.print_warning('Shared objects which still exist '
+                                  'at manager shutdown:')
+            support.print_warning(cls.manager._debug_info())
         cls.manager.shutdown()
         cls.manager.join()
         cls.manager = None
@@ -5635,32 +5700,21 @@ def install_tests_in_module_dict(remote_globs, start_method):
         if processes:
             need_sleep = True
             test.support.environment_altered = True
-            print('Warning -- Dangling processes: %s' % processes,
-                  file=sys.stderr)
+            support.print_warning(f'Dangling processes: {processes}')
         processes = None
 
         threads = set(threading._dangling) - set(dangling[1])
         if threads:
             need_sleep = True
             test.support.environment_altered = True
-            print('Warning -- Dangling threads: %s' % threads,
-                  file=sys.stderr)
+            support.print_warning(f'Dangling threads: {threads}')
         threads = None
 
         # Sleep 500 ms to give time to child processes to complete.
         if need_sleep:
             time.sleep(0.5)
 
-        multiprocessing.process._cleanup()
-
-        # Stop the ForkServer process if it's running
-        from multiprocessing import forkserver
-        forkserver._forkserver._stop()
-
-        # bpo-37421: Explicitly call _run_finalizers() to remove immediately
-        # temporary directories created by multiprocessing.util.get_temp_dir().
-        multiprocessing.util._run_finalizers()
-        test.support.gc_collect()
+        multiprocessing.util._cleanup_tests()
 
     remote_globs['setUpModule'] = setUpModule
     remote_globs['tearDownModule'] = tearDownModule

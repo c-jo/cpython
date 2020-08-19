@@ -2029,6 +2029,10 @@ class TestVariance(VarianceStdevMixin, NumericTestCase, UnivariateTypeMixin):
         self.assertEqual(result, exact)
         self.assertIsInstance(result, Decimal)
 
+    def test_center_not_at_mean(self):
+        data = (1.0, 2.0)
+        self.assertEqual(self.func(data), 0.5)
+        self.assertEqual(self.func(data, xbar=2.0), 1.0)
 
 class TestPStdev(VarianceStdevMixin, NumericTestCase):
     # Tests for population standard deviation.
@@ -2041,6 +2045,11 @@ class TestPStdev(VarianceStdevMixin, NumericTestCase):
         expected = math.sqrt(statistics.pvariance(data))
         self.assertEqual(self.func(data), expected)
 
+    def test_center_not_at_mean(self):
+        # See issue: 40855
+        data = (3, 6, 7, 10)
+        self.assertEqual(self.func(data), 2.5)
+        self.assertEqual(self.func(data, mu=0.5), 6.5)
 
 class TestStdev(VarianceStdevMixin, NumericTestCase):
     # Tests for sample standard deviation.
@@ -2058,6 +2067,9 @@ class TestStdev(VarianceStdevMixin, NumericTestCase):
         expected = math.sqrt(statistics.variance(data))
         self.assertEqual(self.func(data), expected)
 
+    def test_center_not_at_mean(self):
+        data = (1.0, 2.0)
+        self.assertEqual(self.func(data, xbar=2.0), 1.0)
 
 class TestGeometricMean(unittest.TestCase):
 
@@ -2192,7 +2204,7 @@ class TestQuantiles(unittest.TestCase):
                 quantiles(padded_data, n=n, method='inclusive'),
                 (n, data),
             )
-            # Invariant under tranlation and scaling
+            # Invariant under translation and scaling
             def f(x):
                 return 3.5 * x - 1234.675
             exp = list(map(f, expected))
@@ -2232,7 +2244,7 @@ class TestQuantiles(unittest.TestCase):
                 result = quantiles(map(datatype, data), n=n, method="inclusive")
                 self.assertTrue(all(type(x) == datatype) for x in result)
                 self.assertEqual(result, list(map(datatype, expected)))
-            # Invariant under tranlation and scaling
+            # Invariant under translation and scaling
             def f(x):
                 return 3.5 * x - 1234.675
             exp = list(map(f, expected))
@@ -2651,9 +2663,13 @@ class TestNormalDist:
         nd2 = NormalDist(2, 4)
         nd3 = NormalDist()
         nd4 = NormalDist(2, 4)
+        nd5 = NormalDist(2, 8)
+        nd6 = NormalDist(8, 4)
         self.assertNotEqual(nd1, nd2)
         self.assertEqual(nd1, nd3)
         self.assertEqual(nd2, nd4)
+        self.assertNotEqual(nd2, nd5)
+        self.assertNotEqual(nd2, nd6)
 
         # Test NotImplemented when types are different
         class A:

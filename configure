@@ -826,6 +826,7 @@ with_libs
 with_system_expat
 with_system_ffi
 with_system_libmpdec
+with_decimal_contextvar
 enable_loadable_sqlite_extensions
 with_tcltk_includes
 with_tcltk_libs
@@ -1529,6 +1530,9 @@ Optional Packages:
   --with-system-ffi       build _ctypes module using an installed ffi library
   --with-system-libmpdec  build _decimal module using an installed libmpdec
                           library
+  --with-decimal-contextvar
+                          build _decimal module using a coroutine-local rather
+                          than a thread-local context (default is yes)
   --with-tcltk-includes='-I...'
                           override search for Tcl and Tk include files
   --with-tcltk-libs='-L...'
@@ -3394,7 +3398,7 @@ $as_echo "#define _BSD_SOURCE 1" >>confdefs.h
   # has no effect, don't bother defining them
   Darwin/[6789].*)
     define_xopen_source=no;;
-  Darwin/1[0-9].*)
+  Darwin/[12][0-9].*)
     define_xopen_source=no;;
   # On AIX 4 and 5.1, mbstate_t is defined only when _XOPEN_SOURCE == 500 but
   # used in wcsnrtombs() and mbsnrtowcs() even if _XOPEN_SOURCE is not defined
@@ -3414,6 +3418,12 @@ $as_echo "#define _BSD_SOURCE 1" >>confdefs.h
   # On VxWorks, defining _XOPEN_SOURCE causes compile failures
   # in network headers still using system V types.
   VxWorks/*)
+    define_xopen_source=no
+    ;;
+
+  # On HP-UX, defining _XOPEN_SOURCE to 600 or greater hides
+  # chroot() and other functions
+  hp*|HP*)
     define_xopen_source=no
     ;;
 
@@ -10413,6 +10423,28 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_system_libmpdec" >&5
 $as_echo "$with_system_libmpdec" >&6; }
 
+# Check whether _decimal should use a coroutine-local or thread-local context
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for --with-decimal-contextvar" >&5
+$as_echo_n "checking for --with-decimal-contextvar... " >&6; }
+
+# Check whether --with-decimal_contextvar was given.
+if test "${with_decimal_contextvar+set}" = set; then :
+  withval=$with_decimal_contextvar;
+else
+  with_decimal_contextvar="yes"
+fi
+
+
+if test "$with_decimal_contextvar" != "no"
+then
+
+$as_echo "#define WITH_DECIMAL_CONTEXTVAR 1" >>confdefs.h
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_decimal_contextvar" >&5
+$as_echo "$with_decimal_contextvar" >&6; }
+
 # Check for support for loadable sqlite extensions
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for --enable-loadable-sqlite-extensions" >&5
 $as_echo_n "checking for --enable-loadable-sqlite-extensions... " >&6; }
@@ -14271,10 +14303,10 @@ _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
 
 
-if grep noonsees conftest.$ac_objext >/dev/null ; then
+if $GREP noonsees conftest.$ac_objext >/dev/null ; then
   ax_cv_c_float_words_bigendian=yes
 fi
-if grep seesnoon conftest.$ac_objext >/dev/null ; then
+if $GREP seesnoon conftest.$ac_objext >/dev/null ; then
   if test "$ax_cv_c_float_words_bigendian" = unknown; then
     ax_cv_c_float_words_bigendian=no
   else
@@ -16765,9 +16797,12 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 
 
     #include <stdatomic.h>
-    atomic_int value = ATOMIC_VAR_INIT(1);
+    atomic_int int_var;
+    atomic_uintptr_t uintptr_var;
     int main() {
-      int loaded_value = atomic_load(&value);
+      atomic_store_explicit(&int_var, 5, memory_order_relaxed);
+      atomic_store_explicit(&uintptr_var, 0, memory_order_relaxed);
+      int loaded_value = atomic_load_explicit(&int_var, memory_order_seq_cst);
       return 0;
     }
 

@@ -187,12 +187,18 @@ itimer_retval(struct itimerval *iv)
 #endif
 
 static int
-is_main(_PyRuntimeState *runtime)
+is_main_interp(_PyRuntimeState *runtime, PyInterpreterState *interp)
 {
     unsigned long thread = PyThread_get_thread_ident();
-    PyInterpreterState *interp = _PyRuntimeState_GetThreadState(runtime)->interp;
     return (thread == runtime->main_thread
             && interp == runtime->interpreters.main);
+}
+
+static int
+is_main(_PyRuntimeState *runtime)
+{
+    PyInterpreterState *interp = _PyRuntimeState_GetThreadState(runtime)->interp;
+    return is_main_interp(runtime, interp);
 }
 
 static PyObject *
@@ -1233,6 +1239,10 @@ signal_pthread_kill_impl(PyObject *module, unsigned long thread_id,
 {
     int err;
 
+    if (PySys_Audit("signal.pthread_kill", "ki", thread_id, signalnum) < 0) {
+        return NULL;
+    }
+
     err = pthread_kill((pthread_t)thread_id, signalnum);
     if (err != 0) {
         errno = err;
@@ -1722,12 +1732,14 @@ PyOS_FiniInterrupts(void)
     finisignal();
 }
 
+
+// The caller doesn't have to hold the GIL
 int
-PyOS_InterruptOccurred(void)
+_PyOS_InterruptOccurred(PyThreadState *tstate)
 {
     if (_Py_atomic_load_relaxed(&Handlers[SIGINT].tripped)) {
         _PyRuntimeState *runtime = &_PyRuntime;
-        if (!is_main(runtime)) {
+        if (!is_main_interp(runtime, tstate->interp)) {
             return 0;
         }
         _Py_atomic_store_relaxed(&Handlers[SIGINT].tripped, 0);
@@ -1735,6 +1747,16 @@ PyOS_InterruptOccurred(void)
     }
     return 0;
 }
+
+
+// The caller must to hold the GIL
+int
+PyOS_InterruptOccurred(void)
+{
+    PyThreadState *tstate = _PyThreadState_GET();
+    return _PyOS_InterruptOccurred(tstate);
+}
+
 
 static void
 _clear_pending_signals(void)
