@@ -734,7 +734,7 @@ r_byte(RFILE *p)
     else {
         const char *ptr = r_string(1, p);
         if (ptr != NULL)
-            c = *(unsigned char *) ptr;
+            c = *(const unsigned char *) ptr;
     }
     return c;
 }
@@ -1396,6 +1396,12 @@ r_object(RFILE *p)
             if (lnotab == NULL)
                 goto code_error;
 
+            if (PySys_Audit("code.__new__", "OOOiiiiii",
+                            code, filename, name, argcount, posonlyargcount,
+                            kwonlyargcount, nlocals, stacksize, flags) < 0) {
+                goto code_error;
+            }
+
             v = (PyObject *) PyCode_NewWithPosOnlyArgs(
                             argcount, posonlyargcount, kwonlyargcount,
                             nlocals, stacksize, flags,
@@ -1829,6 +1835,9 @@ PyMarshal_Init(void)
     PyObject *mod = PyModule_Create(&marshalmodule);
     if (mod == NULL)
         return NULL;
-    PyModule_AddIntConstant(mod, "version", Py_MARSHAL_VERSION);
+    if (PyModule_AddIntConstant(mod, "version", Py_MARSHAL_VERSION) < 0) {
+        Py_DECREF(mod);
+        return NULL;
+    }
     return mod;
 }

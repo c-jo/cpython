@@ -392,6 +392,9 @@ class ShareableTypeTests(unittest.TestCase):
         self._assert_values(i.to_bytes(2, 'little', signed=True)
                             for i in range(-1, 258))
 
+    def test_strs(self):
+        self._assert_values(['hello world', '你好世界', ''])
+
     def test_int(self):
         self._assert_values(itertools.chain(range(-1, 258),
                                             [sys.maxsize, -sys.maxsize - 1]))
@@ -759,7 +762,11 @@ class DestroyTests(TestBase):
         main, = interpreters.list_all()
         interp = interpreters.create()
         with _running(interp):
-            with self.assertRaises(RuntimeError):
+            self.assertTrue(interpreters.is_running(interp),
+                            msg=f"Interp {interp} should be running before destruction.")
+
+            with self.assertRaises(RuntimeError,
+                                   msg=f"Should not be able to destroy interp {interp} while it's still running."):
                 interpreters.destroy(interp)
             self.assertTrue(interpreters.is_running(interp))
 

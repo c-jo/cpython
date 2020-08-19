@@ -1025,7 +1025,7 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
 
-/* Has stdatomic.h with atomic_int */
+/* Has stdatomic.h with atomic_int and atomic_uintptr_t */
 #undef HAVE_STD_ATOMIC
 
 /* Define to 1 if you have the `strdup' function. */
@@ -1517,6 +1517,10 @@
 
 /* Define if WINDOW in curses.h offers a field _flags. */
 #undef WINDOW_HAS_FLAGS
+
+/* Define if you want build the _decimal module using a coroutine-local rather
+   than a thread-local context */
+#undef WITH_DECIMAL_CONTEXTVAR
 
 /* Define if you want documentation strings in extension modules */
 #undef WITH_DOC_STRINGS

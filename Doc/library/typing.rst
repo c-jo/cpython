@@ -672,7 +672,7 @@ The module defines the following classes, functions and decorators:
    A generic version of :class:`collections.abc.ByteString`.
 
    This type represents the types :class:`bytes`, :class:`bytearray`,
-   and :class:`memoryview`.
+   and :class:`memoryview` of byte sequences.
 
    As a shorthand for this type, :class:`bytes` can be used to
    annotate arguments of any of the types mentioned above.
@@ -959,7 +959,7 @@ The module defines the following classes, functions and decorators:
    .. versionchanged:: 3.6.1
       Added support for default values, methods, and docstrings.
 
-   .. versionchanged:: 3.8
+   .. deprecated-removed:: 3.8 3.9
       Deprecated the ``_field_types`` attribute in favor of the more
       standard ``__annotations__`` attribute which has the same information.
 
@@ -996,8 +996,20 @@ The module defines the following classes, functions and decorators:
       Point2D = TypedDict('Point2D', x=int, y=int, label=str)
       Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
 
-   See :pep:`589` for more examples and detailed rules of using ``TypedDict``
-   with type checkers.
+   By default, all keys must be present in a TypedDict. It is possible
+   to override this by specifying totality.
+   Usage::
+
+      class point2D(TypedDict, total=False):
+          x: int
+          y: int
+
+   This means that a point2D TypedDict can have any of the keys omitted. A type
+   checker is only expected to support a literal False or True as the value of
+   the total argument. True is the default, and makes all items defined in the
+   class body be required.
+
+   See :pep:`589` for more examples and detailed rules of using ``TypedDict``.
 
    .. versionadded:: 3.8
 
@@ -1008,9 +1020,9 @@ The module defines the following classes, functions and decorators:
    ``List[ForwardRef("SomeClass")]``.  This class should not be instantiated by
    a user, but may be used by introspection tools.
 
-.. function:: NewType(typ)
+.. function:: NewType(name, tp)
 
-   A helper function to indicate a distinct types to a typechecker,
+   A helper function to indicate a distinct type to a typechecker,
    see :ref:`distinct`. At runtime it returns a function that returns
    its argument. Usage::
 

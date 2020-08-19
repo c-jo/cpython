@@ -1019,7 +1019,7 @@ That's a tough one, in general.  First, here are a list of things to
 remember before diving further:
 
 * Performance characteristics vary across Python implementations.  This FAQ
-  focusses on :term:`CPython`.
+  focuses on :term:`CPython`.
 * Behaviour can vary across operating systems, especially when talking about
   I/O or multi-threading.
 * You should always find the hot spots in your program *before* attempting to
@@ -1494,8 +1494,8 @@ to uppercase::
 
 Here the ``UpperOut`` class redefines the ``write()`` method to convert the
 argument string to uppercase before calling the underlying
-``self.__outfile.write()`` method.  All other methods are delegated to the
-underlying ``self.__outfile`` object.  The delegation is accomplished via the
+``self._outfile.write()`` method.  All other methods are delegated to the
+underlying ``self._outfile`` object.  The delegation is accomplished via the
 ``__getattr__`` method; consult :ref:`the language reference <attribute-access>`
 for more information about controlling attribute access.
 

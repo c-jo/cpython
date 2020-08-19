@@ -350,9 +350,11 @@ class CAPITest(unittest.TestCase):
         for i in range(1000):
             L = MyList((L,))
 
+    @support.requires_resource('cpu')
     def test_trashcan_python_class1(self):
         self.do_test_trashcan_python_class(list)
 
+    @support.requires_resource('cpu')
     def test_trashcan_python_class2(self):
         from _testcapi import MyList
         self.do_test_trashcan_python_class(MyList)
@@ -471,6 +473,28 @@ class CAPITest(unittest.TestCase):
         # Test that subtype_dealloc decref the newly assigned __class__ only once
         self.assertEqual(new_type_refcnt, sys.getrefcount(_testcapi.HeapCTypeSubclass))
 
+    def test_heaptype_with_setattro(self):
+        obj = _testcapi.HeapCTypeSetattr()
+        self.assertEqual(obj.pvalue, 10)
+        obj.value = 12
+        self.assertEqual(obj.pvalue, 12)
+        del obj.value
+        self.assertEqual(obj.pvalue, 0)
+
+    def test_pynumber_tobase(self):
+        from _testcapi import pynumber_tobase
+        self.assertEqual(pynumber_tobase(123, 2), '0b1111011')
+        self.assertEqual(pynumber_tobase(123, 8), '0o173')
+        self.assertEqual(pynumber_tobase(123, 10), '123')
+        self.assertEqual(pynumber_tobase(123, 16), '0x7b')
+        self.assertEqual(pynumber_tobase(-123, 2), '-0b1111011')
+        self.assertEqual(pynumber_tobase(-123, 8), '-0o173')
+        self.assertEqual(pynumber_tobase(-123, 10), '-123')
+        self.assertEqual(pynumber_tobase(-123, 16), '-0x7b')
+        self.assertRaises(TypeError, pynumber_tobase, 123.0, 10)
+        self.assertRaises(TypeError, pynumber_tobase, '123', 10)
+        self.assertRaises(SystemError, pynumber_tobase, 123, 0)
+
 
 class TestPendingCalls(unittest.TestCase):
 
@@ -567,6 +591,26 @@ class SubinterpreterTest(unittest.TestCase):
             self.assertEqual(ret, 0)
             self.assertNotEqual(pickle.load(f), id(sys.modules))
             self.assertNotEqual(pickle.load(f), id(builtins))
+
+    def test_subinterps_recent_language_features(self):
+        r, w = os.pipe()
+        code = """if 1:
+            import pickle
+            with open({:d}, "wb") as f:
+
+                def noop(x): return x
+
+                a = (b := f'1{{2}}3') + noop('x')  # Py 3.8 (:=) / 3.6 (f'')
+
+                async def foo(arg): return await arg  # Py 3.5
+
+                pickle.dump(dict(a=a, b=b), f)
+            """.format(w)
+
+        with open(r, "rb") as f:
+            ret = support.run_in_subinterp(code)
+            self.assertEqual(ret, 0)
+            self.assertEqual(pickle.load(f), {'a': '123x', 'b': '123'})
 
     def test_mutate_exception(self):
         """
@@ -691,6 +735,9 @@ class PyMemDebugTests(unittest.TestCase):
                 os._exit(1)
         ''')
         assert_python_ok('-c', code, PYTHONMALLOC=self.PYTHONMALLOC)
+
+    def test_pyobject_null_is_freed(self):
+        self.check_pyobject_is_freed('check_pyobject_null_is_freed')
 
     def test_pyobject_uninitialized_is_freed(self):
         self.check_pyobject_is_freed('check_pyobject_uninitialized_is_freed')

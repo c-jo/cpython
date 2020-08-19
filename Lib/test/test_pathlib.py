@@ -1296,8 +1296,16 @@ class _BasePathTest(object):
         self.assertTrue(p.is_absolute())
 
     def test_home(self):
-        p = self.cls.home()
-        self._test_home(p)
+        with support.EnvironmentVarGuard() as env:
+            self._test_home(self.cls.home())
+
+            env.clear()
+            env['USERPROFILE'] = os.path.join(BASE, 'userprofile')
+            self._test_home(self.cls.home())
+
+            # bpo-38883: ignore `HOME` when set on windows
+            env['HOME'] = os.path.join(BASE, 'home')
+            self._test_home(self.cls.home())
 
     def test_samefile(self):
         fileA_path = os.path.join(BASE, 'fileA')
@@ -1500,6 +1508,42 @@ class _BasePathTest(object):
         self.assertEqual(set(p.glob("dirA/../file*")), { P(BASE, "dirA/../fileA") })
         self.assertEqual(set(p.glob("../xyzzy")), set())
 
+    @support.skip_unless_symlink
+    def test_glob_permissions(self):
+        # See bpo-38894
+        P = self.cls
+        base = P(BASE) / 'permissions'
+        base.mkdir()
+
+        file1 = base / "file1"
+        file1.touch()
+        file2 = base / "file2"
+        file2.touch()
+
+        subdir = base / "subdir"
+
+        file3 = base / "file3"
+        file3.symlink_to(subdir / "other")
+
+        # Patching is needed to avoid relying on the filesystem
+        # to return the order of the files as the error will not
+        # happen if the symlink is the last item.
+
+        with mock.patch("os.scandir") as scandir:
+            scandir.return_value = sorted(os.scandir(base))
+            self.assertEqual(len(set(base.glob("*"))), 3)
+
+        subdir.mkdir()
+
+        with mock.patch("os.scandir") as scandir:
+            scandir.return_value = sorted(os.scandir(base))
+            self.assertEqual(len(set(base.glob("*"))), 4)
+
+        subdir.chmod(000)
+
+        with mock.patch("os.scandir") as scandir:
+            scandir.return_value = sorted(os.scandir(base))
+            self.assertEqual(len(set(base.glob("*"))), 4)
 
     def _check_resolve(self, p, expected, strict=True):
         q = p.resolve(strict)
@@ -1672,6 +1716,7 @@ class _BasePathTest(object):
         self.assertFileNotFound(p.stat)
         self.assertFileNotFound(p.unlink)
 
+    @unittest.skipUnless(hasattr(os, "link"), "os.link() is not present")
     def test_link_to(self):
         P = self.cls(BASE)
         p = P / 'fileA'
@@ -1690,6 +1735,15 @@ class _BasePathTest(object):
         q.link_to(r)
         self.assertEqual(os.stat(r).st_size, size)
         self.assertTrue(q.stat)
+
+    @unittest.skipIf(hasattr(os, "link"), "os.link() is present")
+    def test_link_to_not_implemented(self):
+        P = self.cls(BASE)
+        p = P / 'fileA'
+        # linking to another path.
+        q = P / 'dirA' / 'fileAA'
+        with self.assertRaises(NotImplementedError):
+            p.link_to(q)
 
     def test_rename(self):
         P = self.cls(BASE)
@@ -2291,11 +2345,15 @@ class WindowsPathTest(_BasePathTest, unittest.TestCase):
         P = self.cls
         p = P(BASE)
         self.assertEqual(set(p.glob("FILEa")), { P(BASE, "fileA") })
+        self.assertEqual(set(p.glob("F*a")), { P(BASE, "fileA") })
+        self.assertEqual(set(map(str, p.glob("FILEa"))), {f"{p}\\FILEa"})
+        self.assertEqual(set(map(str, p.glob("F*a"))), {f"{p}\\fileA"})
 
     def test_rglob(self):
         P = self.cls
         p = P(BASE, "dirC")
         self.assertEqual(set(p.rglob("FILEd")), { P(BASE, "dirC/dirD/fileD") })
+        self.assertEqual(set(map(str, p.rglob("FILEd"))), {f"{p}\\dirD\\FILEd"})
 
     def test_expanduser(self):
         P = self.cls
@@ -2334,12 +2392,6 @@ class WindowsPathTest(_BasePathTest, unittest.TestCase):
                 self.assertEqual(p5.expanduser(), p5)
                 self.assertEqual(p6.expanduser(), p6)
 
-            # Test the first lookup key in the env vars.
-            env['HOME'] = 'C:\\Users\\alice'
-            check()
-
-            # Test that HOMEPATH is available instead.
-            env.pop('HOME', None)
             env['HOMEPATH'] = 'C:\\Users\\alice'
             check()
 
@@ -2350,6 +2402,10 @@ class WindowsPathTest(_BasePathTest, unittest.TestCase):
             env.pop('HOMEDRIVE', None)
             env.pop('HOMEPATH', None)
             env['USERPROFILE'] = 'C:\\Users\\alice'
+            check()
+
+            # bpo-38883: ignore `HOME` when set on windows
+            env['HOME'] = 'C:\\Users\\eve'
             check()
 
 

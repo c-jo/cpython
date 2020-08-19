@@ -177,7 +177,10 @@ class TestShutil(unittest.TestCase):
 
         Returns the path of the directory.
         """
-        d = tempfile.mkdtemp()
+        basedir = None
+        if sys.platform == "win32":
+            basedir = os.path.realpath(os.getcwd())
+        d = tempfile.mkdtemp(dir=basedir)
         self.tempdirs.append(d)
         return d
 
@@ -876,6 +879,48 @@ class TestShutil(unittest.TestCase):
         finally:
             shutil.rmtree(src_dir)
             shutil.rmtree(os.path.dirname(dst_dir))
+
+    def test_copytree_arg_types_of_ignore(self):
+        join = os.path.join
+        exists = os.path.exists
+
+        tmp_dir = self.mkdtemp()
+        src_dir = join(tmp_dir, "source")
+
+        os.mkdir(join(src_dir))
+        os.mkdir(join(src_dir, 'test_dir'))
+        os.mkdir(os.path.join(src_dir, 'test_dir', 'subdir'))
+        write_file((src_dir, 'test_dir', 'subdir', 'test.txt'), '456')
+
+        invokations = []
+
+        def _ignore(src, names):
+            invokations.append(src)
+            self.assertIsInstance(src, str)
+            self.assertIsInstance(names, list)
+            self.assertEqual(len(names), len(set(names)))
+            for name in names:
+                self.assertIsInstance(name, str)
+            return []
+
+        dst_dir = join(self.mkdtemp(), 'destination')
+        shutil.copytree(src_dir, dst_dir, ignore=_ignore)
+        self.assertTrue(exists(join(dst_dir, 'test_dir', 'subdir',
+                                    'test.txt')))
+
+        dst_dir = join(self.mkdtemp(), 'destination')
+        shutil.copytree(pathlib.Path(src_dir), dst_dir, ignore=_ignore)
+        self.assertTrue(exists(join(dst_dir, 'test_dir', 'subdir',
+                                    'test.txt')))
+
+        dst_dir = join(self.mkdtemp(), 'destination')
+        src_dir_entry = list(os.scandir(tmp_dir))[0]
+        self.assertIsInstance(src_dir_entry, os.DirEntry)
+        shutil.copytree(src_dir_entry, dst_dir, ignore=_ignore)
+        self.assertTrue(exists(join(dst_dir, 'test_dir', 'subdir',
+                                    'test.txt')))
+
+        self.assertEqual(len(invokations), 9)
 
     def test_copytree_retains_permissions(self):
         tmp_dir = tempfile.mkdtemp()
@@ -1602,6 +1647,18 @@ class TestShutil(unittest.TestCase):
         rv = shutil.copytree(src_dir, dst_dir)
         self.assertEqual(['foo'], os.listdir(rv))
 
+    def test_copytree_subdirectory(self):
+        # copytree where dst is a subdirectory of src, see Issue 38688
+        base_dir = self.mkdtemp()
+        self.addCleanup(shutil.rmtree, base_dir, ignore_errors=True)
+        src_dir = os.path.join(base_dir, "t", "pg")
+        dst_dir = os.path.join(src_dir, "somevendor", "1.0")
+        os.makedirs(src_dir)
+        src = os.path.join(src_dir, 'pol')
+        write_file(src, 'pol')
+        rv = shutil.copytree(src_dir, dst_dir)
+        self.assertEqual(['pol'], os.listdir(rv))
+
 
 class TestWhich(unittest.TestCase):
 
@@ -1788,8 +1845,11 @@ class TestMove(unittest.TestCase):
 
     def setUp(self):
         filename = "foo"
-        self.src_dir = tempfile.mkdtemp()
-        self.dst_dir = tempfile.mkdtemp()
+        basedir = None
+        if sys.platform == "win32":
+            basedir = os.path.realpath(os.getcwd())
+        self.src_dir = tempfile.mkdtemp(dir=basedir)
+        self.dst_dir = tempfile.mkdtemp(dir=basedir)
         self.src_file = os.path.join(self.src_dir, filename)
         self.dst_file = os.path.join(self.dst_dir, filename)
         with open(self.src_file, "wb") as f:

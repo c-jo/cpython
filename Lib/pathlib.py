@@ -190,6 +190,9 @@ class _WindowsFlavour(_Flavour):
     def casefold_parts(self, parts):
         return [p.lower() for p in parts]
 
+    def compile_pattern(self, pattern):
+        return re.compile(fnmatch.translate(pattern), re.IGNORECASE).fullmatch
+
     def resolve(self, path, strict=False):
         s = str(path)
         if not s:
@@ -253,9 +256,7 @@ class _WindowsFlavour(_Flavour):
             return 'file:' + urlquote_from_bytes(path.as_posix().encode('utf-8'))
 
     def gethomedir(self, username):
-        if 'HOME' in os.environ:
-            userhome = os.environ['HOME']
-        elif 'USERPROFILE' in os.environ:
+        if 'USERPROFILE' in os.environ:
             userhome = os.environ['USERPROFILE']
         elif 'HOMEPATH' in os.environ:
             try:
@@ -311,6 +312,9 @@ class _PosixFlavour(_Flavour):
 
     def casefold_parts(self, parts):
         return parts
+
+    def compile_pattern(self, pattern):
+        return re.compile(fnmatch.translate(pattern)).fullmatch
 
     def resolve(self, path, strict=False):
         sep = self.sep
@@ -474,11 +478,12 @@ class _NormalAccessor(_Accessor):
 
     unlink = os.unlink
 
-    if os.name != 'riscos':
+    if os.name != 'riscos' and hasattr(os, "link"):
         link_to = os.link
     else:
-        def link_tok(a, b):
-            raise NotImplementedError("link_to() not available on this system")
+        @staticmethod
+        def link_to(self, target):
+            raise NotImplementedError("os.link() not available on this system")
 
     rmdir = os.rmdir
 
@@ -516,7 +521,7 @@ _normal_accessor = _NormalAccessor()
 # Globbing helpers
 #
 
-def _make_selector(pattern_parts):
+def _make_selector(pattern_parts, flavour):
     pat = pattern_parts[0]
     child_parts = pattern_parts[1:]
     if pat == '**':
@@ -527,7 +532,7 @@ def _make_selector(pattern_parts):
         cls = _WildcardSelector
     else:
         cls = _PreciseSelector
-    return cls(pat, child_parts)
+    return cls(pat, child_parts, flavour)
 
 if hasattr(functools, "lru_cache"):
     _make_selector = functools.lru_cache()(_make_selector)
@@ -537,10 +542,10 @@ class _Selector:
     """A selector matches a specific glob pattern part against the children
     of a given path."""
 
-    def __init__(self, child_parts):
+    def __init__(self, child_parts, flavour):
         self.child_parts = child_parts
         if child_parts:
-            self.successor = _make_selector(child_parts)
+            self.successor = _make_selector(child_parts, flavour)
             self.dironly = True
         else:
             self.successor = _TerminatingSelector()
@@ -566,9 +571,9 @@ class _TerminatingSelector:
 
 class _PreciseSelector(_Selector):
 
-    def __init__(self, name, child_parts):
+    def __init__(self, name, child_parts, flavour):
         self.name = name
-        _Selector.__init__(self, child_parts)
+        _Selector.__init__(self, child_parts, flavour)
 
     def _select_from(self, parent_path, is_dir, exists, scandir):
         try:
@@ -582,42 +587,45 @@ class _PreciseSelector(_Selector):
 
 class _WildcardSelector(_Selector):
 
-    def __init__(self, pat, child_parts):
-        self.pat = re.compile(fnmatch.translate(pat))
-        _Selector.__init__(self, child_parts)
+    def __init__(self, pat, child_parts, flavour):
+        self.match = flavour.compile_pattern(pat)
+        _Selector.__init__(self, child_parts, flavour)
 
     def _select_from(self, parent_path, is_dir, exists, scandir):
         try:
-            cf = parent_path._flavour.casefold
-            entries = list(scandir(parent_path))
+            with scandir(parent_path) as scandir_it:
+                entries = list(scandir_it)
             for entry in entries:
-                entry_is_dir = False
-                try:
-                    entry_is_dir = entry.is_dir()
-                except OSError as e:
-                    if not _ignore_error(e):
-                        raise
-                if not self.dironly or entry_is_dir:
-                    name = entry.name
-                    casefolded = cf(name)
-                    if self.pat.match(casefolded):
-                        path = parent_path._make_child_relpath(name)
-                        for p in self.successor._select_from(path, is_dir, exists, scandir):
-                            yield p
+                if self.dironly:
+                    try:
+                        # "entry.is_dir()" can raise PermissionError
+                        # in some cases (see bpo-38894), which is not
+                        # among the errors ignored by _ignore_error()
+                        if not entry.is_dir():
+                            continue
+                    except OSError as e:
+                        if not _ignore_error(e):
+                            raise
+                        continue
+                name = entry.name
+                if self.match(name):
+                    path = parent_path._make_child_relpath(name)
+                    for p in self.successor._select_from(path, is_dir, exists, scandir):
+                        yield p
         except PermissionError:
             return
 
 
-
 class _RecursiveWildcardSelector(_Selector):
 
-    def __init__(self, pat, child_parts):
-        _Selector.__init__(self, child_parts)
+    def __init__(self, pat, child_parts, flavour):
+        _Selector.__init__(self, child_parts, flavour)
 
     def _iterate_directories(self, parent_path, is_dir, scandir):
         yield parent_path
         try:
-            entries = list(scandir(parent_path))
+            with scandir(parent_path) as scandir_it:
+                entries = list(scandir_it)
             for entry in entries:
                 entry_is_dir = False
                 try:
@@ -865,7 +873,11 @@ class PurePath(object):
 
     @property
     def suffix(self):
-        """The final component's last suffix, if any."""
+        """
+        The final component's last suffix, if any.
+
+        This includes the leading period. For example: '.txt'
+        """
         name = self.name
         i = name.rfind('.')
         if 0 < i < len(name) - 1:
@@ -875,7 +887,11 @@ class PurePath(object):
 
     @property
     def suffixes(self):
-        """A list of the final component's suffixes, if any."""
+        """
+        A list of the final component's suffixes, if any.
+
+        These include the leading periods. For example: ['.tar', '.gz']
+        """
         name = self.name
         if name.endswith('.'):
             return []
@@ -1193,11 +1209,10 @@ class Path(PurePath):
         """
         if not pattern:
             raise ValueError("Unacceptable pattern: {!r}".format(pattern))
-        pattern = self._flavour.casefold(pattern)
         drv, root, pattern_parts = self._flavour.parse_parts((pattern,))
         if drv or root:
             raise NotImplementedError("Non-relative patterns are unsupported")
-        selector = _make_selector(tuple(pattern_parts))
+        selector = _make_selector(tuple(pattern_parts), self._flavour)
         for p in selector.select_from(self):
             yield p
 
@@ -1206,11 +1221,10 @@ class Path(PurePath):
         directories) matching the given relative pattern, anywhere in
         this subtree.
         """
-        pattern = self._flavour.casefold(pattern)
         drv, root, pattern_parts = self._flavour.parse_parts((pattern,))
         if drv or root:
             raise NotImplementedError("Non-relative patterns are unsupported")
-        selector = _make_selector(("**",) + tuple(pattern_parts))
+        selector = _make_selector(("**",) + tuple(pattern_parts), self._flavour)
         for p in selector.select_from(self):
             yield p
 

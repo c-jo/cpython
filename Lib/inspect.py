@@ -741,7 +741,7 @@ def getmodule(object, _filename=None):
         return sys.modules.get(modulesbyfile[file])
     # Update the filename to module name cache and check yet again
     # Copy sys.modules in order to cope with changes while iterating
-    for modname, module in list(sys.modules.items()):
+    for modname, module in sys.modules.copy().items():
         if ismodule(module) and hasattr(module, '__file__'):
             f = module.__file__
             if f == _filesbymodname.get(modname, None):
@@ -2960,7 +2960,7 @@ class Signature:
                         arguments[param.name] = tuple(values)
                         break
 
-                    if param.name in kwargs:
+                    if param.name in kwargs and param.kind != _POSITIONAL_ONLY:
                         raise TypeError(
                             'multiple values for argument {arg!r}'.format(
                                 arg=param.name)) from None
