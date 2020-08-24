@@ -68,7 +68,9 @@ except ModuleNotFoundError:
     _mswindows = False
     try:
         import swi
-        swi.swi('OS_CLI','s','RMEnsure TaskRunner 0.10')
+        swi.swi('OS_CLI','s',"RMEnsure TaskRunner 0.14 "\
+                                 "RMLoad System:Modules.TaskRunner")
+        swi.swi('OS_CLI','s',"RMEnsure TaskRunner 0.14")
         _riscos = True
     except ModuleNotFoundError:
         _riscos = False
