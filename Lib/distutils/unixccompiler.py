@@ -212,16 +212,9 @@ class UnixCCompiler(CCompiler):
                     outname_next = False
                     for arg in ld_args:
                         if outname_next == True:
-                            outname_next = False
-                            path, extn = os.path.splitext(arg)
-                            path = path.replace('.','/')
-                            if extn:
-                                path += '.'+extn[1:]
-                            new_ld_args.append(path)
-                        else:
-                            new_ld_args.append(arg)
-                            if arg == '-o':
-                                outname_next = True
+                            arg = arg.translate(str.maketrans('./', '/.'))
+                        new_ld_args.append(arg)
+                        outname_next = arg == '-o'
                     ld_args = new_ld_args
 
                 self.spawn(linker + ld_args)
