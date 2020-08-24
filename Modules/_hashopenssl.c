@@ -26,8 +26,10 @@
 #include <openssl/objects.h>
 #include "openssl/err.h"
 
+#ifndef RISCOS
 #ifndef OPENSSL_THREADS
 #  error "OPENSSL_THREADS is not defined, Python requires thread-safe OpenSSL"
+#endif
 #endif
 
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
