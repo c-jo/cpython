@@ -198,13 +198,13 @@ otherwise it will leave it alone.
 static void
 process_pybuilddir(PyCalculatePath *calculate)
 {
-    /* Check to see if argv[0] is in the build directory. "pybuilddir"
+    /* Check to see if argv[0] is in the build directory. "pybuilddir/txt"
        is written by setup.py and contains the relative path to the location
        of shared library modules. */
     wchar_t pybuilddir[MAXPATHLEN+1];
     wcsncpy(pybuilddir, calculate->argv0_path, MAXPATHLEN);
     pybuilddir[MAXPATHLEN] = L'\0';
-    joinpath(pybuilddir, L"pybuilddir");
+    joinpath(pybuilddir, L"pybuilddir/txt");
     if (isfile(pybuilddir)) {
         FILE *f = _Py_wfopen(pybuilddir, L"rb");
         if (f == NULL) {
