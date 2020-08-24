@@ -1,10 +1,5 @@
-Python 3.8 for RISC OS
-----------------------
-
-** Alpha Release 6 **
-
-PLEASE NOTE: This is an alpha release of Python 3.8 for RISC OS. Please treat as such. Feedback, comments or bugs can be sent to chris@lessthan3.org.uk
-
+Python 3.8.5 for RISC OS (release 0)
+------------------------
 Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
 Welcome to Python on RISC OS, bringing the power and flexibility of the Python language to RISC OS.
@@ -25,12 +20,7 @@ Types are also used for the cached bytecode (.pyc) and extensions (.so).
 
 The subprocess module on RISC OS
 --------------------------------
-Compared to Unix-like systems, RISC OS has limited control over subprocesses, and what can be done with them, so the subprocess module is somewhat restricted on this platform.
-
-While using the TaskWindow module provides the most control over tasks, it can only be used from Wimp programs, so isn't suitable for a general solution.
-
-In order to provide a way to run subprocesses, RISC OS will use the system command, and redirection using PipeFS. While less than ideal, it will allow programs that need to use subprocess to function. A 'taskwindow' package could be developed in the future, to allow the use of the TaskWindow module in Wimp applications.
-
+Limited subprocess support is provided using the TaskRunner module to execute subprocesses using the RISC OS TaskWindow susyem.
 
 RISC OS additions
 -----------------
@@ -95,3 +85,7 @@ Fixed RISC OS time handling in xmlrpc client.
 UrlLib: Added RISC OS url2pathname/pathname2url
 Subprocess; Use TaskRunner module on RISC OS
 Initial PIP support.
+
+3.8.5riscos0
+Updated to 3.8.5.
+Created a RiscPkg to help install Python and it's dependancies.
