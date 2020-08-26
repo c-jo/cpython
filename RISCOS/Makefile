@@ -33,6 +33,8 @@ DTRACE=
 DFLAGS=
 DTRACE_HEADERS=
 DTRACE_OBJS=
+VFP_FLAGS=	-mfloat-abi=softfp -mfpu=vfp -mcpu=arm1176jzf-s
+#VFP_FLAGS=
 
 GNULD=		yes
 
@@ -60,7 +62,7 @@ OPT=		-DNDEBUG -DRISCOS -fwrapv -O3 -Wall -fno-builtin -std=c99
 BASECFLAGS=	-Wno-unused-result -Wsign-compare
 BASECPPFLAGS=
 CONFIGURE_CFLAGS=
-EXTRA_CFLAGS=
+EXTRA_CFLAGS=   $(VFP_FLAGS)
 # CFLAGS_NODIST is used for building the interpreter and stdlib C extensions.
 # Use it when a compiler flag should _not_ be part of the distutils CFLAGS
 # once Python is installed (Issue #21121).
@@ -80,7 +82,7 @@ PY_CFLAGS_NODIST=$(CONFIGURE_CFLAGS_NODIST) $(CFLAGS_NODIST) -IInclude/internal
 # be able to build extension modules using the directories specified in the
 # environment variables
 PY_CPPFLAGS=	$(BASECPPFLAGS) -IInclude -IRISCOS $(CONFIGURE_CPPFLAGS) $(CPPFLAGS)
-PY_LDFLAGS=	$(CONFIGURE_LDFLAGS) $(LDFLAGS)
+PY_LDFLAGS=	$(CONFIGURE_LDFLAGS) $(LDFLAGS) $(VFP_FLAGS)
 PY_LDFLAGS_NODIST=$(CONFIGURE_LDFLAGS_NODIST) $(LDFLAGS_NODIST)
 NO_AS_NEEDED=	-Wl,--no-as-needed
 SGI_ABI=	@SGI_ABI@
@@ -189,7 +191,7 @@ INSTSONAME=	$(LDLIBRARY)
 
 
 #LIBS=		-lcrypt -lpthread -ldl  -lutil -lm
-LIBS=		-ldl -LOSLib: -lOSLib32
+LIBS=		-ldl
 LIBM=		-lm
 LIBC=
 SYSLIBS=	$(LIBM) $(LIBC)
@@ -475,11 +477,11 @@ $(srcdir)/Modules/_blake2/blake2s_impl.c: $(srcdir)/Modules/_blake2/blake2b_impl
 
 # RISC OS SWI module
 RISCOS/swimodule.o: RISCOS/swimodule.c
-	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -o $@ $<
+	$(CC) -c $(PY_CORE_CFLAGS) -o $@ $<
 
-# RISC OS getpath (needs OSLib)
+# RISC OS getpath
 RISCOS/getpath.o: RISCOS/getpath.c
-	$(CC) -c $(PY_CORE_CFLAGS) -IOSLib: -DVERSION=\"$(VERSION)\" -o $@ $<
+	$(CC) -c $(PY_CORE_CFLAGS) -DVERSION=\"$(VERSION)\" -o $@ $<
 #		-DPREFIX='"$(prefix)"' \
 #		-DEXEC_PREFIX='"$(exec_prefix)"' \
 #		-DVPATH='"$(VPATH)"' \
@@ -574,7 +576,8 @@ Modules/getbuildinfo.o: $(PARSER_OBJS) \
 		-o $@ $(srcdir)/Modules/getbuildinfo.c
 
 Modules/getpath.o: $(srcdir)/Modules/getpath.c
-	$(CC) -c $(PY_CORE_CFLAGS) -DPYTHONPATH='"$(PYTHONPATH)"' \
+	$(CC) -c $(PY_CORE_CFLAGS) \
+	        -DPYTHONPATH='"$(PYTHONPATH)"' \
 		-DPREFIX='"$(prefix)"' \
 		-DEXEC_PREFIX='"$(exec_prefix)"' \
 		-DVERSION='"$(VERSION)"' \

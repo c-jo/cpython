@@ -7,8 +7,6 @@
 #include "pycore_pathconfig.h"
 #include "pycore_pystate.h"
 
-#include "oslib/os.h"
-
 #include <sys/types.h>
 #include <string.h>
 
