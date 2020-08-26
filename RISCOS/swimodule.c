@@ -443,8 +443,10 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
   if(!PyArg_Parse(name,"i",&swino))
   { PyErr_Clear();
     if(!PyArg_Parse(name,"s",&swiname)) return NULL;
-    e=_swi(OS_SWINumberFromString, _IN(1) | _OUT(0), (int)swiname, (int)&swino);
+    r.r[1] = (int)swiname;
+    e=_kernel_swi(OS_SWINumberFromString,&r,&r);
     if(e) return swi_oserror();
+    swino = r.r[0];
   }
   format=PyTuple_GetItem(args,1);
   if(!PyArg_Parse(format,"s",&fmt)) return NULL;
