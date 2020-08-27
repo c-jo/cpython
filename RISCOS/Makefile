@@ -12,8 +12,19 @@ MODLIBS=           $(LOCALMODLIBS) $(BASEMODLIBS)
 VERSION=	3.8
 srcdir=         .
 
-CC=		gcc
-CXX=		g++
+# Add  -mfpu=vfp -mfloat-abi=softfp for VFP
+CC=	gcc
+CXX=	cxx
+RM=	X Wipe
+RMFLAGS=~CFR~V
+
+ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")
+	CC=	arm-unknown-riscos-gcc
+	CXX=	arm-unknown-riscos-g++
+	RM=	rm
+	RMFLAGS=-rf
+endif
+
 MAINCC=		$(CC)
 LINKCC=		$(PURIFY) $(MAINCC)
 AR=		ar
@@ -142,6 +153,10 @@ DESTSHARED=	$(BINLIBDEST)/lib-dynload
 # Executable suffix (.exe on Windows and Mac OS X)
 EXE=
 BUILDEXE=
+ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")
+	EXE=,e1f
+	BUILDEXE=,e1f
+endif
 
 # Option to install to strip binaries
 STRIPFLAG=-s
@@ -180,10 +195,10 @@ DISTDIRS=	$(SUBDIRS) $(SUBDIRSTOO) Ext-dummy
 DIST=		$(DISTFILES) $(DISTDIRS)
 
 
-#LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
-#LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
-LIBRARY=	libpython38
-LDLIBRARY=	$(LIBRARY)
+LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
+LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
+#LIBRARY=	libpython38
+#LDLIBRARY=	$(LIBRARY)
 BLDLIBRARY=     $(LDLIBRARY)
 PY3LIBRARY=
 DLLLIBRARY=
@@ -211,7 +226,7 @@ PYTHON_FOR_REGEN=python3.8
 UPDATE_FILE=python3.8 $(srcdir)/Tools/scripts/update_file.py
 PYTHON_FOR_BUILD=./$(BUILDPYTHON) -E
 _PYTHON_HOST_PLATFORM=_riscos
-HOST_GNU_TYPE=	arm-unknown-riscos
+HOST_GNU_TYPE=arm-unknown-riscos
 
 # Tcl and Tk config info from --with-tcltk-includes and -libs options
 TCLTK_INCLUDES=
@@ -499,7 +514,7 @@ sharedmods: $(BUILDPYTHON) pybuilddir Modules/_math.o
 
 # Build static library
 $(LIBRARY): $(LIBRARY_OBJS)
-	X Wipe $@ ~CF
+	$(RM) $@ $(RMFLAGS)
 	$(AR) $(ARFLAGS) $@ $(LIBRARY_OBJS)
 
 #libpython$(LDVERSION).so: $(LIBRARY_OBJS) $(DTRACE_OBJS)
