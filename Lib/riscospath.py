@@ -18,6 +18,8 @@ defpath = ''
 altsep = None
 devnull = 'null:'
 
+_absolutes = '$ & % \\ @'.split()
+
 import os
 import sys
 import stat
@@ -40,6 +42,75 @@ def _get_sep(path):
     else:
         return '.'
 
+# Decode various parts of a path - the returned tuple contains the following
+# parts, any of which can be empty
+# ( filesystem,        -- Filesytem part, eg, SDFS,Net,ADFS,Resources etc.
+#   special field,     -- #0.254
+#   disc specifier,    -- Disc name of number (:RISCOSPi, :0)
+#   absolute,          -- Start of the tree, most commonly $ but also &,%,\,@
+#   path               -- Rest of the path
+# )
+def explode(path):
+    p = os.fspath(path)
+    p1 = p
+    fs   = None
+    sf   = None
+    disc = None
+    abs  = None
+    path = None
+
+    if len(p) > 0 and p[0] == '#':
+        c = p.find(':')
+        if c < 0:
+            sf = p[1:]
+            p  = ''
+        else:
+            sf = p[1:c]
+            p  = p[c+1:]
+
+    # Find the filesystem and/or disc specifier
+    c = p.find(':')
+    if c == 0: # Starts with a disc specification
+        d = p.find('.',0) # No end of disc spec, so everything is the drive
+        if d < 0:
+            disc = p[1:]
+        else:
+            disc = p[1:d+1]
+            path = p[d+1:]
+
+    if c > 0: # Starts with a filing system
+        fs = p[:c]
+        if c < len(p)-1 and p[c+1] == ':': # Found disc spec too
+            d = p.find('.',c)
+            if d < 0: # No end of disc spec
+                disc = p[c+1]
+            else:
+                disc = p[c+2:d]
+                path = p[d+1:]
+
+        else: # No disc spec
+            path = p[c+1:]
+
+    if c < 0:
+        path = p
+        
+    # If the fs contains a special field then extract that
+    if fs and '#' in fs:
+        h = fs.find('#')
+        sf = fs[h+1:]
+        fs = fs[:h]
+
+    # If the path starts with an absolute then etract that
+    if path and path.split('.')[0] in _absolutes:
+        abs  = path[0]
+        path = path[2:]
+
+    if path is not None and len(path) == 0:
+        path = None
+
+    #print(f"Exploding {p1} -> {(fs,sf,disc,abs,path)}")
+    return (fs,sf,disc,abs,path)
+
 # Normalize the case of a pathname.  Trivial in Posix, string.lower on Mac
 # and RISC OS. On MS-DOS this may also turn slashes into backslashes; however,
 # other normalizations (such as optimizing '../' away) are not allowed
@@ -56,14 +127,11 @@ def normcase(s):
 
 
 # Return whether a path is absolute.
-# Trivial in Posix, harder on RISC OS.
-# For now just check if it has :: in it (eg. ADFS::Gizmo) or starts with
-# a < (eg. <Wimp$ScrapDir>
-
+# Having removed the 'drive', see if the first element is one of the absolutes.
 def isabs(s):
     """Test whether a path is absolute"""
-    s = os.fspath(s)
-    return s.find('::') != -1 or (len(s) > 0 and s[0] == '<')
+    drive,path = splitdrive(s)
+    return path.split('.')[0] in _absolutes
 
 # Join pathnames.
 # Ignore the previous parts if a part is absolute.
@@ -71,26 +139,71 @@ def isabs(s):
 
 def join(a, *p):
     """Join two or more pathname components, inserting '.' as needed.
-    If any component is an absolute path, all previous path components
-    will be discarded.  An empty last part will result in a path that
-    ends with a separator."""
+    handle file system, special field, disc specifier and absolutes."""
     a = os.fspath(a)
+    #print("a",a,explode(a))
     sep = _get_sep(a)
-    path = a
+    fs,sf,disc,abs,path = explode(a)
     try:
         if not p:
-            path[:0] + sep  #23780: Ensure compatible data type even if p is null.
+            return a
+
         for b in map(os.fspath, p):
-            if b.startswith(sep):
-                path = b
-            elif not path or path.endswith(sep):
-                path += b
+            fs_,sf_,disc_,abs_,path_ = explode(b)
+            #print("b",b,fs_,sf_,abs_,path_)
+            if fs_:
+                fs   = fs_
+                sf   = sf_
+                disc = disc_
+                abs  = abs_
+                path = path_
             else:
-                path += sep + b
+                if sf_:
+                    sf = sf_
+                if disc_:
+                    disc = disc_
+                    abs  = None
+                    path = None
+                if abs_:
+                    abs  = abs_
+                    path = None
+                if path_:
+                    if path:
+                        path = path + '.' + path_
+                    else:
+                        path = path_
+
+            #if b.startswith(sep):
+            #    path = b
+            #elif not path or path.endswith(sep):
+            #    path += b
+            #else:
+            #    path += sep + b
     except (TypeError, AttributeError, BytesWarning):
         genericpath._check_arg_types('join', a, *p)
         raise
-    return path
+    x = ''
+    if fs:
+        x += fs
+    if sf:
+        x += '#'+sf
+    if fs or sf:
+        x += ':'
+    if disc:
+        x += ':'+disc
+    if abs:
+        if len(x) > 0 and x[-1] != ':':
+            x += '.'
+        x += abs
+    if path:
+        #print("-",path,normpath(path))
+        path = normpath(path)
+        if len(path) > 0:
+            if len(x) > 0 and x[-1] != ':':
+                x += '.'
+            x += path
+    #print("=",x)
+    return x # path
 
 
 # Split a path in head (everything up to the last '.') and tail (the
@@ -137,25 +250,33 @@ def splitdrive(p):
     It is always true that:
         result[0] + result[1] == p
 
-    On RISC OS, the drive is everything up to the $, & or %.
+    On RISC OS, we se drive to mean the filesystem, special fields and media
+    descriptior. Eg. Net#0.254::Server., ADFS:, SDFS::RISCOSPi. In order to
+    satisfy the condtion above, the drive may include a trailing . (marking the
+    end of disc specification).
     """
     p = os.fspath(p)
-    drive = ''
-    path  = ''
-    
-    z = False
-    for c in p:
-        if c in ('$','&','%'):
-            z = True
-        if z:
-            path += c
-        else:
-            drive += c
 
-    if path != '':
-        return drive, path
-    else:
-        return '', drive
+    pos = p.find(':')
+    if pos == 0: # Starts with a disc specification
+        pos = p.find('.',0) # No end of disc spec, so everything is the drive
+        if pos < 0:
+            return p,''
+
+        return p[0:pos+1],p[pos+1:]
+
+    if pos > 0: # Starts with a filing system
+        if pos < len(p)-1 and p[pos+1] == ':': # Found disc spec too
+            pos = p.find('.',pos)
+            if pos < 0: # No end of disc spec, so everything is the drive
+                return p,''
+            else:
+                return p[0:pos+1],p[pos+1:]
+
+        else: # No disc spec
+            return p[0:pos+1],p[pos+1:]
+
+    return '',p
 
 # Return the tail (basename) part of a path, same as split(path)[1].
 
@@ -203,24 +324,12 @@ def lexists(path):
 
 
 # Is a path a mount point?
-# (Does this work for all UNIXes?  Is it even guaranteed to work by Posix?)
 
 def ismount(path):
-    """Test whether a path is a mount point (a drive root, the root of a
-    share, or a mounted volume)"""
-    path = os.fspath(path)
-    seps = _get_bothseps(path)
-    path = abspath(path)
-    root, rest = splitdrive(path)
-    if root and root[0] in seps:
-        return (not rest) or (rest in seps)
-    if rest in seps:
-        return True
-
-    if _getvolumepathname:
-        return path.rstrip(seps) == _getvolumepathname(path).rstrip(seps)
-    else:
-        return False
+    """Test whether a path is a mount point. An FS and discname or absolute
+    must be specified, without any further path."""
+    fs,sf,disc,abs,path = explode(os.fspath(path))
+    return fs and (disc or abs) and not path
 
 
 # Expand paths beginning with '~' or '~user'.
@@ -294,47 +403,48 @@ def expandvars(path):
     return path
 
 
-# Normalize a path, e.g. A//B, A/./B and A/foo/../B all become A\B.
-# Previously, this function also truncated pathnames to 8+3 format,
-# but as this module is called "ntpath", that's obviously wrong!
+# Normalize a path, e.g. A.B, A.foo.^.B all become A.B.
+# If we wanted we could probably convert the archaic -adfs- type specifiers
+# here, but we currently don't.
 
 def normpath(path):
-    """Normalize path, eliminating double slashes, etc."""
+    """Normalize path."""
     path = os.fspath(path)
     if isinstance(path, bytes):
         sep = b'.'
-        curdir = b'@'
+        curdir = b''
         pardir = b'^'
     else:
         sep = '.'
-        curdir = '@'
+        curdir = ''
         pardir = '^'
 
     prefix, path = splitdrive(path)
 
-    # collapse initial backslashes
-    if path.startswith(sep):
-        prefix += sep
-        path = path.lstrip(sep)
+    if len(path) == 0: # No path
+        return prefix
 
     comps = path.split(sep)
-    i = 0
+    s = 0
+    if len(comps) > 0 and comps[0] in _absolutes:
+        s = 1
+    i = s
     while i < len(comps):
-        if not comps[i] or comps[i] == curdir:
+        if not comps[i]:
             del comps[i]
         elif comps[i] == pardir:
-            if i > 0 and comps[i-1] != pardir:
+            if i > s:
                 del comps[i-1:i+1]
                 i -= 1
-            elif i == 0 and prefix.endswith(sep):
+            elif i == s:
                 del comps[i]
             else:
                 i += 1
         else:
             i += 1
     # If the path is now empty, substitute '.'
-    if not prefix and not comps:
-        comps.append(curdir)
+    #if not prefix and not comps:
+    #    comps.append(curdir)
     return prefix + sep.join(comps)
 
 
