@@ -39,9 +39,13 @@ Py_GetBuildInfo(void)
                            sizeof(GITTAG) : sizeof(GITBRANCH))];
     const char *revision = _Py_gitversion();
     const char *sep = *revision ? ":" : "";
+#ifdef RISCOS
+    const char *gitid = "riscos-1";
+#else
     const char *gitid = _Py_gitidentifier();
     if (!(*gitid))
         gitid = "default";
+#endif
     PyOS_snprintf(buildinfo, sizeof(buildinfo),
                   "%s%s%s, %.20s, %.9s", gitid, sep, revision,
                   DATE, TIME);

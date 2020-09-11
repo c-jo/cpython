@@ -32,15 +32,16 @@
    * Changed SwiError to use PyExc_RISCOSError
 */
 
-#include "oslib/os.h"
 #include <kernel.h>
+#include <swis.h>
+
 #include "Python.h"
 
 #define PyBlock_Check(op) ((op)->ob_type == &PyBlockType)
 
 static PyObject *SwiError; /* Exception swi.error */
 static PyObject *ArgError; /* Exception swi.ArgError */
-static os_error *e;
+static _kernel_oserror *e;
 
 static PyObject *swi_oserror(void)
 {
@@ -442,8 +443,10 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
   if(!PyArg_Parse(name,"i",&swino))
   { PyErr_Clear();
     if(!PyArg_Parse(name,"s",&swiname)) return NULL;
-    e=xos_swi_number_from_string(swiname,&swino);
+    r.r[1] = (int)swiname;
+    e=_kernel_swi(OS_SWINumberFromString,&r,&r);
     if(e) return swi_oserror();
+    swino = r.r[0];
   }
   format=PyTuple_GetItem(args,1);
   if(!PyArg_Parse(format,"s",&fmt)) return NULL;
@@ -481,7 +484,7 @@ static PyObject *swi_swi(PyObject *self,PyObject *args)
     }
     rno++;
   }
-  swicall:e=(os_error*)_kernel_swi_c(swino,&r,&r,&carry);
+  swicall:e=_kernel_swi_c(swino,&r,&r,&carry);
   if(e) return swi_oserror();
   if(*fmt==0) { Py_INCREF(Py_None);return Py_None;}
   n=0;
