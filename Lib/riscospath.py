@@ -2,14 +2,12 @@
 
 Instead of importing this module directly, import os and refer to this
 module as os.path.
-
-NOTE: This is both very incomplete and also based on the 3.7's ntpath.
 """
 
 # Strings representing various path-related bits and pieces.
 # These are primarily for export; internally, they are hardcoded.
 # Should be set before imports for resolving cyclic dependency.
-curdir = '@'
+curdir = ''
 pardir = '^'
 extsep = '/'
 sep = '.'
@@ -30,10 +28,9 @@ __all__ = ["normcase","isabs","join","splitdrive","split","splitext",
            "basename","dirname","commonprefix","getsize","getmtime",
            "getatime","getctime","islink","exists","lexists","isdir","isfile",
            "ismount", "expanduser","expandvars","normpath","abspath",
-           "samefile","sameopenfile","samestat",
-           "curdir","pardir","sep","pathsep","defpath","altsep","extsep",
-           "devnull","realpath","supports_unicode_filenames","relpath",
-           "commonpath","canonicalise"]
+           "curdir","pardir","sep","pathsep","defpath","altsep",
+           "extsep","devnull","realpath","supports_unicode_filenames","relpath",
+           "samefile","sameopenfile","samestat","commonpath","canonicalise"]
 
 
 def _get_sep(path):
@@ -118,12 +115,7 @@ def explode(path):
 
 def normcase(s):
     """Normalize case of pathname."""
-    s = os.fspath(s)
-    return s.lower()
-    if not isinstance(s, (bytes, str)):
-        raise TypeError("normcase() argument must be str or bytes, "
-                        "not '{}'".format(s.__class__.__name__))
-    return s
+    return os.fspath(s).lower()
 
 
 # Return whether a path is absolute.
@@ -196,13 +188,13 @@ def join(a, *p):
             x += '.'
         x += abs
     if path:
-        #print("-",path,normpath(path))
-        path = normpath(path)
+        #print("*",path,normpath(path))
+        #path = normpath(path)
         if len(path) > 0:
             if len(x) > 0 and x[-1] != ':':
                 x += '.'
             x += path
-    #print("=",x)
+    # print("=",x)
     return x # path
 
 
@@ -239,8 +231,10 @@ def splitext(p):
     return genericpath._splitext(p, sep, None, extsep)
 splitext.__doc__ = genericpath._splitext.__doc__
 
-# Split a path in a drive specification and the path specification.
+# Split a pathname into a drive specification and the rest of the
+# path.
 # It is always true that drivespec + pathspec == p
+# On RISC OS the drive is the filing system, special field and discname.
 def splitdrive(p):
     """Split a pathname into drive name and relative path specifiers.
     Returns a 2-tuple (drive, path); either part may be empty.
@@ -308,7 +302,7 @@ def islink(path):
     """Test whether a path is a symbolic link"""
     try:
         st = os.lstat(path)
-    except (OSError, AttributeError):
+    except (OSError, ValueError, AttributeError):
         return False
     return stat.S_ISLNK(st.st_mode)
 
@@ -318,16 +312,17 @@ def lexists(path):
     """Test whether a path exists.  Returns True for broken symbolic links"""
     try:
         os.lstat(path)
-    except OSError:
+    except (OSError, ValueError):
         return False
     return True
 
 
 # Is a path a mount point?
+# For RISC OS we, a file system and discname or absolute
+# must be specified, without any further path.
 
 def ismount(path):
-    """Test whether a path is a mount point. An FS and discname or absolute
-    must be specified, without any further path."""
+    """Test whether a path is a mount point."""
     fs,sf,disc,abs,path = explode(os.fspath(path))
     return fs and (disc or abs) and not path
 
@@ -420,6 +415,7 @@ def normpath(path):
         pardir = '^'
 
     prefix, path = splitdrive(path)
+    #print(prefix)
 
     if len(path) == 0: # No path
         return prefix
@@ -429,14 +425,16 @@ def normpath(path):
     if len(comps) > 0 and comps[0] in _absolutes:
         s = 1
     i = s
+    #print(comps,i,s)
     while i < len(comps):
+        #print(f" {i} '{comps[i]}'")
         if not comps[i]:
             del comps[i]
         elif comps[i] == pardir:
-            if i > s:
+            if i > s and comps[i-1] != pardir:
                 del comps[i-1:i+1]
                 i -= 1
-            elif i == s:
+            elif i == s == 1:
                 del comps[i]
             else:
                 i += 1
@@ -463,64 +461,6 @@ def abspath(path):
 # Return a canonical path (i.e. the absolute location of a file on the
 # filesystem).
 
-def realpath(filename):
-    """Return the canonical path of the specified filename, eliminating any
-symbolic links encountered in the path."""
-    filename = os.fspath(filename)
-    path, ok = _joinrealpath(filename[:0], filename, {})
-    return abspath(path)
-
-# Join two paths, normalizing and eliminating any symbolic links
-# encountered in the second path.
-def _joinrealpath(path, rest, seen):
-    if isinstance(path, bytes):
-        sep = b'.'
-        curdir = b'@'
-        pardir = b'^'
-    else:
-        sep = '.'
-        curdir = '@'
-        pardir = '^'
-
-    if isabs(rest):
-        rest = rest[1:]
-        path = sep
-
-    while rest:
-        name, _, rest = rest.partition(sep)
-        if not name or name == curdir:
-            # current dir
-            continue
-        if name == pardir:
-            # parent dir
-            if path:
-                path, name = split(path)
-                if name == pardir:
-                    path = join(path, pardir, pardir)
-            else:
-                path = pardir
-            continue
-        newpath = join(path, name)
-        if not islink(newpath):
-            path = newpath
-            continue
-        # Resolve the symbolic link
-        if newpath in seen:
-            # Already seen this path
-            path = seen[newpath]
-            if path is not None:
-                # use cached value
-                continue
-            # The symlink is not resolved, so we must have a symlink loop.
-            # Return already resolved part + rest of the path unchanged.
-            return join(newpath, rest), False
-        seen[newpath] = None # not resolved symlink
-        path, ok = _joinrealpath(path, os.readlink(newpath), seen)
-        if not ok:
-            return join(path, rest), False
-        seen[newpath] = path # resolved symlink
-
-    return path, True
 
 # realpath is a no-op on systems without islink support
 realpath = abspath
@@ -530,36 +470,58 @@ supports_unicode_filenames = False
 
 def relpath(path, start=None):
     """Return a relative version of a path"""
-
+    #print('relpath',path,start)
     if not path:
         raise ValueError("no path specified")
 
+    # Check they have same fs, sf, disc and absolute
     path = os.fspath(path)
     if isinstance(path, bytes):
-        curdir = b'@'
+        curdir = b''
         sep = b'.'
         pardir = b'^'
     else:
-        curdir = '@'
+        curdir = ''
         sep = '.'
         pardir = '^'
 
     if start is None:
-        start = curdir
+        start = os.fspath(curdir)
     else:
         start = os.fspath(start)
 
     try:
-        start_list = [x for x in abspath(start).split(sep) if x]
-        path_list = [x for x in abspath(path).split(sep) if x]
+        start_abs = abspath(normpath(start))
+        path_abs = abspath(normpath(path))
+        start_drive, start_rest = splitdrive(start_abs)
+        path_drive, path_rest = splitdrive(path_abs)
+        if normcase(start_drive) != normcase(path_drive):
+            raise ValueError("path is on %r, start on %r" % (
+                path_drive, start_drive))
+
+        start_list = [x for x in start_rest.split(sep) if x]
+        path_list = [x for x in path_rest.split(sep) if x]
+        #print(start_list,path_list)
+        if len(start_list) > 0 and len(path_list) > 0:
+            start_first = start_list[0]
+            path_first = path_list[0]
+            if start_first in _absolutes and \
+                path_first in _absolutes and \
+                start_first != path_first:
+                raise ValueError("path from %r, start is from %r" % (
+                    path_first, start_first))
         # Work out how much of the filepath is shared by start and path.
-        i = len(commonprefix([start_list, path_list]))
+        i = 0
+        for e1, e2 in zip(start_list, path_list):
+            if normcase(e1) != normcase(e2):
+                break
+            i += 1
 
         rel_list = [pardir] * (len(start_list)-i) + path_list[i:]
         if not rel_list:
             return curdir
         return join(*rel_list)
-    except (TypeError, AttributeError, BytesWarning, DeprecationWarning):
+    except (TypeError, ValueError, AttributeError, BytesWarning, DeprecationWarning):
         genericpath._check_arg_types('relpath', path, start)
         raise
 
@@ -578,10 +540,10 @@ def commonpath(paths):
     paths = tuple(map(os.fspath, paths))
     if isinstance(paths[0], bytes):
         sep = b'.'
-        curdir = b'@'
+        curdir = b''
     else:
         sep = '.'
-        curdir = '@'
+        curdir = ''
 
     try:
         split_paths = [path.split(sep) for path in paths]
