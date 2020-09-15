@@ -1,5 +1,5 @@
-import riscospath
 import os
+import riscospath
 import sys
 import unittest
 import warnings
@@ -16,7 +16,6 @@ def _norm(path):
 
 
 def tester(fn, wantResult):
-    #fn = fn.replace("\\", "\\\\")
     gotResult = eval(fn)
     if wantResult != gotResult and _norm(wantResult) != _norm(gotResult):
         raise TestFailed("%s should return: %s but returned: %s" \
@@ -52,41 +51,48 @@ class RiscospathTestCase(unittest.TestCase):
 class TestRiscospathExtra(RiscospathTestCase):
     def test_explode(self):
         self.assertEqual(riscospath.explode("SDFS::RISCOSPi.$.Work") ,
-                  ('SDFS', None, 'RISCOSPi', '$', 'Work'))
+                ('SDFS', None, 'RISCOSPi', '$', 'Work'))
         self.assertEqual(riscospath.explode("SDFS:$.Work"),
-                  ('SDFS', None, None, '$', 'Work'))
+                ('SDFS', None, None, '$', 'Work'))
         self.assertEqual(riscospath.explode("SDFS::RISCOSPi.Work"),
-                  ('SDFS', None, 'RISCOSPi', None, 'Work'))
+                ('SDFS', None, 'RISCOSPi', None, 'Work'))
         self.assertEqual(riscospath.explode("SDFS::RISCOSPi.$"),
-                  ('SDFS', None, 'RISCOSPi', '$', None))
+                ('SDFS', None, 'RISCOSPi', '$', None))
         self.assertEqual(riscospath.explode(":RISCOSPi.$.Work"),
-                  (None, None, 'RISCOSPi.', '$', 'Work'))
+                (None, None, 'RISCOSPi.', '$', 'Work'))
         self.assertEqual(riscospath.explode("Net#0.254::Rachel.&.Spam"),
-                  ('Net', '0.254', 'Rachel', '&', 'Spam'))
+                ('Net', '0.254', 'Rachel', '&', 'Spam'))
         self.assertEqual(riscospath.explode("Net#0.254:&.Spam"),
-                  ('Net', '0.254', None, '&', 'Spam'))
+                ('Net', '0.254', None, '&', 'Spam'))
         self.assertEqual(riscospath.explode("^"),
-                  (None, None, None, None, '^'))
+                (None, None, None, None, '^'))
         self.assertEqual(riscospath.explode("#0.254"),
-                  (None, "0.254", None, None, None))
+                (None, "0.254", None, None, None))
         self.assertEqual(riscospath.explode(":Spam"),
-                  (None, None, 'Spam', None, None))
+                (None, None, 'Spam', None, None))
         self.assertEqual(riscospath.explode("#0.254:&"),
-                  (None, '0.254', None, '&', None))
+                (None, '0.254', None, '&', None))
         self.assertEqual(riscospath.explode("#0.254::Rachel"),
-                  (None, '0.254', 'Rachel', None, None))
+                (None, '0.254', 'Rachel', None, None))
         self.assertEqual(riscospath.explode(""),
-                  (None, None, None, None, None))
+                (None, None, None, None, None))
 
 class TestRiscospath(RiscospathTestCase):
     def test_splitext(self):
-        tester('riscospath.splitext("foo/ext")', ('foo', '/ext'))
-        tester('riscospath.splitext("$.foo.foo/ext")', ('$.foo.foo', '/ext'))
-        tester('riscospath.splitext("/ext")', ('/ext', ''))
-        tester('riscospath.splitext("foo/ext/")', ('foo/ext', '/'))
-        tester('riscospath.splitext("")', ('', ''))
-        tester('riscospath.splitext("foo/bar/ext")', ('foo/bar', '/ext'))
-        tester('riscospath.splitext("$.foo/bar/ext")', ('$.foo/bar', '/ext'))
+        self.assertEqual(riscospath.splitext("foo/ext"),
+                ('foo', '/ext'))
+        self.assertEqual(riscospath.splitext("$.foo.foo/ext"),
+                ('$.foo.foo', '/ext'))
+        self.assertEqual(riscospath.splitext("/ext"),
+                ('/ext', ''))
+        self.assertEqual(riscospath.splitext("foo/ext/"),
+                ('foo/ext', '/'))
+        self.assertEqual(riscospath.splitext(""),
+                ('', ''))
+        self.assertEqual(riscospath.splitext("foo/bar/ext"),
+                ('foo/bar', '/ext'))
+        self.assertEqual(riscospath.splitext("$.foo/bar/ext"),
+                ('$.foo/bar', '/ext'))
 
     def test_splitdrive(self):
         tester('riscospath.splitdrive("SDFS::RISCOSPi.$")',
@@ -115,11 +121,11 @@ class TestRiscospath(RiscospathTestCase):
         tester('riscospath.split("")', ('', ''))
 
     def test_isabs(self):
-        tester('riscospath.isabs("SDFS::RISCOSPi.$")', 1)
-        tester('riscospath.isabs("Net#.254:&.foo")', 1)
-        tester('riscospath.isabs("SCSI:%")', 1)
-        tester('riscospath.isabs("ADFS:baz")', 0)
-        tester('riscospath.isabs("foo.bar")', 0)
+        self.assertTrue (riscospath.isabs("SDFS::RISCOSPi.$"))
+        self.assertTrue (riscospath.isabs("Net#.254:&.foo"))
+        self.assertTrue (riscospath.isabs("SCSI:%"))
+        self.assertFalse(riscospath.isabs("ADFS:baz"))
+        self.assertFalse(riscospath.isabs("foo.bar"))
 
     def test_commonprefix(self):
         tester('riscospath.commonprefix(["$.swenson.spam", "$.swen.spam"])',
@@ -142,8 +148,8 @@ class TestRiscospath(RiscospathTestCase):
         """
         tester('riscospath.join("a", "b", "c")', 'a.b.c')
 
-        tester('riscospath.join("$.Work", "^")', '$')
-        tester('riscospath.join("$", "^")', '$')
+        tester('riscospath.join("$.Work", "^")', '$.Work.^')
+        tester('riscospath.join("$", "^")', '$.^')
 
 
         tester('riscospath.join("Net:&", "#0.254")', 'Net#0.254:&')
@@ -209,16 +215,9 @@ class TestRiscospath(RiscospathTestCase):
         tester("riscospath.normpath('SDFS::RISCOSPi.$')", r'SDFS::RISCOSPi.$')
         tester("riscospath.normpath('$.')", r'$')
         tester("riscospath.normpath('Net#0.254:Disc.&.Foo.^.')", r'Net#0.254:Disc.&')
+        tester("riscospath.normpath('^.a.b')", r'^.a.b')
 
     """
-    def test_realpath_curdir(self):
-        expected = riscospath.normpath(os.getcwd())
-        tester("riscospath.realpath('.')", expected)
-        tester("riscospath.realpath('./.')", expected)
-        tester("riscospath.realpath('/'.join(['.'] * 100))", expected)
-        tester("riscospath.realpath('.\\.')", expected)
-        tester("riscospath.realpath('\\'.join(['.'] * 100))", expected)
-
     def test_realpath_pardir(self):
         expected = riscospath.normpath(os.getcwd())
         tester("riscospath.realpath('..')", riscospath.dirname(expected))
@@ -231,168 +230,8 @@ class TestRiscospath(RiscospathTestCase):
         tester("riscospath.realpath('\\'.join(['..'] * 50))",
                riscospath.splitdrive(expected)[0] + '\\')
     """
+
     """
-    @support.skip_unless_symlink
-    @unittest.skipUnless(HAVE_GETFINALPATHNAME, 'need _getfinalpathname')
-    def test_realpath_basic(self):
-        ABSTFN = riscospath.abspath(support.TESTFN)
-        open(ABSTFN, "wb").close()
-        self.addCleanup(support.unlink, ABSTFN)
-        self.addCleanup(support.unlink, ABSTFN + "1")
-
-        os.symlink(ABSTFN, ABSTFN + "1")
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "1"), ABSTFN)
-        self.assertPathEqual(riscospath.realpath(os.fsencode(ABSTFN + "1")),
-                         os.fsencode(ABSTFN))
-
-    @support.skip_unless_symlink
-    @unittest.skipUnless(HAVE_GETFINALPATHNAME, 'need _getfinalpathname')
-    def test_realpath_relative(self):
-        ABSTFN = riscospath.abspath(support.TESTFN)
-        open(ABSTFN, "wb").close()
-        self.addCleanup(support.unlink, ABSTFN)
-        self.addCleanup(support.unlink, ABSTFN + "1")
-
-        os.symlink(ABSTFN, riscospath.relpath(ABSTFN + "1"))
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "1"), ABSTFN)
-
-    @support.skip_unless_symlink
-    @unittest.skipUnless(HAVE_GETFINALPATHNAME, 'need _getfinalpathname')
-    def test_realpath_broken_symlinks(self):
-        ABSTFN = riscospath.abspath(support.TESTFN)
-        os.mkdir(ABSTFN)
-        self.addCleanup(support.rmtree, ABSTFN)
-
-        with support.change_cwd(ABSTFN):
-            os.mkdir("subdir")
-            os.chdir("subdir")
-            os.symlink(".", "recursive")
-            os.symlink("..", "parent")
-            os.chdir("..")
-            os.symlink(".", "self")
-            os.symlink("missing", "broken")
-            os.symlink(r"broken\bar", "broken1")
-            os.symlink(r"self\self\broken", "broken2")
-            os.symlink(r"subdir\parent\subdir\parent\broken", "broken3")
-            os.symlink(ABSTFN + r"\broken", "broken4")
-            os.symlink(r"recursive\..\broken", "broken5")
-
-            self.assertPathEqual(riscospath.realpath("broken"),
-                                 ABSTFN + r"\missing")
-            self.assertPathEqual(riscospath.realpath(r"broken\foo"),
-                                 ABSTFN + r"\missing\foo")
-            # bpo-38453: We no longer recursively resolve segments of relative
-            # symlinks that the OS cannot resolve.
-            self.assertPathEqual(riscospath.realpath(r"broken1"),
-                                 ABSTFN + r"\broken\bar")
-            self.assertPathEqual(riscospath.realpath(r"broken1\baz"),
-                                 ABSTFN + r"\broken\bar\baz")
-            self.assertPathEqual(riscospath.realpath("broken2"),
-                                 ABSTFN + r"\self\self\missing")
-            self.assertPathEqual(riscospath.realpath("broken3"),
-                                 ABSTFN + r"\subdir\parent\subdir\parent\missing")
-            self.assertPathEqual(riscospath.realpath("broken4"),
-                                 ABSTFN + r"\missing")
-            self.assertPathEqual(riscospath.realpath("broken5"),
-                                 ABSTFN + r"\missing")
-
-            self.assertPathEqual(riscospath.realpath(b"broken"),
-                                 os.fsencode(ABSTFN + r"\missing"))
-            self.assertPathEqual(riscospath.realpath(rb"broken\foo"),
-                                 os.fsencode(ABSTFN + r"\missing\foo"))
-            self.assertPathEqual(riscospath.realpath(rb"broken1"),
-                                 os.fsencode(ABSTFN + r"\broken\bar"))
-            self.assertPathEqual(riscospath.realpath(rb"broken1\baz"),
-                                 os.fsencode(ABSTFN + r"\broken\bar\baz"))
-            self.assertPathEqual(riscospath.realpath(b"broken2"),
-                                 os.fsencode(ABSTFN + r"\self\self\missing"))
-            self.assertPathEqual(riscospath.realpath(rb"broken3"),
-                                 os.fsencode(ABSTFN + r"\subdir\parent\subdir\parent\missing"))
-            self.assertPathEqual(riscospath.realpath(b"broken4"),
-                                 os.fsencode(ABSTFN + r"\missing"))
-            self.assertPathEqual(riscospath.realpath(b"broken5"),
-                                 os.fsencode(ABSTFN + r"\missing"))
-
-    @support.skip_unless_symlink
-    @unittest.skipUnless(HAVE_GETFINALPATHNAME, 'need _getfinalpathname')
-    def test_realpath_symlink_loops(self):
-        # Symlink loops are non-deterministic as to which path is returned, but
-        # it will always be the fully resolved path of one member of the cycle
-        ABSTFN = riscospath.abspath(support.TESTFN)
-        self.addCleanup(support.unlink, ABSTFN)
-        self.addCleanup(support.unlink, ABSTFN + "1")
-        self.addCleanup(support.unlink, ABSTFN + "2")
-        self.addCleanup(support.unlink, ABSTFN + "y")
-        self.addCleanup(support.unlink, ABSTFN + "c")
-        self.addCleanup(support.unlink, ABSTFN + "a")
-
-        os.symlink(ABSTFN, ABSTFN)
-        self.assertPathEqual(riscospath.realpath(ABSTFN), ABSTFN)
-
-        os.symlink(ABSTFN + "1", ABSTFN + "2")
-        os.symlink(ABSTFN + "2", ABSTFN + "1")
-        expected = (ABSTFN + "1", ABSTFN + "2")
-        self.assertPathIn(riscospath.realpath(ABSTFN + "1"), expected)
-        self.assertPathIn(riscospath.realpath(ABSTFN + "2"), expected)
-
-        self.assertPathIn(riscospath.realpath(ABSTFN + "1\\x"),
-                          (riscospath.join(r, "x") for r in expected))
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "1\\.."),
-                             riscospath.dirname(ABSTFN))
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "1\\..\\x"),
-                             riscospath.dirname(ABSTFN) + "\\x")
-        os.symlink(ABSTFN + "x", ABSTFN + "y")
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "1\\..\\"
-                                             + riscospath.basename(ABSTFN) + "y"),
-                             ABSTFN + "x")
-        self.assertPathIn(riscospath.realpath(ABSTFN + "1\\..\\"
-                                          + riscospath.basename(ABSTFN) + "1"),
-                          expected)
-
-        os.symlink(riscospath.basename(ABSTFN) + "a\\b", ABSTFN + "a")
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "a"), ABSTFN + "a")
-
-        os.symlink("..\\" + riscospath.basename(riscospath.dirname(ABSTFN))
-                   + "\\" + riscospath.basename(ABSTFN) + "c", ABSTFN + "c")
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "c"), ABSTFN + "c")
-
-        # Test using relative path as well.
-        self.assertPathEqual(riscospath.realpath(riscospath.basename(ABSTFN)), ABSTFN)
-
-    @support.skip_unless_symlink
-    @unittest.skipUnless(HAVE_GETFINALPATHNAME, 'need _getfinalpathname')
-    def test_realpath_symlink_prefix(self):
-        ABSTFN = riscospath.abspath(support.TESTFN)
-        self.addCleanup(support.unlink, ABSTFN + "3")
-        self.addCleanup(support.unlink, "\\\\?\\" + ABSTFN + "3.")
-        self.addCleanup(support.unlink, ABSTFN + "3link")
-        self.addCleanup(support.unlink, ABSTFN + "3.link")
-
-        with open(ABSTFN + "3", "wb") as f:
-            f.write(b'0')
-        os.symlink(ABSTFN + "3", ABSTFN + "3link")
-
-        with open("\\\\?\\" + ABSTFN + "3.", "wb") as f:
-            f.write(b'1')
-        os.symlink("\\\\?\\" + ABSTFN + "3.", ABSTFN + "3.link")
-
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "3link"),
-                             ABSTFN + "3")
-        self.assertPathEqual(riscospath.realpath(ABSTFN + "3.link"),
-                             "\\\\?\\" + ABSTFN + "3.")
-
-        # Resolved paths should be usable to open target files
-        with open(riscospath.realpath(ABSTFN + "3link"), "rb") as f:
-            self.assertEqual(f.read(), b'0')
-        with open(riscospath.realpath(ABSTFN + "3.link"), "rb") as f:
-            self.assertEqual(f.read(), b'1')
-
-        # When the prefix is included, it is not stripped
-        self.assertPathEqual(riscospath.realpath("\\\\?\\" + ABSTFN + "3link"),
-                             "\\\\?\\" + ABSTFN + "3")
-        self.assertPathEqual(riscospath.realpath("\\\\?\\" + ABSTFN + "3.link"),
-                             "\\\\?\\" + ABSTFN + "3.")
-
     @unittest.skipUnless(HAVE_GETFINALPATHNAME, 'need _getfinalpathname')
     def test_realpath_nul(self):
         tester("riscospath.realpath('NUL')", r'\\.NUL')
@@ -508,40 +347,35 @@ class TestRiscospath(RiscospathTestCase):
             tester('riscospath.expanduser("~test")', 'C:\\eric\\test')
             tester('riscospath.expanduser("~")', 'C:\\eric\\idle')
 
-    @unittest.skipUnless(nt, "abspath requires 'nt' module")
-    def test_abspath(self):
-        tester('riscospath.abspath("C:\\")', "C:\\")
-        with support.temp_cwd(support.TESTFN) as cwd_dir: # bpo-31047
-            tester('riscospath.abspath("")', cwd_dir)
-            tester('riscospath.abspath(" ")', cwd_dir + "\\ ")
-            tester('riscospath.abspath("?")', cwd_dir + "\\?")
-            drive, _ = riscospath.splitdrive(cwd_dir)
-            tester('riscospath.abspath("/abc/")', drive + "\\abc")
-
+    """
     def test_relpath(self):
         tester('riscospath.relpath("a")', 'a')
+        tester('riscospath.relpath("a", "a")', '')
         tester('riscospath.relpath(riscospath.abspath("a"))', 'a')
-        tester('riscospath.relpath("a/b")', 'a\\b')
-        tester('riscospath.relpath("../a/b")', '..\\a\\b')
+        tester('riscospath.relpath("a.b")', 'a.b')
+        tester('riscospath.relpath("^.a.b")', '^.a.b')
         with support.temp_cwd(support.TESTFN) as cwd_dir:
             currentdir = riscospath.basename(cwd_dir)
-            tester('riscospath.relpath("a", "../b")', '..\\'+currentdir+'\\a')
-            tester('riscospath.relpath("a/b", "../c")', '..\\'+currentdir+'\\a\\b')
-        tester('riscospath.relpath("a", "b/c")', '..\\..\\a')
-        tester('riscospath.relpath("c:/foo/bar/bat", "c:/x/y")', '..\\..\\foo\\bar\\bat')
-        tester('riscospath.relpath("//conky/mountpoint/a", "//conky/mountpoint/b/c")', '..\\..\\a')
-        tester('riscospath.relpath("a", "a")', '.')
-        tester('riscospath.relpath("/foo/bar/bat", "/x/y/z")', '..\\..\\..\\foo\\bar\\bat')
-        tester('riscospath.relpath("/foo/bar/bat", "/foo/bar")', 'bat')
-        tester('riscospath.relpath("/foo/bar/bat", "/")', 'foo\\bar\\bat')
-        tester('riscospath.relpath("/", "/foo/bar/bat")', '..\\..\\..')
-        tester('riscospath.relpath("/foo/bar/bat", "/x")', '..\\foo\\bar\\bat')
-        tester('riscospath.relpath("/x", "/foo/bar/bat")', '..\\..\\..\\x')
-        tester('riscospath.relpath("/", "/")', '.')
-        tester('riscospath.relpath("/a", "/a")', '.')
-        tester('riscospath.relpath("/a/b", "/a/b")', '.')
-        tester('riscospath.relpath("c:/foo", "C:/FOO")', '.')
+            tester('riscospath.relpath("a", "^.b")', '^.'+currentdir+'.a')
+            tester('riscospath.relpath("a.b", "^.c")', '^.'+currentdir+'.a.b')
+        tester('riscospath.relpath("a", "b.c")', '^.^.a')
+        tester('riscospath.relpath("$.foo.bar.bat", "$.x.y")', '^.^.foo.bar.bat')
+        tester('riscospath.relpath("SDFS::RISCOSPi.$.a", "SDFS::RISCOSPi.$.b.c")', '^.^.a')
+        #tester('riscospath.relpath("/foo/bar/bat", "/x/y/z")', '..\\..\\..\\foo\\bar\\bat')
+        #tester('riscospath.relpath("/foo/bar/bat", "/foo/bar")', 'bat')
+        #tester('riscospath.relpath("/foo/bar/bat", "/")', 'foo\\bar\\bat')
+        tester('riscospath.relpath("$", "$.foo.bar.bat")', '^.^.^')
+        tester('riscospath.relpath("$", "$")', '')
+        tester('riscospath.relpath("$.a", "$.a")', '')
+        tester('riscospath.relpath("$.a.b", "$.a.b")', '')
+        tester('riscospath.relpath("$.foo", "$.FOO")', '')
+        self.assertRaises(ValueError,
 
+            riscospath.relpath, "ADFS::0.$","SDFS::RISCOSPi.$.Work")
+        self.assertRaises(ValueError,
+            riscospath.relpath, "ADFS:$","ADFS:&")
+
+    """
     def test_commonpath(self):
         def check(paths, expected):
             tester(('riscospath.commonpath(%r)' % paths).replace('\\\\', '\\'),
@@ -617,55 +451,22 @@ class TestRiscospath(RiscospathTestCase):
             self.assertTrue(riscospath.sameopenfile(tf1.fileno(), tf1.fileno()))
             # Make sure different files are really different
             self.assertFalse(riscospath.sameopenfile(tf1.fileno(), tf2.fileno()))
-            # Make sure invalid values don't cause issues on win32
-            if sys.platform == "win32":
-                with self.assertRaises(OSError):
-                    # Invalid file descriptors shouldn't display assert
-                    # dialogs (#4804)
-                    riscospath.sameopenfile(-1, -1)
     """
 
     def test_ismount(self):
-        self.assertTrue(riscospath.ismount("ADFS::HardDisc4.$"))
-        self.assertTrue(riscospath.ismount("Net::Rachel.&"))
-        self.assertTrue(riscospath.ismount("SDFS:%"))
-        self.assertTrue(riscospath.ismount("SCSI:%"))
-        self.assertTrue(riscospath.ismount("RAM:\\"))
-    """
-        self.assertTrue(riscospath.ismount(b"c:\\"))
-        self.assertTrue(riscospath.ismount(b"C:\\"))
-        self.assertTrue(riscospath.ismount(b"c:/"))
-        self.assertTrue(riscospath.ismount(b"C:/"))
-        self.assertTrue(riscospath.ismount(b"\\\\.\\c:\\"))
-        self.assertTrue(riscospath.ismount(b"\\\\.\\C:\\"))
-
+        self.assertTrue (riscospath.ismount("ADFS::HardDisc4.$"))
+        self.assertTrue (riscospath.ismount("Net::Rachel.&"))
+        self.assertTrue (riscospath.ismount("SDFS:%"))
+        self.assertTrue (riscospath.ismount("SCSI:%"))
+        self.assertTrue (riscospath.ismount("RAM:\\"))
         with support.temp_dir() as d:
             self.assertFalse(riscospath.ismount(d))
 
-        if sys.platform == "win32":
-            #
-            # Make sure the current folder isn't the root folder
-            # (or any other volume root). The drive-relative
-            # locations below cannot then refer to mount points
-            #
-            drive, path = riscospath.splitdrive(sys.executable)
-            with support.change_cwd(riscospath.dirname(sys.executable)):
-                self.assertFalse(riscospath.ismount(drive.lower()))
-                self.assertFalse(riscospath.ismount(drive.upper()))
-
-            self.assertTrue(riscospath.ismount("\\\\localhost\\c$"))
-            self.assertTrue(riscospath.ismount("\\\\localhost\\c$\\"))
-
-            self.assertTrue(riscospath.ismount(b"\\\\localhost\\c$"))
-            self.assertTrue(riscospath.ismount(b"\\\\localhost\\c$\\"))
-
+    """
     def assertEqualCI(self, s1, s2):
         "-"Assert that two strings are equal ignoring case differences."-"
         self.assertEqual(s1.lower(), s2.lower())
 
-class NtCommonTest(test_genericpath.CommonTest, unittest.TestCase):
-    pathmodule = ntpath
-    attributes = ['relpath']
 
 
 class PathLikeTests(NtpathTestCase):
