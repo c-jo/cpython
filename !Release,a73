@@ -7,13 +7,13 @@ if not here:
     here = os.getcwd()
 
 dry_run = False
-verbose = True
+verbose = False
 keep_suffix = [ \
 'Lib.test.test_importlib.namespace_pkgs.module_and_namespace_package.a_test/py',
 ]
 
-
-os.system('X Wipe build.!Python3 rf~c~v')
+os.system('X Wipe '+here+'.build.Apps rf~c~v')
+os.system('X Wipe '+here+'.build.RiscPkg rf~c~v')
 
 # Copy a file
 def copy(src,dst,typ=None):
@@ -21,14 +21,12 @@ def copy(src,dst,typ=None):
         if typ is None:
             print('Copy {} -> {}'.format(src, dst))
         else:
-            print("Copy {} -> {} ({:x})".format(src, dst, typ))
+            print("Copy {} -> {} ({:03x})".format(src, dst, typ))
 
     if dry_run:
         return
 
     swi.swi('OS_FSControl','issi',26,src,dst,0b01)
-    #if os.system('%Copy {} {} ~C~RF~V'.format(src,dst)) != 0:
-    #    exit(1)
 
     if typ is not None:
         os.set_filetype(dst, typ)
@@ -50,41 +48,48 @@ def strip(src,dst,typ=None):
     if typ is not None:
         os.set_filetype(dst, typ)
 
+# Copy a RISC OS application, handling things like _Run,feb for !Run (Obey)
+def app_copy(src,dst):
+    os.makedirs(dst)
+    for path,dirs,files in os.walk(src):
+        for file in files:
+            src = os.path.join(path, file)
 
-# Create the !Python3 application
-os.makedirs('build.!Python3.Lib')
-os.makedirs('build.!Python3.Lib.lib-dynload')
+            if ',' in file:
+                file,type = file.split(',')
+                type = int(type, 16)
+            else:
+                type = None
+            if file[0] == '_':
+                file = '!'+file[1:]
 
-target = os.path.join('build','!Python3')
+            copy(src, os.path.join(dst,file), type)
 
-# Copy over the !Boot, !Run, !Sprites etc.
-for path,dirs,files in os.walk("RISCOS.Resources"):
-   for file in files:
-     if ',' in file:
-         dest,typ = file.split(file, ',')
-         ## TODO
-         pass
-     else:
-         dest = os.path.join(here, target, file)
+python3_target = os.path.join(here, 'build', 'Apps', 'Development', '!Python3')
 
-     src = os.path.join(path, file)
-     copy(src,dest)
+app_copy(os.path.join(here, 'RISCOS', '_Python3'), python3_target)
+
+app_copy(os.path.join(here, 'RISCOS', 'RiscPkg'),
+         os.path.join(here, 'build', 'RiscPkg'))
 
 # Use a stripped version of the executable
-strip(os.path.join(here,'python3'), os.path.join(here,target,'python3'))
+strip(os.path.join(here,'python3'), os.path.join(python3_target,'python3'))
 
+# Create lib dirs
+os.makedirs(os.path.join(python3_target,'Lib', 'lib-dynload'))
+
+#          EXT -> TYPE, STRIP, SUFFIX
 ext_map = {'/py':(0xa73,False, ''),
-           '/so':(0xa75,True,  '/cpython-38-arm-riscos')}
-
+           '/so':(0xa75,True,  '')}
 
 # The library
-def lib_copy(srcdir,tgtroot):
+def lib_copy(srcdir,tgtroot,target):
     for path,dirs,files in os.walk(srcdir):
         if os.path.split(path)[1] == '__pycache__':
             continue
 
         rel = os.path.relpath(path, srcdir)
-        tgtdir = tgtroot if rel == '@' else os.path.join(tgtroot, rel)
+        tgtdir = tgtroot if rel == '' else os.path.join(tgtroot, rel)
 
         os.makedirs(os.path.join(target,tgtdir),exist_ok=True)
 
@@ -95,7 +100,6 @@ def lib_copy(srcdir,tgtroot):
                     src = os.path.join(path,   file)
                     dst = os.path.join(tgtdir, name)
                     typ,st,suf = ext_map[ext]
-                    print(src)
                     if src in keep_suffix:
 
                         dst = os.path.join(tgtdir, name+ext)
@@ -105,10 +109,14 @@ def lib_copy(srcdir,tgtroot):
                     else:
                         copy(os.path.join(here, src),
                              os.path.join(here, target, dst+suf),typ)
+                else:
+                    print(f'{ext} not in extension map')
+                    copy(os.path.join(here, path, file),
+                         os.path.join(here, target, tgtdir, file))
             else:
                src = os.path.join(here, path,   file)
                dst = os.path.join(here, target, tgtdir, file)
                copy(src,dst)
 
-lib_copy('Lib','Lib')
-lib_copy('build.lib_riscos-38', 'Lib.lib-dynload')
+lib_copy('Lib', 'Lib', python3_target)
+lib_copy('build.lib_riscos-38', os.path.join(here,'Lib','lib-dynload'), python3_target)
