@@ -10,7 +10,8 @@ On Unix (including Mac OSX), it starts with sys.prefix and
 sys.exec_prefix (if different) and appends
 lib/python<version>/site-packages.
 
-On RISC OS it will use sys.prefix.Site-Packages.
+On RISC OS it will use <PythonSite$Dir>.PythonXY.Site-Packages and
+<PythonUser$Dir.PythonXY.Site-Packages (if they exist).
 
 On other platforms (such as Windows), it tries each of the
 prefixes directly, as well as with lib/site-packages appended.  The
@@ -90,9 +91,6 @@ ENABLE_USER_SITE = None
 # functions, through the main() function when Python starts.
 USER_SITE = None
 USER_BASE = None
-
-if os.name == 'riscos':
-    ENABLE_USER_SITE = False
 
 def makepath(*paths):
     dir = os.path.join(*paths)
@@ -230,6 +228,9 @@ def check_enableusersite():
     if sys.flags.no_user_site:
         return False
 
+    if os.name == 'riscos':
+        return 'PythonUser$Dir' in os.environ
+
     if hasattr(os, "getuid") and hasattr(os, "geteuid"):
         # check process uid == effective uid
         if os.geteuid() != os.getuid():
@@ -264,6 +265,9 @@ def _getuserbase():
     if sys.platform == "darwin" and sys._framework:
         return joinuser("~", "Library", sys._framework,
                         "%d.%d" % sys.version_info[:2])
+
+    if os.name == "riscos":
+        return os.path.canonicalise("<PythonUser$Dir>")
 
     return joinuser("~", ".local")
 
@@ -301,6 +305,14 @@ def getusersitepackages():
     function will also set it.
     """
     global USER_SITE
+    if os.name == 'riscos' and USER_SITE is None:
+        try:
+            USER_SITE = os.path.canonicalise(
+                "<PythonUser$Dir>.Python%d%d.Site-Packages" %
+                sys.version_info[:2])
+        except:
+            pass
+
     userbase = getuserbase() # this will also set USER_BASE
 
     if USER_SITE is None:
@@ -332,6 +344,15 @@ def getsitepackages(prefixes=None):
     sitepackages = []
     seen = set()
 
+    if os.name == 'riscos':
+        try:
+            sitepackages.append(os.path.canonicalise(
+                "<PythonSite$Dir>.Python%d%d.Site-Packages" % \
+                sys.version_info[:2]))
+        except:
+            pass
+        return sitepackages
+
     if prefixes is None:
         prefixes = PREFIXES
 
@@ -344,8 +365,6 @@ def getsitepackages(prefixes=None):
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python%d.%d" % sys.version_info[:2],
                                         "site-packages"))
-        elif os.name == 'riscos':
-            sitepackages.append(os.path.join(prefix, "Site-Packages"))
         else:
             sitepackages.append(prefix)
             sitepackages.append(os.path.join(prefix, "lib", "site-packages"))
@@ -391,7 +410,7 @@ def setcopyright():
     # PEP 420 for more details.
     if hasattr(os, '__file__'):
         here = os.path.dirname(os.__file__)
-        files.extend(["LICENSE.txt", "LICENSE"])
+        files.extend(["LICENSE"+os.extsep+"txt", "LICENSE"])
         dirs.extend([os.path.join(here, os.pardir), here, os.curdir])
     builtins.license = _sitebuiltins._Printer(
         "license",
