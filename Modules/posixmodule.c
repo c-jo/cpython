@@ -13990,8 +13990,10 @@ static PyMethodDef posix_methods[] = {
     OS__REMOVE_DLL_DIRECTORY_METHODDEF
 #endif
 #ifdef RISCOS
-    {"get_filetype", get_filetype, METH_FASTCALL|METH_KEYWORDS, get_filetype__doc__},
-    {"set_filetype", set_filetype, METH_FASTCALL|METH_KEYWORDS, set_filetype__doc__},
+    {"get_filetype",   get_filetype, METH_FASTCALL|METH_KEYWORDS,
+                       get_filetype__doc__},
+    {"set_filetype",   set_filetype, METH_FASTCALL|METH_KEYWORDS,
+                       set_filetype__doc__},
 #endif
     {NULL,              NULL}            /* Sentinel */
 };
