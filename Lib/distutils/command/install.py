@@ -19,9 +19,6 @@ from site import USER_BASE
 from site import USER_SITE
 HAS_USER_SITE = True
 
-if os.name == 'riscos':
-    HAS_USER_SITE = False
-
 WINDOWS_SCHEME = {
     'purelib': '$base/Lib/site-packages',
     'platlib': '$base/Lib/site-packages',
@@ -47,11 +44,11 @@ INSTALL_SCHEMES = {
         },
     'nt': WINDOWS_SCHEME,
     'riscos': {
-        'purelib': '<Python$py_version_short$$Prefix>.Site-Packages',
-        'platlib': '<Python$py_version_short$$Prefix>.Site-Packages',
-        'headers': '<Python3$$Dir>.Include',
-        'scripts': '<Python3$$Dir>.Scripts',
-        'data'   : '<Python3$$Dir>',
+        'purelib': '<PythonSite$$Dir>.Python$py_version_nodot.Site-Packages',
+        'platlib': '<PythonSite$$Dir>.Python$py_version_nodot.Site-Packages',
+        'headers': '<PythonSite$$Dir>.Python$py_version_nodot.Include.$dist_name',
+        'scripts': '<PythonSite$$Dir>.Python$py_version_nodot.Scripts',
+        'data'   : '<PythonSite$$Dir>.Data',
         },
     }
 
@@ -73,6 +70,16 @@ if HAS_USER_SITE:
         'scripts': '$userbase/bin',
         'data'   : '$userbase',
         }
+
+    INSTALL_SCHEMES['riscos_user'] = {
+        'purelib': '<PythonUser$$Dir>.Python$py_version_nodot.Site-Packages',
+        'platlib': '<PythonUser$$Dir>.Python$py_version_nodot.Site-Packages',
+        'headers':
+            '<PythonUser$$Dir>.Python$py_version_nodot.Include.$dist_name',
+        'scripts': '<PythonUser$$Dir>.Python$py_version_nodot.Scripts',
+        'data'   : '<PythonUser$$Dir>.Data',
+        }
+
 
 # The keys to an installation scheme; if any new types of files are to be
 # installed, be sure to add an entry to every installation scheme above,

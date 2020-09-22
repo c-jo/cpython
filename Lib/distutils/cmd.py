@@ -255,7 +255,12 @@ class Command:
                                    "'%s' does not exist or is not a file")
 
     def ensure_dirname(self, option):
-        self._ensure_tested_string(option, os.path.isdir,
+        if os.name == 'riscos':
+            def tester(d):
+                return d == '' or os.path.isdir(d)
+        else:
+            tester = os.path.isdir
+        self._ensure_tested_string(option, tester,
                                    "directory name",
                                    "'%s' does not exist or is not a directory")
 
