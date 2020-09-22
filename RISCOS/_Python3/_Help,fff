@@ -1,4 +1,4 @@
-Python 3.8.5 for RISC OS (release 0)
+Python 3.8.5 for RISC OS (release 1)
 ------------------------
 Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
@@ -86,6 +86,15 @@ UrlLib: Added RISC OS url2pathname/pathname2url
 Subprocess; Use TaskRunner module on RISC OS
 Initial PIP support.
 
-3.8.5riscos0
+3.8.5-riscos-0
 Updated to 3.8.5.
 Created a RiscPkg to help install Python and it's dependancies.
+
+3.8.5-1
+Changed version string to 3.8.5+ as some things were getting confused by it.
+os.path.join will now try to handle adding a file.ext to a path - eg. os.path.join('foo','bar','hello.txt') will return 'foo.bar.hello/txt' to catch things that just assume filenames are of the file.ext format.
+Use new !PythonSite for site packages.
+
+3.8.5-2
+Overhaul of riscospath module.
+New !PythonUser for user packages.

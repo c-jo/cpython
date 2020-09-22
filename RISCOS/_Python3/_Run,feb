@@ -13,4 +13,4 @@ Unset Alias$python3
 
 Run <Obey$Dir>.!Boot
 
-TaskWindow "python3 %*0" -name "Python 3" -ctrl -quit -wimpslot 8M
+TaskWindow "python3 %*0" -name "Python3" -ctrl -quit -wimpslot 8M

@@ -14,7 +14,7 @@ If "<File$Type_a75>" = "" Then Set File$Type_a75 PytnExtn
 
 Set Python3$RunTypeSet "True"
 X If "<Alias$RunType_a73>" = "" Then Unset Python3$RunTypeSet
-If "<Python3$RunTypeSet>" = "" Then Set Alias$@RunType_a73 Run <Python3$Dir>.!Run %%*0
+If "<Python3$RunTypeSet>" = "" Then Set Alias$@RunType_a73 Wimpslot -min 8M|MRun <Python3$Dir>.python3 %%*0
 Unset Python3$RunTypeSet
 
 Set Python3$AliasSet "True"
