@@ -384,6 +384,16 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
                 self->fd = _wopen(widename, flags, 0666);
 #else
                 self->fd = open(name, flags, 0666);
+#ifdef RISCOS
+                if (self->fd < 0 && strrchr(name, '.'))
+                {
+                    char* x = strrchr(name, '.');
+                    {
+                        *x = '/';
+                        self->fd = open(name, flags, 0666);
+                    }
+                }
+#endif
 #endif
                 Py_END_ALLOW_THREADS
             } while (self->fd < 0 && errno == EINTR &&
