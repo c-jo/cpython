@@ -1,0 +1,104 @@
+Python 3.8.5 for RISC OS (release 3)
+------------------------
+Port by Chris Johns, development supported by RISC OS Developments Ltd.
+
+Welcome to Python on RISC OS, bringing the power and flexibility of the Python language to RISC OS.
+
+This document does not go into any detail about the python programming language itself, but details the RISC OS specific items. There are lots of documents and tutorials online and in books about Python itself.
+
+
+Filetypes
+---------
+One of the major differences between RISC OS and other operating systems is the use of filetypes rather than extensions to identify the content of a file, and the use of the . as a directory separator.
+
+So on Linux a Python file may be named spam.py (file spam with extension of .py), on RISC OS 'spam.py' would mean the file called py in directory spam, which is almost certainly not what you want!
+
+So the 'RISC OS way' is to have a file called spam with the filetype of Python. To assist with running code from other platforms, you can also call the file spam/py (with any type). As long as !Python has been 'seen', double-clicking on a Python file will run it in a TaskWindow.
+
+Types are also used for the cached bytecode (.pyc) and extensions (.so).
+
+
+The subprocess module on RISC OS
+--------------------------------
+Limited subprocess support is provided using the TaskRunner module to execute subprocesses using the RISC OS TaskWindow susyem.
+
+RISC OS additions
+-----------------
+os.get_filetype(object) returns the file type of a given object.
+os.set_filetype(object,type) will set it.
+
+swi.swi(arg1,arg2,arg3) allows Python code to call RISC OS SWIs.
+  arg1 is the SWI number or name,
+  arg2 is a format string for arg3,
+  arg3 is the rest of the arguments.
+eg: swi.swi("OS_Write0","s","Hello RISC OS World")
+
+
+Known Bugs
+----------
+Much of the standard library is still largely untested.
+
+
+History
+-------
+3.8.0a1
+Initial RISC OS Alpha Release.
+
+3.8.0a2
+Added support for Python$Path.
+Fixed get/set filetype calls to handle non-ASCII characters.
+Added SSL and SQLite3 modules.
+
+3.8.0a3
+Fixed bug that was preventing sockets being created.
+Use OS_ReadLine32 to get input in interactive mode.
+os.getenv reads the RISC OS environment.
+Added support to get data as bytes from the swi module.
+Fixed SSL to get the CA certificates from <CaCertificates$Dir>.
+Added lzma and bz2 modules.
+Added ctypes module.
+Various build fixes.
+Renamed to !Python3 and uses allocated types.
+
+3.8.0a4
+Use Python3$Path (not Python$Path).
+Fixed issue where Python3$Path is unset.
+Fixed !Boot/!Run files to use Python3$Dir
+Changed env vars to PythonX.Y$Prefix and PythonX.Y$ExecPrefix
+Fixed imports from script directory.
+Added 'u' (unsigned integer) to swi interface.
+
+3.8.0a5 Fixed bug in socket.accept
+*!* Changed unsigned int swi to 'I' ('u' now deprecated)
+Work-around for partial-second waits in timermodule.
+Where available, use 'TimerMod' for higher resolution monotonic time.
+swi.block[] now uses UNsigned integers.
+Added swi.block to/from signed/unsigned.
+Added RISCOSError exception, and derived SwiError from it. 
+Added cannonicalise function to risospath (FSControl 37) 
+Fixed Lib2to3 to not assume '.ext' in filenmes.
+Added os.read_catalogue_into / os.write_catalogue_info
+Added RISC OS support to zipfile.
+Fixed RISC OS time handling in xmlrpc client.
+
+3.8.0rc6
+UrlLib: Added RISC OS url2pathname/pathname2url
+Subprocess; Use TaskRunner module on RISC OS
+Initial PIP support.
+
+3.8.5-riscos-0
+Updated to 3.8.5.
+Created a RiscPkg to help install Python and it's dependancies.
+
+3.8.5-1
+Changed version string to 3.8.5+ as some things were getting confused by it.
+os.path.join will now try to handle adding a file.ext to a path - eg. os.path.join('foo','bar','hello.txt') will return 'foo.bar.hello/txt' to catch things that just assume filenames are of the file.ext format.
+Use new !PythonSite for site packages.
+
+3.8.5-2
+Overhaul of riscospath module.
+New !PythonUser for user packages.
+Run action for python files no longer runs in a TaskWindow.
+
+3.8.5-3
+!Python3 work to (hopefully) ease port of 3.9

@@ -40,7 +40,7 @@ Py_GetBuildInfo(void)
     const char *revision = _Py_gitversion();
     const char *sep = *revision ? ":" : "";
 #ifdef RISCOS
-    const char *gitid = "riscos-2";
+    const char *gitid = "riscos-3";
 #else
     const char *gitid = _Py_gitidentifier();
     if (!(*gitid))
