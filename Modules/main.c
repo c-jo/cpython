@@ -337,11 +337,17 @@ pymain_run_file(PyConfig *config, PyCompilerFlags *cf)
 
     if (config->skip_source_first_line) {
         int ch;
+        int count=0;
         /* Push back first newline so line numbers remain the same */
         while ((ch = getc(fp)) != EOF) {
             if (ch == '\n') {
-                (void)ungetc(ch, fp);
-                break;
+                count++;
+                if (count == config->skip_source_first_line)
+                {
+                    for ( ; count >= 0; --count)
+                        (void)ungetc(ch, fp);
+                    break;
+                }
             }
         }
     }
