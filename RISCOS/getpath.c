@@ -27,11 +27,12 @@
  *
  * Are we running python out of the build directory? This is checked by looking
  * for a landmark relative to argv0_path. For prefix, the landmark's path is
- * derived from the VPATH
- * preprocessor variable (taking into account that its value is almost, but
- * not quite, what we need). For exec_prefix, the landmark is pybuilddir. If the landmark is found, this overrides the ...$Prefix and ...$ExecPrefix variables above.
+ * derived from the VPATH preprocessor variable (taking into account that its
+ * value is almost, but not quite, what we need). For exec_prefix, the landmark
+ * is pybuilddir. If the landmark is found, this overrides the ...$Prefix and
+ * ...$ExecPrefix variables above.
  *
- * These are used to create the path, and the contents of Python3$Path (if set)
+ * These are used to create the path, and the contents of Python3Path (if set)
  * are inserted in front of it.
  *
  * An embedding application can use Py_SetPath() to override all of
@@ -63,7 +64,7 @@ extern "C" {
 #define PATHLEN_ERR() _PyStatus_ERR("path configuration: path too long")
 
 typedef struct {
-    wchar_t *pythonpath;    /* <Python3$Path>      environment variable */
+    wchar_t *pythonpath;    /* <Python3Path>       environment variable */
     wchar_t *prefix;        /* <PythonX.Y$Prefix>  environment variable */
     wchar_t *exec_prefix;   /* <PythonX.Y$DPrefix> environment variable */
     wchar_t argv0_path[MAXPATHLEN+1];
@@ -273,7 +274,7 @@ static PyStatus
 calculate_init(PyCalculatePath *calculate, const PyConfig *config)
 {
     size_t len;
-    char *_pythonpath  = getenv("Python3$Path");
+    char *_pythonpath  = getenv("Python3Path");
 
     if (_pythonpath)
         calculate->pythonpath = Py_DecodeLocale(_pythonpath, &len);
