@@ -9,5 +9,5 @@ Licence: Free
 Description: The Python Programming Language (Version 3.8)
  Python is an interpreted, object-oriented, high-level programming language with dynamic semantics. Its high-level built in data structures, combined with dynamic typing and dynamic binding, make it very attractive for Rapid Application Development, as well as for use as a scripting or glue language to connect existing components together. Python's simple, easy to learn syntax emphasizes readability and therefore reduces the cost of program maintenance. Python supports modules and packages, which encourages program modularity and code reuse. The Python interpreter and the extensive standard library are available in source or binary form without charge for all major platforms, and can be freely distributed.
 Components: Apps.Development.!Python3 (Movable LookAt)
-Depends: Python3Base (>= 0.0.1), SharedLibs (>= 4.0-Rel5-1), SharedUnixLibrary (>= 1.16-1), SharedLibs-C2 (>= 4.7.4-Rel5-1), CryptRandom (>= 0.13-1)
+Depends: Python3Base (>= 0.0.1), SharedLibs (>= 4.0-Rel5-1), SharedUnixLibrary (>= 1.16-1), SharedLibs-C2 (>= 4.7.4-Rel5-1), CryptRandom (>= 0.13-1), LibFFI6 (>= 3.2.1-2)
 Recommends: TaskRunner (>= 0.14-1), LibSQLite3 (>= 3.13.0-1), ZLib1g (>= 1.2.11.dfsg-3), LibSSL (>= 1.0.2k-3), LibBZ2-1.0 (>= 1.0.6-4)

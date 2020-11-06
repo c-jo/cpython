@@ -1,4 +1,4 @@
-Python 3.8.5 for RISC OS (release 1)
+Python 3.8.5 for RISC OS (release 3)
 ------------------------
 Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
@@ -98,3 +98,15 @@ Use new !PythonSite for site packages.
 3.8.5-2
 Overhaul of riscospath module.
 New !PythonUser for user packages.
+Run action for python files no longer runs in a TaskWindow.
+
+3.8.5-3
+!Python3 work to (hopefully) ease port of 3.9
+
+3.8.5-4
+Update subprocess to close Taskrunner tasks when finished, and to better handle
+more use cases.
+Fixed environment setting in os.environ.
+Treat '..' as '^' in paths.
+Updated importer to use cache fr typed files.
+os.stat now includes RISC OS attributes - st_loadaddr, st_execaddr, st_filetype and st_objtype
