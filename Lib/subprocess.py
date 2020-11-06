@@ -129,7 +129,9 @@ if _riscos:
             while True:
                 got = swi.swi('TaskRunner_Output','ibi;i',
                               self._task_id, block, 256)
-                st  = swi.swi('TaskRunner_Poll','i;i',self._task_id)
+                st,rc,er = swi.swi('TaskRunner_Poll','i;iii',self._task_id)
+                if st == 0b1010: # Error
+                    return b''
                 if got > 0:
                     self._data += block.tobytes(0, got)
                 parts = self._data.split(b'\n', 1)
@@ -141,9 +143,20 @@ if _riscos:
                     self._data = b''
                     return rest
 
+        def read(self):
+            data=b''
+            while True:
+                line = self.readline()
+                if len(line) == 0:
+                    break
+                data += line
+            return data
+
+        def close(self):
+            pass
+
 # Exception classes used by this module.
 class SubprocessError(Exception): pass
-
 
 class CalledProcessError(SubprocessError):
     """Raised when run() is called with check=True and the process
@@ -537,6 +550,7 @@ def run(*popenargs,
 
     with Popen(*popenargs, **kwargs) as process:
         try:
+            retcode = None
             stdout, stderr = process.communicate(input, timeout=timeout)
         except TimeoutExpired as exc:
             process.kill()
@@ -552,14 +566,16 @@ def run(*popenargs,
                 # far into the TimeoutExpired exception.
                 process.wait()
             raise
-        except:  # Including KeyboardInterrupt, communicate handled that.
+        except: # Including KeyboardInterrupt, communicate handled that.
             process.kill()
             # We don't call process.wait() as .__exit__ does that for us.
             raise
-        retcode = process.poll()
+        if not retcode is not None:
+            retcode = process.poll()
         if check and retcode:
             raise CalledProcessError(retcode, process.args,
                                      output=stdout, stderr=stderr)
+
     return CompletedProcess(process.args, retcode, stdout, stderr)
 
 
@@ -810,7 +826,7 @@ class Popen(object):
                 raise ValueError("preexec_fn is not supported on Windows "
                                  "platforms")
         elif _riscos:
-            self._task_id = 0 # TaskRunner ID
+            self._task_id = None # TaskRunner ID
             self._output_redirected = False
 
             if preexec_fn is not None:
@@ -905,6 +921,8 @@ class Popen(object):
                 self._task_id = \
                     swi.swi('TaskRunner_Run','isi0;i', 0, cmd,
                             wimpslot if wimpslot else 16*1024 )
+
+            self._child_created = True
 
             if stdin is not None:
                 self.stdin = TaskRunnerInput(self._task_id)
@@ -1026,6 +1044,8 @@ class Popen(object):
         if self.returncode is None and _active is not None:
             # Child is still running, keep us alive until we can wait on it.
             _active.append(self)
+        if _riscos and self._task_id:
+            swi.swi('TaskRunner_Close','ii',self._task_id, 1)
 
     def _get_devnull(self):
         if not hasattr(self, '_devnull'):
@@ -1543,7 +1563,7 @@ class Popen(object):
             return (-1, -1, -1, -1, -1, -1)
 
         def _handle_output(self):
-            if not self._output_redirect:
+            if not self._output_redirected:
                 block = swi.block(1024)
                 while True:
                     got = swi.swi('TaskRunner_Output','ibi;i',
@@ -1552,15 +1572,21 @@ class Popen(object):
                         break
                     swi.swi('OS_WriteN','bi', block, got)
 
-        def _internal_poll(self):
+        def _internal_poll(self, _deadstate=None):
             if self._task_id:
-                st,rc = swi.swi( \
-                    'TaskRunner_Poll','i;ii',self._task_id)
+                st,rc,bc = swi.swi( \
+                    'TaskRunner_Poll','ii;ii.i',self._task_id, 0b1)
+            if bc > 0 and not self._output_redirected:
+                self._print_output(bc)
             if st == 0b1000 or st == 0b1001:
                  self.returncode = rc
                  self._handle_output()
-                 swi.swi('TaskRunner_Close','i',self._task_id)
             return self.returncode
+
+        def _print_output(self, bc=256):
+            data = swi.block(int((bc+3)/4))
+            got  = swi.swi('TaskRunner_Output','ibi;i',self._task_id,data,bc)
+            swi.swi('OS_WriteN','bi',data,got)
 
         def _wait(self, timeout):
             """Internal implementation of wait() on RISC OS."""
@@ -1577,14 +1603,22 @@ class Popen(object):
                     delay = min(delay * 2, remaining, .05)
                     time.sleep(delay)
 
-                    st, rc = swi.swi('TaskRunner_Poll','i;ii', self._task_id)
+                    st, rc,bc = swi.swi('TaskRunner_Poll','ii;ii.i',
+                        self._task_id, 0b1)
+                    if bc > 0 and not self._output_redirected:
+                        self._print_output(bc)
                     if st == 0b1000 or st == 0b1001:
                          self.returncode = rc
             else:
                 while self.returncode is None:
                     time.sleep(0.010)
-                    st, rc = swi.swi('TaskRunner_Poll','i;ii', self._task_id)
-                    if st == 0b1000 or st == 0b1001:
+                    st,rc,er,bc = swi.swi('TaskRunner_Poll','ii;iiii',
+                       self._task_id,0b1)
+                    if bc > 0 and not self._output_redirected:
+                        self._print_output(bc)
+                    if st == 0b1011:
+                         swi.swi('OS_GenerateError','i',er)
+                    if st in [0b1000,0b1001,0b1010]:
                          self.returncode = rc
 
             return self.returncode
@@ -2108,12 +2142,14 @@ class Popen(object):
         def terminate(self):
             """Terminate the process
             """
-            swi.swi('TaskRunner_Kill','i', self._task_id)
+            self.kill()
 
         def kill(self):
             """Kill the process
             """
-            swi.swi('TaskRunner_Kill','i', self._task_id)
+            st = swi.swi('TaskRunner_Poll','i;i', self._task_id)
+            if st < 0b1000:
+               swi.swi('TaskRunner_Kill','i', self._task_id)
 
     else:
         def send_signal(self, sig):
