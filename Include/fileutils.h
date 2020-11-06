@@ -86,6 +86,29 @@ struct _Py_stat_struct {
     unsigned long st_file_attributes;
     unsigned long st_reparse_tag;
 };
+#elif defined(RISCOS)
+#undef st_atime
+#undef st_mtime
+#undef st_ctime
+struct _Py_stat_struct {
+    unsigned long st_dev;
+    unsigned long st_ino;
+    unsigned short st_mode;
+    int st_nlink;
+    int st_uid;
+    int st_gid;
+    unsigned long st_size;
+    time_t st_atime;
+    int st_atime_nsec;
+    time_t st_mtime;
+    int st_mtime_nsec;
+    time_t st_ctime;
+    int st_ctime_nsec;
+    unsigned int st_loadaddr;
+    unsigned int st_execaddr;
+    int st_objtype;
+    int st_filetype;
+};
 #else
 #  define _Py_stat_struct stat
 #endif

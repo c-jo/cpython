@@ -105,7 +105,11 @@ class config(Command):
                 self.compiler.set_library_dirs(self.library_dirs)
 
     def _gen_temp_sourcefile(self, body, headers, lang):
-        filename = "_configtest" + LANG_EXT[lang]
+        if os.name == 'riscos':
+            filename = LANG_EXT[lang][1:]+"._configtest"
+            os.makedirs(LANG_EXT[lang][1:], exist_ok=True)
+        else:
+            filename = "_configtest" + LANG_EXT[lang]
         with open(filename, "w") as file:
             if headers:
                 for header in headers:

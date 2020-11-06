@@ -1997,7 +1997,7 @@ config_parse_cmdline(PyConfig *config, PyWideStringList *warnoptions,
             break;
 
         case 'x':
-            config->skip_source_first_line = 1;
+            config->skip_source_first_line++;
             break;
 
         case 'h':

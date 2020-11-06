@@ -1,9 +1,12 @@
 | !Boot file for RISC OS Python 3.
 
-If "<Python3$Dir>" <> "" Then Set Python3$BootRun "True"
-If "<Python3$BootRun>" = "" Then Set Python3$Dir <Obey$Dir>
-If "<Python3$BootRun>" = "" Then IconSprites <Python3$Dir>.!Sprites
-Unset Python3$BootRun
+If "<Python3$Dir>" <> "" Then Set Python3$Seen "True"
+If "<Python3$Seen>" = "" Then Set Python3$Dir <Obey$Dir>
+If "<Python3$Seen>" = "" Then Set Python3$Path <Obey$Dir>.
+If "<Python3$Seen>" = "" Then IconSprites <Python3$Dir>.!Sprites
+If "<Python3$Seen>" = "" Then Run <Python3$Dir>.AddPath -py3
+
+Unset Python3$Seen
 
 If "<Python3.8$Prefix>" = "" Then Set Python3.8$Prefix <Python3$Dir>.Lib
 If "<Python3.8$ExecPrefix>" = "" Then Set Python3.8$ExecPrefix <Python3$Dir>.Lib.lib-dynLoad

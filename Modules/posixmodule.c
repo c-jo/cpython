@@ -8,7 +8,7 @@
    of the compiler used.  Different compilers define their own feature
    test macro, e.g. '_MSC_VER'. */
 
-
+/* It is also used for RISC OS, using the macro RISCOS. */
 
 #ifdef __APPLE__
    /*
@@ -54,7 +54,9 @@
 #endif
 
 #ifdef RISCOS
-#include <unixlib/local.h>
+static const int GBPB_BUFSIZE = 4096;
+#include "swis.h"
+//#include <unixlib/local.h>
 #endif
 
 #include <stdio.h>  /* needed for ctermid() */
@@ -368,13 +370,17 @@ extern char        *ctermid_r(char *);
 #       define LSTAT win32_lstat
 #       define FSTAT _Py_fstat_noraise
 #       define STRUCT_STAT struct _Py_stat_struct
+#elif defined(RISCOS)
+#       define STAT riscos_stat
+#       define LSTAT riscos_stat
+#       define FSTAT _Py_fstat_noraise
+#       define STRUCT_STAT struct _Py_stat_struct
 #else
 #       define STAT stat
 #       define LSTAT lstat
 #       define FSTAT fstat
-#       define STRUCT_STAT struct stat
+#       define STRUCT_STAT struct _Py_stat_struct
 #endif
-
 #if defined(MAJOR_IN_MKDEV)
 #include <sys/mkdev.h>
 #else
@@ -1880,6 +1886,107 @@ win32_stat(const wchar_t* path, struct _Py_stat_struct *result)
 
 #endif /* MS_WINDOWS */
 
+#ifdef RISCOS
+
+static const uint64_t epoch_offset = 25567LL * 24 * 60 * 60 * 100;
+
+static int stat_from_riscos(uint32_t loadaddr, uint32_t execaddr,
+                            uint32_t length,   uint32_t attributes,
+                            uint32_t obj_type,
+                            const char *leafname,
+                            struct _Py_stat_struct *result)
+{
+    result->st_dev   = 0;
+    result->st_ino   = 0;
+    result->st_nlink = 1;
+    result->st_uid   = 1;
+    result->st_gid   = 1;
+    result->st_size  = length;
+
+    if (obj_type == 1)
+        result->st_mode = S_IFREG;
+    if  (obj_type == 2 || obj_type == 3)
+        result->st_mode = S_IFDIR;
+
+    if (attributes & 1<<0) result->st_mode |=  S_IRUSR;            // Owner R
+    if (attributes & 1<<1) result->st_mode |=  S_IWUSR;            // Owner W
+    if (attributes & 1<<4) result->st_mode |= (S_IRGRP | S_IROTH); // Public R
+    if (attributes & 1<<5) result->st_mode |= (S_IWUSR | S_IWOTH); // Public W
+
+    result->st_loadaddr = loadaddr;
+    result->st_execaddr = execaddr;
+    result->st_objtype  = obj_type;
+
+    time_t stamp;
+    unsigned long long ns;
+
+    if (loadaddr & 0xfff00000) // Stamped file
+    {
+        if (obj_type == 1)
+            result->st_filetype = (loadaddr & 0xfff00) >> 8;
+
+        uint64_t timestamp =
+            execaddr + (((uint64_t)(loadaddr & 0xff)) << 32);
+
+        if (timestamp < epoch_offset)
+        {
+            stamp = 0;
+            ns    = 0;
+        }
+        else
+        {
+            timestamp -= epoch_offset; // cs past 1/1/70
+            stamp = timestamp / 100;
+            ns    = timestamp % 100;
+        }
+
+    }
+    else // no stamp
+    {
+        stamp = 0; ns = 0;
+        if (obj_type == 1)
+            result->st_filetype = -1;
+    }
+
+    if  (obj_type == 2 || obj_type == 3)
+        result->st_filetype = leafname[0] == '!' ? 0x2000 : 0x1000;
+
+    result->st_atime = result->st_ctime = result->st_mtime = stamp;
+    result->st_atime_nsec = result->st_ctime_nsec = result->st_mtime_nsec = ns;
+
+    return 0;
+}
+
+/* Use OS_File 17 (Read Catalogue Info) to get the data for this file. The
+* load/exec addresses are used to get the timestamp and file type. */
+static int riscos_stat(const char* path, struct _Py_stat_struct *result)
+{
+    uint32_t obj_type, load_addr, exec_addr, length, attributes;
+    _kernel_oserror *e = _swix(
+              OS_File, _INR(0,1) | _OUT(0) | _OUTR(2,5),
+              17, path,
+              &obj_type, &load_addr, &exec_addr, &length, &attributes);
+
+    if (e != 0 || obj_type == 0)
+    {
+        errno = ENOENT;
+        return errno;
+    }
+
+    const char *leafname = path;
+    if  (obj_type == 2 || obj_type == 3)
+    {
+        const char *last_dot = strrchr(path, '.');
+        if (last_dot)
+            leafname = last_dot + 1;
+    }
+
+    return stat_from_riscos(load_addr, exec_addr, length, attributes, obj_type,
+                            leafname, result);
+}
+
+#endif /* RISCOS */
+
 PyDoc_STRVAR(stat_result__doc__,
 "stat_result: Result from stat, fstat, or lstat.\n\n\
 This object may be accessed either as a tuple of\n\
@@ -1936,6 +2043,12 @@ static PyStructSequence_Field stat_result_fields[] = {
 #ifdef HAVE_STRUCT_STAT_ST_REPARSE_TAG
     {"st_reparse_tag", "Windows reparse tag"},
 #endif
+#ifdef RISCOS
+    {"st_loadaddr", "RISC OS load address"},
+    {"st_execaddr", "RISC OS exec address"},
+    {"st_objtype",  "RISC OS object type"},
+    {"st_filetype", "RISC OS filetype"},
+#endif
     {0}
 };
 
@@ -1991,6 +2104,13 @@ static PyStructSequence_Field stat_result_fields[] = {
 #define ST_REPARSE_TAG_IDX (ST_FSTYPE_IDX+1)
 #else
 #define ST_REPARSE_TAG_IDX ST_FSTYPE_IDX
+#endif
+
+#ifdef RISCOS
+#define ST_LOADADDR_IDX (ST_REPARSE_TAG_IDX+1)
+#define ST_EXECADDR_IDX (ST_LOADADDR_IDX+1)
+#define ST_OBJTYPE_IDX  (ST_EXECADDR_IDX+1)
+#define ST_FILETYPE_IDX (ST_OBJTYPE_IDX+1)
 #endif
 
 static PyStructSequence_Desc stat_result_desc = {
@@ -2224,7 +2344,17 @@ _pystat_fromstructstat(STRUCT_STAT *st)
     PyStructSequence_SET_ITEM(v, ST_REPARSE_TAG_IDX,
                               PyLong_FromUnsignedLong(st->st_reparse_tag));
 #endif
+#ifdef RISCOS
+    PyStructSequence_SET_ITEM(v, ST_LOADADDR_IDX,
+                              PyLong_FromUnsignedLong(st->st_loadaddr));
+    PyStructSequence_SET_ITEM(v, ST_EXECADDR_IDX,
+                              PyLong_FromUnsignedLong(st->st_execaddr));
+    PyStructSequence_SET_ITEM(v, ST_OBJTYPE_IDX,
+                              PyLong_FromLong(st->st_objtype));
+    PyStructSequence_SET_ITEM(v, ST_FILETYPE_IDX,
+                              PyLong_FromLong(st->st_filetype));
 
+#endif
     if (PyErr_Occurred()) {
         Py_DECREF(v);
         return NULL;
@@ -2261,6 +2391,8 @@ posix_do_stat(const char *function_name, path_t *path,
         result = win32_stat(path->wide, &st);
     else
         result = win32_lstat(path->wide, &st);
+#elif defined(RISCOS)
+    result = riscos_stat(path->narrow, &st);
 #else
     else
 #if defined(HAVE_LSTAT)
@@ -12579,8 +12711,10 @@ typedef struct {
 #ifdef HAVE_DIRENT_D_TYPE
     unsigned char d_type;
 #endif
+#ifndef RISCOS
     ino_t d_ino;
     int dir_fd;
+#endif
 #endif
 } DirEntry;
 
@@ -12636,7 +12770,8 @@ DirEntry_fetch_stat(DirEntry *self, int follow_symlinks)
 #else /* POSIX */
     if (!PyUnicode_FSConverter(self->path, &ub))
         return NULL;
-    const char *path = PyBytes_AS_STRING(ub);
+        const char *path = PyBytes_AS_STRING(ub);
+#ifndef RISCOS
     if (self->dir_fd != DEFAULT_DIR_FD) {
 #ifdef HAVE_FSTATAT
         result = fstatat(self->dir_fd, path, &st,
@@ -12647,6 +12782,7 @@ DirEntry_fetch_stat(DirEntry *self, int follow_symlinks)
 #endif /* HAVE_FSTATAT */
     }
     else
+#endif /* ndef RISCOS */
 #endif
     {
         if (follow_symlinks)
@@ -12824,6 +12960,9 @@ static PyObject *
 os_DirEntry_inode_impl(DirEntry *self)
 /*[clinic end generated code: output=156bb3a72162440e input=3ee7b872ae8649f0]*/
 {
+#ifdef RISCOS
+    return PyLong_FromLong(-1);
+#else
 #ifdef MS_WINDOWS
     if (!self->got_file_index) {
         PyObject *unicode;
@@ -12848,6 +12987,7 @@ os_DirEntry_inode_impl(DirEntry *self)
 #else /* POSIX */
     Py_BUILD_ASSERT(sizeof(unsigned long long) >= sizeof(self->d_ino));
     return PyLong_FromUnsignedLongLong(self->d_ino);
+#endif
 #endif
 }
 
@@ -12924,7 +13064,7 @@ static PyTypeObject DirEntryType = {
     DirEntry_members,                       /* tp_members */
 };
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS)
 
 static wchar_t *
 join_path_filenameW(const wchar_t *path_wide, const wchar_t *filename)
@@ -12959,51 +13099,83 @@ join_path_filenameW(const wchar_t *path_wide, const wchar_t *filename)
     return result;
 }
 
+
+
+#elif defined(RISCOS)
+
+typedef struct {
+    uint32_t loadaddr;
+    uint32_t execaddr;
+    uint32_t length;
+    uint32_t attributes;
+    uint32_t obj_type;
+    char     name[];
+} gbpb_data_t;
+
+static char *
+join_path_filename(const char *path_narrow, const char* filename, Py_ssize_t filename_len)
+{
+    Py_ssize_t path_len;
+    Py_ssize_t size;
+    char *result;
+
+    if (!path_narrow) { /* Default arg: "@" */
+        path_narrow = "@";
+        path_len = 1;
+    }
+    else {
+        path_len = strlen(path_narrow);
+    }
+
+    if (filename_len == -1)
+        filename_len = strlen(filename);
+
+    /* The +1's are for the path separator and the NUL */
+    size = path_len + 1 + filename_len + 1;
+    result = PyMem_New(char, size);
+    if (!result) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    strcpy(result, path_narrow);
+    if (path_len > 0 && result[path_len - 1] != SEP)
+        result[path_len++] = SEP;
+    strcpy(result + path_len, filename);
+    return result;
+}
+
 static PyObject *
-DirEntry_from_find_data(path_t *path, WIN32_FIND_DATAW *dataW)
+DirEntry_from_gbpb_data(path_t *path, gbpb_data_t *data, uint32_t namelen)
 {
     DirEntry *entry;
-    BY_HANDLE_FILE_INFORMATION file_info;
-    ULONG reparse_tag;
-    wchar_t *joined_path;
+    char *joined_path;
 
     entry = PyObject_New(DirEntry, &DirEntryType);
     if (!entry)
         return NULL;
-    entry->name = NULL;
-    entry->path = NULL;
-    entry->stat = NULL;
-    entry->lstat = NULL;
-    entry->got_file_index = 0;
 
-    entry->name = PyUnicode_FromWideChar(dataW->cFileName, -1);
+    entry->name = PyUnicode_DecodeFSDefault(data->name);
     if (!entry->name)
         goto error;
-    if (path->narrow) {
-        Py_SETREF(entry->name, PyUnicode_EncodeFSDefault(entry->name));
-        if (!entry->name)
-            goto error;
-    }
 
-    joined_path = join_path_filenameW(path->wide, dataW->cFileName);
+    joined_path = join_path_filename(path->narrow, data->name, namelen);
     if (!joined_path)
         goto error;
 
-    entry->path = PyUnicode_FromWideChar(joined_path, -1);
+    entry->path = PyUnicode_DecodeFSDefault(joined_path);
     PyMem_Free(joined_path);
     if (!entry->path)
         goto error;
-    if (path->narrow) {
-        Py_SETREF(entry->path, PyUnicode_EncodeFSDefault(entry->path));
-        if (!entry->path)
-            goto error;
-    }
 
-    find_data_to_file_info(dataW, &file_info, &reparse_tag);
-    _Py_attribute_data_to_stat(&file_info, reparse_tag, &entry->win32_lstat);
+    struct _Py_stat_struct stat_struct;
+    stat_from_riscos(data->loadaddr, data->execaddr, data->length,
+                     data->attributes, data->obj_type, &data->name,
+                     &stat_struct);
+
+    entry->stat  = _pystat_fromstructstat(&stat_struct);
+    entry->lstat = _pystat_fromstructstat(&stat_struct);
 
     return (PyObject *)entry;
-
 error:
     Py_DECREF(entry);
     return NULL;
@@ -13112,10 +13284,15 @@ error:
 typedef struct {
     PyObject_HEAD
     path_t path;
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS)
     HANDLE handle;
     WIN32_FIND_DATAW file_data;
     int first_time;
+#elif defined(RISCOS)
+    void   *gbpb_buffer;
+    int32_t gbpb_index;
+    int32_t gbpb_count;
+    int32_t gbpb_offset;
 #else /* POSIX */
     DIR *dirp;
 #endif
@@ -13181,6 +13358,87 @@ ScandirIterator_iternext(ScandirIterator *iterator)
         }
 
         /* Loop till we get a non-dot directory or finish iterating */
+    }
+
+    /* Error or no more files */
+    ScandirIterator_closedir(iterator);
+    return NULL;
+}
+
+#elif defined(RISCOS)
+
+static int
+ScandirIterator_is_closed(ScandirIterator *iterator)
+{
+    return iterator->gbpb_buffer == NULL;
+}
+
+static void
+ScandirIterator_closedir(ScandirIterator *iterator)
+{
+    if (iterator->gbpb_buffer == NULL)
+        return;
+
+    free(iterator->gbpb_buffer);
+    iterator->gbpb_buffer = 0;
+}
+
+static PyObject *
+ScandirIterator_iternext(ScandirIterator *iterator)
+{
+    PyObject *entry;
+
+    /* No buffer or already at end */
+    if (iterator->gbpb_buffer == NULL || iterator->gbpb_index == -1)
+        return NULL;
+
+    /* Do we need to read some entries from the FS? */
+    while (iterator->gbpb_count == 0)
+    {
+        const char *path = iterator->path.narrow ? iterator->path.narrow : "";
+
+        _kernel_swi_regs r;
+        iterator->gbpb_offset = 0;
+
+        r.r[0] = 10; // Read entries and info from given dir
+        r.r[1] = (int)path;
+        r.r[2] = (int)iterator->gbpb_buffer;
+        r.r[3] = GBPB_BUFSIZE / 24; // Minimum size of entry is 24 bytes
+        r.r[4] = iterator->gbpb_index;
+        r.r[5] = GBPB_BUFSIZE;
+        r.r[6] = 0; // Match all
+
+        _kernel_oserror *e = _kernel_swi(OS_GBPB, &r, &r);
+        if (e != NULL) // Error
+        {
+            path_error(&iterator->path);
+            break;
+        }
+
+        iterator->gbpb_count = r.r[3];
+        iterator->gbpb_index = r.r[4];
+
+        if (iterator->gbpb_count == 0 && iterator->gbpb_index == -1)
+            break; // No more files
+    }
+    /* Loop till we get an item or there aren't any more */
+
+    if (iterator->gbpb_count > 0)
+    {
+        gbpb_data_t *data = iterator->gbpb_buffer + iterator->gbpb_offset;
+        uint32_t namelen  = strlen(data->name);
+
+        entry = DirEntry_from_gbpb_data(&iterator->path, data, namelen);
+        if (entry)
+        {
+            /* Decrment the counter, If there is another entry in the buffer,
+             * update the offset by adding 20 (load/exec/len/attribs/obj.type) +
+             * namelen + 1 (null term) + 3 (to word align with /4 * 4.
+             */
+            if (--iterator->gbpb_count)
+                iterator->gbpb_offset += 4 * ((namelen+24) / 4);
+            return entry;
+        }
     }
 
     /* Error or no more files */
@@ -13418,8 +13676,13 @@ os_scandir_impl(PyObject *module, path_t *path)
     if (!iterator)
         return NULL;
 
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS)
     iterator->handle = INVALID_HANDLE_VALUE;
+#elif defined(RISCOS)
+    iterator->gbpb_buffer = NULL;
+    iterator->gbpb_index  = 0;
+    iterator->gbpb_count  = 0;
+    iterator->gbpb_offset = 0;
 #else
     iterator->dirp = NULL;
 #endif
@@ -13446,6 +13709,11 @@ os_scandir_impl(PyObject *module, path_t *path)
         path_error(&iterator->path);
         goto error;
     }
+#elif defined(RISCOS)
+    iterator->gbpb_buffer = malloc(GBPB_BUFSIZE);
+    iterator->gbpb_index  = 0;
+    iterator->gbpb_count  = 0;
+    iterator->gbpb_offset = 0;
 #else /* POSIX */
     errno = 0;
 #ifdef HAVE_FDOPENDIR

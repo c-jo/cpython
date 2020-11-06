@@ -1,22 +1,27 @@
 Set Python3$Dir <Obey$Dir>
 
-Set Python3.8$Prefix     <Python3$Dir>.Lib
-Set Python3.8$ExecPrefix <Python3$Dir>.Lib.lib-dynLoad
+Set Python3.8$Prefix     <Python3$Dir>
+Set Python3.8$ExecPrefix <Python3$Dir>
+
+|Set PythonSite$Dir <Obey$Dir>.PythonSite
+|Set PythonUser$Dir <Obey$Dir>.PythonUser
 
 Filer_Run  SDFS::Chipmunk.$.Develop.!GCC
-Filer_Run  SDFS::Chipmunk.$.Apps.Library.!OSLib.SetVarsELFUnixLib
-Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibSSL
-Filer_Boot SDFS::Chipmunk.$.Apps.Library.!sqlite3
-Filer_Run  SDFS::Chipmunk.$.Apps.Library.!SDL
-Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibGCrypt20
+Filer_Run  SDFS::Chipmunk.$.Develop.Library.!LibSSL
+Filer_Boot SDFS::Chipmunk.$.Develop.Library.!sqlite3
+Filer_Run  SDFS::Chipmunk.$.Develop.Library.!SDL
+Filer_Run  SDFS::Chipmunk.$.Develop.Library.!LibGCrypt20
 |Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibGNUTLS
-Filer_Boot SDFS::Chipmunk.$.Apps.Library.!LibFFI6
-Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibBZ2
-Filer_Run  SDFS::Chipmunk.$.Work.LibLZMA.!Run
-Filer_Run  SDFS::Chipmunk.$.Apps.Library.!LibExpat1
+Filer_Boot SDFS::Chipmunk.$.Develop.Library.!LibFFI6
+Filer_Run  SDFS::Chipmunk.$.Develop.Library.!LibBZ2
+Filer_Run  SDFS::Chipmunk.$.Develop.Library.!LibLZMA5
+Filer_Run  SDFS::Chipmunk.$.Develop.Library.!LibExpat1
 
 WimpSlot -min 24M
 
 Alias python3 WimpSlot -min 16M|M<Python3$Dir>.python3 %*0
+
+Set Alias$@RunType_a73 WimpSlot -min 16M|MRun <Python3$Dir>.python3 %%*0
+
 Dir <Python3$Dir>
 

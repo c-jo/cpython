@@ -445,9 +445,18 @@ def _get_cached(filename):
     elif filename.endswith(tuple(BYTECODE_SUFFIXES)):
         return filename
     else:
-        # TODO: handle RISC OS types
+        if sys.platform == 'riscos':
+            filetype = _os.get_filetype(filename)
+            if filetype in FILETYPE_MAP:
+                equiv_suffix = FILETYPE_MAP[filetype]
+                if equiv_suffix in SOURCE_SUFFIXES:
+                    try:
+                        return cache_from_source(filename)
+                    except NotImplementedError:
+                        pass
+                elif equiv_suffix in BYTECODE_SUFFIXES:
+                    return filename
         return None
-
 
 def _calc_mode(path):
     """Calculate the mode permissions for a bytecode file."""
@@ -687,7 +696,7 @@ def spec_from_file_location(name, location=None, *, loader=None,
 
     # For RISC OS, try the extension too
     if loader is None and sys.platform == 'riscos':
-        type = os.get_filetype(location)
+        type = _os.get_filetype(location)
         if type in FILETYPE_MAP:
             equiv_suffix = FILETYPE_MAP[type]
             _bootstrap._verbose_message('Treating type ({}) of {} as {}', type, location, equiv_suffix)
@@ -1033,8 +1042,13 @@ class FileLoader:
         return _path_isfile(path)
 
     def contents(self):
-        return iter(_os.listdir(_path_split(self.path)[0]))
-
+        if sys.platform == 'riscos': # Also get the stat data for filetype
+            r = {}
+            for x in _os.scandir(_path_split(self.path)[0]):
+               r[x.name] = x.stat()
+            return r
+        else:
+            return iter(_os.listdir(_path_split(self.path)[0]))
 
 class SourceFileLoader(FileLoader, SourceLoader):
 
@@ -1500,57 +1514,57 @@ class FileFinder:
             cache_module = tail_module
 
         _bootstrap._verbose_message('cache_module {}', cache_module)
+        is_dir = cache_module in cache
+
+        if sys.platform == 'riscos':
+            # Might be a diretory, might be a typed file with no suffix.
+            equiv_suffix = None
+            if cache_module in cache:
+                filetype = cache[cache_module].st_filetype
+                is_dir = filetype == 0x1000
+                if filetype in FILETYPE_MAP:
+                    equiv_suffix = FILETYPE_MAP[filetype]
+                    _bootstrap._verbose_message('{}.{} treating filetype {:03x} as {}', self.path, cache_module, filetype, equiv_suffix, verbosity=2)
 
         # Check if the module is the name of a directory (and thus a package).
-        if cache_module in cache:
+        if is_dir:
             base_path = _path_join(self.path, tail_module)
-            for suffix, loader_class in self._loaders:
-                init_filename = '__init__' + suffix
-                full_path = _path_join(base_path, init_filename)
-                if _path_isfile(full_path):
-                    return self._get_spec(loader_class, fullname, full_path, [base_path], target)
             if sys.platform == 'riscos':
-                # Try with no suffix but with file type
+                # We might also have no suffix but with a filetype
+                equiv_suffix = None
                 full_path = _path_join(base_path, '__init__')
                 filetype = _os.get_filetype(full_path)
                 if filetype in FILETYPE_MAP:
                     equiv_suffix = FILETYPE_MAP[filetype]
-                    _bootstrap._verbose_message('treating filetype {:03x} as {}', filetype, equiv_suffix, verbosity=2)
-                    for loader_class, suffixes in _get_supported_file_loaders():
-                        if equiv_suffix in suffixes:
-                            return self._get_spec(loader_class, fullname, full_path, [base_path], target)
+                    _bootstrap._verbose_message('{} treating filetype {:03x} as {}', full_path, filetype, equiv_suffix, verbosity=2)
 
+            for suffix, loader_class in self._loaders:
+                if sys.platform == 'riscos' and suffix == equiv_suffix:
+                    return self._get_spec(loader_class, fullname, full_path [base_path], target)
+
+                init_filename = '__init__' + suffix
+                full_path = _path_join(base_path, init_filename)
+                if _path_isfile(full_path):
+                    return self._get_spec(loader_class, fullname, full_path, [base_path], target)
             else:
                 # If a namespace package, return the path if we don't
                 #  find a module in the next section.
                 is_namespace = _path_isdir(base_path)
+
         # Check for a file w/ a proper suffix exists.
         for suffix, loader_class in self._loaders:
+            if sys.platform == 'riscos' and suffix == equiv_suffix:
+                full_path = _path_join(self.path, tail_module)
+                _bootstrap._verbose_message('using {} loader for {}', equiv_suffix, full_path, verbosity=2)
+                return self._get_spec(loader_class, fullname, full_path,
+                                       None, target)
+
             full_path = _path_join(self.path, tail_module + suffix)
             _bootstrap._verbose_message('trying {}', full_path, verbosity=2)
-            _bootstrap._verbose_message('{} {}',cache_module+suffix, cache_module+suffix in cache)
             if cache_module + suffix in cache:
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path,
                                           None, target)
-            # On RISC OS also check for no suffix but proper type.
-            if sys.platform == 'riscos':
-                (base,sep,ext_suffix) = full_path.rpartition('/')
-                ext_suffix = sep+ext_suffix
-                filetype = _os.get_filetype(base)
-                if filetype is not None:
-                    _bootstrap._verbose_message('trying {} [{:03x}]',
-                                                base, filetype, verbosity=2)
-                    if filetype in FILETYPE_MAP:
-                        equiv_suffix = FILETYPE_MAP[filetype]
-                        for ext_suffix, loader_class in self._loaders:
-                            _bootstrap._verbose_message('treating filetype {:03x} as {} (want {})', filetype, equiv_suffix, ext_suffix, verbosity=2)
-
-                            if equiv_suffix == ext_suffix:
-                                _bootstrap._verbose_message('using loader {}', loader_class)
-                                return self._get_spec(loader_class, fullname, base,
-                                                  None, target)
-
         if is_namespace:
             spec = _bootstrap.ModuleSpec(fullname, None)
             spec.submodule_search_locations = [base_path]
@@ -1562,7 +1576,13 @@ class FileFinder:
         """Fill the cache of potential modules and packages for this directory."""
         path = self.path
         try:
-            contents = _os.listdir(path or _os.getcwd())
+            if sys.platform == 'riscos': # Also get stat info for filetype
+                contents = {}
+                self._filetype_cache = {}
+                for entry in _os.scandir(path or _os.getcwd()):
+                    contents[entry.name] = entry.stat()
+            else:
+                contents = _os.listdir(path or _os.getcwd())
         except (FileNotFoundError, PermissionError, NotADirectoryError):
             # Directory has either been removed, turned into a file, or made
             # unreadable.
@@ -1570,7 +1590,7 @@ class FileFinder:
         # We store two cached versions, to handle runtime changes of the
         # PYTHONCASEOK environment variable.
         if not sys.platform.startswith('win'):
-            self._path_cache = set(contents)
+            self._path_cache = contents if sys.platform == 'riscos' else set(contents)
             _bootstrap._verbose_message('_path_cache {}', self._path_cache)
 
         else:

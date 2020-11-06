@@ -141,8 +141,9 @@ def join(a, *p):
             return a
 
         for b in map(os.fspath, p):
+            if b == '..':
+                b = '^'
             fs_,sf_,disc_,abs_,path_ = explode(b)
-            #print("b",b,fs_,sf_,abs_,path_)
             if fs_:
                 fs   = fs_
                 sf   = sf_
