@@ -27,11 +27,15 @@
  *
  * Are we running python out of the build directory? This is checked by looking
  * for a landmark relative to argv0_path. For prefix, the landmark's path is
- * derived from the VPATH
- * preprocessor variable (taking into account that its value is almost, but
- * not quite, what we need). For exec_prefix, the landmark is pybuilddir. If the landmark is found, this overrides the ...$Prefix and ...$ExecPrefix variables above.
+ * derived from the VPATH preprocessor variable (taking into account that its
+ * value is almost, but not quite, what we need). For exec_prefix, the landmark
+ * is pybuilddir. If the landmark is found, this overrides the ...$Prefix and
+ * ...$ExecPrefix variables above.
  *
- * These are used to create the path, and the contents of Python3$Path (if set)
+ * The ...$Prefix lotation will have ".Lib" added to it, the ...$ExecPrefix one
+ * ".Lib.Lib-Dynload"
+ *
+ * These are used to create the path, and the contents of Python3Path (if set)
  * are inserted in front of it.
  *
  * An embedding application can use Py_SetPath() to override all of
@@ -49,6 +53,9 @@ extern "C" {
 #error "VERSION must be constant defined"
 #endif
 
+static const wchar_t const* prefix_append      = L".Lib";
+static const wchar_t const* exec_prefix_append = L".Lib.Lib-Dynload";
+
 /*
 #ifndef LANDMARK
 #define LANDMARK L"os.py"
@@ -63,7 +70,7 @@ extern "C" {
 #define PATHLEN_ERR() _PyStatus_ERR("path configuration: path too long")
 
 typedef struct {
-    wchar_t *pythonpath;    /* <Python3$Path>      environment variable */
+    wchar_t *pythonpath;    /* <Python3Path>       environment variable */
     wchar_t *prefix;        /* <PythonX.Y$Prefix>  environment variable */
     wchar_t *exec_prefix;   /* <PythonX.Y$DPrefix> environment variable */
     wchar_t argv0_path[MAXPATHLEN+1];
@@ -147,7 +154,7 @@ joinpath(wchar_t *buffer, wchar_t *stuff)
 }
 
 static inline int
-safe_wcscpy(wchar_t *dst, const wchar_t *src, size_t n)
+safe_wcscpy(wchar_t *dst, const wchar_t *src, size_t* n)
 {
     size_t srclen = wcslen(src);
     if (n <= srclen) {
@@ -241,8 +248,10 @@ calculate_module_search_path(PyCalculatePath *calculate,
     if (calculate->pythonpath)
         bufsz += wcslen(calculate->pythonpath ) + 1; // +seperator
 
-    bufsz += wcslen(calculate->prefix     ) + 1; // +seperator
-    bufsz += wcslen(calculate->exec_prefix) + 1; // +null term.
+    bufsz += wcslen(calculate->prefix     );
+    bufsz += wcslen(prefix_append         ) + 1; // +seperator
+    bufsz += wcslen(calculate->exec_prefix);
+    bufsz += wcslen(exec_prefix_append    ) + 1; // +null term.
 
     /* Allocate the buffer */
     wchar_t *buf = PyMem_RawMalloc(bufsz * sizeof(wchar_t));
@@ -262,8 +271,10 @@ calculate_module_search_path(PyCalculatePath *calculate,
         }
     }
     wcscat(buf, calculate->prefix);
+    wcscat(buf, prefix_append);
     wcscat(buf, delimiter);
     wcscat(buf, calculate->exec_prefix);
+    wcscat(buf, exec_prefix_append);
 
     pathconfig->module_search_path = buf;
     return _PyStatus_OK();
@@ -273,17 +284,24 @@ static PyStatus
 calculate_init(PyCalculatePath *calculate, const PyConfig *config)
 {
     size_t len;
-    char *_pythonpath  = getenv("Python3$Path");
+    char prefix_default[32];
+    sprintf(prefix_default, "Python3:Python%c%c", VERSION[0], VERSION[2]);
+
+    char *_pythonpath = getenv("Python3Path");
 
     if (_pythonpath)
         calculate->pythonpath = Py_DecodeLocale(_pythonpath, &len);
     else
         calculate->pythonpath = 0;
-    calculate->prefix      = Py_DecodeLocale(
-        getenv("Python"VERSION"$Prefix"), &len);
-    calculate->exec_prefix = Py_DecodeLocale(
-    getenv("Python"VERSION"$ExecPrefix"), &len);
 
+    char *_python_prefix = getenv("Python"VERSION"$Prefix");
+     calculate->prefix = Py_DecodeLocale(
+        _python_prefix ? _python_prefix : &prefix_default, &len);
+
+    char *_python_execprefix = getenv("Python"VERSION"$ExecPrefix");
+    calculate->exec_prefix = Py_DecodeLocale(
+        _python_execprefix ? _python_execprefix : &prefix_default, &len);
+    
     return _PyStatus_OK();
 }
 
