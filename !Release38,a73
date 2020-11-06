@@ -15,6 +15,7 @@ keep_suffix = [ \
 os.system('X Wipe '+here+'.build.Apps rf~c~v')
 os.system('X Wipe '+here+'.build.RiscPkg rf~c~v')
 
+
 # Copy a file
 def copy(src,dst,typ=None):
     if verbose:
@@ -65,18 +66,19 @@ def app_copy(src,dst):
 
             copy(src, os.path.join(dst,file), type)
 
-python3_target = os.path.join(here, 'build', 'Apps', 'Development', '!Python3')
+python3_target = os.path.join(here,'build','Apps','Development','!Python3')
 
-app_copy(os.path.join(here, 'RISCOS', '_Python3'), python3_target)
+#app_copy(os.path.join(here, 'RISCOS', '_Python3'), python3_target)
 
 app_copy(os.path.join(here, 'RISCOS', 'RiscPkg'),
          os.path.join(here, 'build', 'RiscPkg'))
 
 # Use a stripped version of the executable
-strip(os.path.join(here,'python3'), os.path.join(python3_target,'python3'))
+os.makedirs(os.path.join(python3_target, 'Bin'))
+strip(os.path.join(here,'python3'), os.path.join(python3_target,'Bin','python38'))
 
 # Create lib dirs
-os.makedirs(os.path.join(python3_target,'Lib', 'lib-dynload'))
+os.makedirs(os.path.join(python3_target,'Python38','Lib','lib-dynload'))
 
 #          EXT -> TYPE, STRIP, SUFFIX
 ext_map = {'/py':(0xa73,False, ''),
@@ -100,8 +102,9 @@ def lib_copy(srcdir,tgtroot,target):
                     src = os.path.join(path,   file)
                     dst = os.path.join(tgtdir, name)
                     typ,st,suf = ext_map[ext]
-                    if src in keep_suffix:
+                    ks_check = src[src.find('Lib'):]
 
+                    if ks_check in keep_suffix:
                         dst = os.path.join(tgtdir, name+ext)
                     if st:
                         strip(os.path.join(here, src),
@@ -118,5 +121,11 @@ def lib_copy(srcdir,tgtroot,target):
                dst = os.path.join(here, target, tgtdir, file)
                copy(src,dst)
 
-lib_copy('Lib', 'Lib', python3_target)
-lib_copy('build.lib_riscos-38', os.path.join(here,'Lib','lib-dynload'), python3_target)
+lib_copy(os.path.join(here,'Lib'), 'Lib',
+         os.path.join(python3_target,'Python38'))
+
+lib_copy(os.path.join(here, 'build.lib_riscos-38'), 'Lib.lib-dynload',
+         os.path.join(python3_target,'Python38'))
+
+copy(os.path.join(here,'RISCOS', 'ReleaseNotes'),
+     os.path.join(python3_target, 'Python38', 'ReleaseNotes'))
