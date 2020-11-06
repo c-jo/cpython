@@ -1,4 +1,4 @@
-r"""OS routines for NT or Posix depending on what system we're on.
+"""OS routines for NT, Posix or RISC OS depending on what system we're on.
 
 This exports:
   - all functions from posix or nt, e.g. unlink, stat, etc.
@@ -747,31 +747,41 @@ else:
     if "unsetenv" not in __all__:
         __all__.append("unsetenv")
 
-def _riscos_envdata():
-    environ = {}
+if name == 'riscos':
     import swi
 
-    blk = swi.block(4096)
-    nameptr = 0
+    def _riscos_envdata():
+        environ = {}
+        blk = swi.block(4096)
+        nameptr = 0
 
-    while(True):
+        while(True):
+            try:
+                ln,nameptr,type = swi.swi(
+                    'OS_ReadVarVal','sbiii;..iii',
+                    '*',blk,4096,nameptr,0)
+            except swi.error:
+                break
+
+            val = None
+            if type in (0,2):
+                val = blk.tobytes(0,ln)
+            elif type == 1:
+                val = str(blk[0]).encode('latin-1')
+
+            if val:
+                environ[swi.bytes(nameptr)] = val
+
+        return environ
+
+    def _riscos_putenv(var,val):
+        swi.swi('OS_SetVarVal','yyiii',var,val,len(val),0,4)
+
+    def _riscos_unsetenv(var):
         try:
-            ln,nameptr,type = swi.swi(
-                'OS_ReadVarVal','sbiii;..iii',
-                '*',blk,4096,nameptr,0)
+            swi.swi('OS_SetVarVal','s0iii',var,-1,0,4)
         except swi.error:
-            break
-
-        val = None
-        if type in (0,2):
-            val = blk.tobytes(0,ln)
-        elif type == 1:
-            val = str(blk[0]).encode('latin-1')
-
-        if val:
-            environ[swi.bytes(nameptr)] = val
-
-    return environ
+            pass
 
 def _createenviron():
     if name == 'nt':
@@ -798,7 +808,11 @@ def _createenviron():
             return value.decode(encoding, 'surrogateescape')
         encodekey = encode
         if name == 'riscos':
-            data = _riscos_envdata()
+            data      = _riscos_envdata()
+            return _Environ(data,
+                encodekey, decode,
+                encode, decode,
+                _riscos_putenv, _riscos_unsetenv)
         else:
             data = environ
     return _Environ(data,
