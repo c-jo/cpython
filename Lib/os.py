@@ -775,9 +775,15 @@ if name == 'riscos':
         return environ
 
     def _riscos_putenv(var,val):
-        swi.swi('OS_SetVarVal','yyiii',var,val,len(val),0,4)
+        if issubclass(var.__class__, bytes):
+            var = var.decode()
+        if issubclass(val.__class__, bytes):
+            val = val.decode()
+        swi.swi('OS_SetVarVal','ssiii',var,val,len(val),0,4)
 
     def _riscos_unsetenv(var):
+        if issubclass(var.__class__, bytes):
+            var = var.decode()
         try:
             swi.swi('OS_SetVarVal','s0iii',var,-1,0,4)
         except swi.error:

@@ -447,6 +447,7 @@ def _get_cached(filename):
     else:
         if sys.platform == 'riscos':
             filetype = _os.get_filetype(filename)
+            _bootstrap._verbose_message('_get_cached {} {}', filename, filetype)
             if filetype in FILETYPE_MAP:
                 equiv_suffix = FILETYPE_MAP[filetype]
                 if equiv_suffix in SOURCE_SUFFIXES:
@@ -663,6 +664,7 @@ def spec_from_file_location(name, location=None, *, loader=None,
     The loader must take a spec as its only __init__() arg.
 
     """
+    _bootstrap._verbose_message('soec_from_file_location {} {} {}', name, location, loader)
     if location is None:
         # The caller may simply want a partially populated location-
         # oriented spec.  So we set the location to a bogus value and
@@ -954,6 +956,7 @@ class SourceLoader(_LoaderBasics):
                                                  bytecode_path=bytecode_path,
                                                  source_path=source_path)
         if source_bytes is None:
+            _bootstrap._verbose_message('get_data {} {}', fullname, source_path)
             source_bytes = self.get_data(source_path)
         code_object = self.source_to_code(source_bytes, source_path)
         _bootstrap._verbose_message('code object from {}', source_path)
@@ -1517,30 +1520,30 @@ class FileFinder:
         is_dir = cache_module in cache
 
         if sys.platform == 'riscos':
-            # Might be a diretory, might be a typed file with no suffix.
-            equiv_suffix = None
-            if cache_module in cache:
+            equiv_suffix = None # Suffix version of the filetype
+            if is_dir:
+                # Might be a diretory, might be a typed file with no suffix.
                 filetype = cache[cache_module].st_filetype
-                is_dir = filetype == 0x1000
+                is_dir = (filetype == 0x1000)
                 if filetype in FILETYPE_MAP:
                     equiv_suffix = FILETYPE_MAP[filetype]
-                    _bootstrap._verbose_message('{}.{} treating filetype {:03x} as {}', self.path, cache_module, filetype, equiv_suffix, verbosity=2)
+                    _bootstrap._verbose_message('(1) {}.{} treating filetype {:03x} as {}', self.path, cache_module, filetype, equiv_suffix, verbosity=2)
 
         # Check if the module is the name of a directory (and thus a package).
         if is_dir:
             base_path = _path_join(self.path, tail_module)
             if sys.platform == 'riscos':
-                # We might also have no suffix but with a filetype
+                # Look for a typed'__init__' (no suffix)
                 equiv_suffix = None
                 full_path = _path_join(base_path, '__init__')
                 filetype = _os.get_filetype(full_path)
                 if filetype in FILETYPE_MAP:
                     equiv_suffix = FILETYPE_MAP[filetype]
-                    _bootstrap._verbose_message('{} treating filetype {:03x} as {}', full_path, filetype, equiv_suffix, verbosity=2)
+                    _bootstrap._verbose_message('(2) {} treating filetype {:03x} as {}', full_path, filetype, equiv_suffix, verbosity=2)
 
             for suffix, loader_class in self._loaders:
                 if sys.platform == 'riscos' and suffix == equiv_suffix:
-                    return self._get_spec(loader_class, fullname, full_path [base_path], target)
+                    return self._get_spec(loader_class, fullname, _path_join(base_path, '__init__'), [base_path], target)
 
                 init_filename = '__init__' + suffix
                 full_path = _path_join(base_path, init_filename)
@@ -1553,18 +1556,19 @@ class FileFinder:
 
         # Check for a file w/ a proper suffix exists.
         for suffix, loader_class in self._loaders:
-            if sys.platform == 'riscos' and suffix == equiv_suffix:
-                full_path = _path_join(self.path, tail_module)
-                _bootstrap._verbose_message('using {} loader for {}', equiv_suffix, full_path, verbosity=2)
-                return self._get_spec(loader_class, fullname, full_path,
-                                       None, target)
-
             full_path = _path_join(self.path, tail_module + suffix)
             _bootstrap._verbose_message('trying {}', full_path, verbosity=2)
             if cache_module + suffix in cache:
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path,
                                           None, target)
+
+            if sys.platform == 'riscos' and suffix == equiv_suffix:
+                full_path = _path_join(self.path, tail_module)
+                return self._get_spec(loader_class, fullname, full_path,
+                                       None, target)
+
+
         if is_namespace:
             spec = _bootstrap.ModuleSpec(fullname, None)
             spec.submodule_search_locations = [base_path]
@@ -1590,9 +1594,8 @@ class FileFinder:
         # We store two cached versions, to handle runtime changes of the
         # PYTHONCASEOK environment variable.
         if not sys.platform.startswith('win'):
-            self._path_cache = contents if sys.platform == 'riscos' else set(contents)
-            _bootstrap._verbose_message('_path_cache {}', self._path_cache)
-
+            self._path_cache = \
+                    contents if sys.platform == 'riscos' else set(contents)
         else:
             # Windows users can import modules with case-insensitive file
             # suffixes (for legacy reasons). Make the suffix lowercase here

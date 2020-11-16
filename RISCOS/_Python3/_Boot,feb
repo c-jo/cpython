@@ -2,14 +2,12 @@
 
 If "<Python3$Dir>" <> "" Then Set Python3$Seen "True"
 If "<Python3$Seen>" = "" Then Set Python3$Dir <Obey$Dir>
-If "<Python3$Seen>" = "" Then Set Python3$Path <Obey$Dir>.
+If "<Python3$Seen>" = "" Then Set Python3$Path <Python3$Dir>.
 If "<Python3$Seen>" = "" Then IconSprites <Python3$Dir>.!Sprites
-If "<Python3$Seen>" = "" Then Run <Python3$Dir>.AddPath -py3
+If "<Python3$Seen>" = "" Then Run <Python3$Dir>.!Setup
+If "<Python3$Seen>" = "" Then Run <Python3$Dir>.!PathAdd -py3
 
-Unset Python3$Seen
-
-If "<Python3.8$Prefix>" = "" Then Set Python3.8$Prefix <Python3$Dir>.Lib
-If "<Python3.8$ExecPrefix>" = "" Then Set Python3.8$ExecPrefix <Python3$Dir>.Lib.lib-dynLoad
+Unset Python3$BootRun
 
 If "<File$Type_a73>" = "" Then Set File$Type_a73 Python3
 If "<File$Type_a74>" = "" Then Set File$Type_a74 PytnCode
@@ -17,10 +15,5 @@ If "<File$Type_a75>" = "" Then Set File$Type_a75 PytnExtn
 
 Set Python3$RunTypeSet "True"
 X If "<Alias$RunType_a73>" = "" Then Unset Python3$RunTypeSet
-If "<Python3$RunTypeSet>" = "" Then Set Alias$@RunType_a73 Wimpslot -min 8M|MRun <Python3$Dir>.python3 %%*0
+If "<Python3$RunTypeSet>" = "" Then Set Alias$@RunType_a73 python3 %%*0
 Unset Python3$RunTypeSet
-
-Set Python3$AliasSet "True"
-X If "<Alias$python3>" = "" Then Unset Python3$AliasSet
-If "<Python3$AliasSet>" = "" Then Set Alias$python3 WimpSlot -min 8M|MRun <Python3$Dir>.python3 %%*0
-Unset Python3$AliasSet
