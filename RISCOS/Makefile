@@ -60,7 +60,7 @@ MAKESETUP=      $(srcdir)/Modules/makesetup
 
 # Compiler options
 OPT=		-O3 -DNDEBUG -DRISCOS -fwrapv -Wall -fno-builtin -std=c99
-BASECFLAGS=	-Wno-unused-result -Wsign-compare
+BASECFLAGS=	-Wno-unused-result -Wsign-compare -THROWBACK
 BASECPPFLAGS=
 CONFIGURE_CFLAGS=
 EXTRA_CFLAGS=   $(VFP_FLAGS)
@@ -482,8 +482,8 @@ RISCOS/swimodule.o: RISCOS/swimodule.c
 
 # RISC OS getpath
 RISCOS/getpath.o: RISCOS/getpath.c
-	$(CC) -c $(PY_CORE_CFLAGS) -DVERSION=\"$(VERSION)\" -o $@ $<
-#		-DPREFIX='"$(prefix)"' \
+	$(CC) -c $(PY_CORE_CFLAGS) -DVERSION=\"$(VERSION)\" -DPYTHONPATH=\"\" -DPREFIX=\"<Python3$$Dir>\" -DEXEC_PREFIX=\"<Python3$$Dir>\" -DVPATH=\"\" -o $@ $<
+#		-DP`REFIX='"$(prefix)"' \
 #		-DEXEC_PREFIX='"$(exec_prefix)"' \
 #		-DVPATH='"$(VPATH)"' \
 

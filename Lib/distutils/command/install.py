@@ -47,7 +47,7 @@ INSTALL_SCHEMES = {
         'purelib': '<PythonSite$$Dir>.Python$py_version_nodot.Site-Packages',
         'platlib': '<PythonSite$$Dir>.Python$py_version_nodot.Site-Packages',
         'headers': '<PythonSite$$Dir>.Python$py_version_nodot.Include.$dist_name',
-        'scripts': '<PythonSite$$Dir>.Python$py_version_nodot.Scripts',
+        'scripts': '<PythonSite$$Dir>.Scripts',
         'data'   : '<PythonSite$$Dir>.Data',
         },
     }
@@ -76,7 +76,7 @@ if HAS_USER_SITE:
         'platlib': '<PythonUser$$Dir>.Python$py_version_nodot.Site-Packages',
         'headers':
             '<PythonUser$$Dir>.Python$py_version_nodot.Include.$dist_name',
-        'scripts': '<PythonUser$$Dir>.Python$py_version_nodot.Scripts',
+        'scripts': '<PythonUser$$Dir>.Scripts',
         'data'   : '<PythonUser$$Dir>.Data',
         }
 
