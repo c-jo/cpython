@@ -1,4 +1,4 @@
-Python 3.8.5 for RISC OS (release 3)
+Python 3.8.5 for RISC OS (release 4)
 ------------------------
 Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
@@ -102,3 +102,12 @@ Run action for python files no longer runs in a TaskWindow.
 
 3.8.5-3
 !Python3 work to (hopefully) ease port of 3.9
+
+3.8.5-4
+Update subprocess to close Taskrunner tasks when finished, and to better handle
+more use cases.
+Fixed environment setting in os.environ.
+Treat '..' as '^' in paths.
+Updated importer to use cache fr typed files.
+os.stat now includes RISC OS attributes - st_loadaddr, st_execaddr, st_filetype and st_objtype
+Overhaul of the initial path setup code - not works more like the Unix one. Environment variables PYTHONPATH and PYTHONHOME are used. PythonX.Y$* not longer used. Will search from executable directory or use <Python3$Dir>.PythonXY.Lib(.Lib-Dynload).
