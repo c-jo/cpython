@@ -1,16 +1,15 @@
 | !Run file for RISC OS Python 3
 
-Unset Python3$Dir
-Unset Python3.8$Prefix
-Unset Python3.8$ExecPrefix
+Set Python3$Dir <Obey$Dir>
+Set Python3$Path <Python3$Dir>.
+IconSprites <Python3$Dir>.!Sprites
+Run <Python3$Dir>.!Setup
+Run <Python3$Dir>.!PathAdd -py3
 
-Unset File$Type_a73
-Unset File$Type_a74
-Unset File$Type_a75
+Set File$Type_a73 Python3
+Set File$Type_a74 PytnCode
+Set File$Type_a75 PytnExtn
 
-Unset Alias$RunType_a73
-Unset Alias$python3
-
-Run <Obey$Dir>.!Boot
+Set Alias$@RunType_a73 python3 %%*0
 
 TaskWindow "python3 %*0" -name "Python3" -ctrl -quit -wimpslot 8M

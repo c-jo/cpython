@@ -1,0 +1,6 @@
+python38 -xx Python3:Scripts.2to3-38 %*0
+Obey
+import sys
+from lib2to3.main import main
+
+sys.exit(main("lib2to3.fixes"))
