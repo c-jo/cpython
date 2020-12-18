@@ -12,9 +12,7 @@ keep_suffix = [ \
 'Lib.test.test_importlib.namespace_pkgs.module_and_namespace_package.a_test/py',
 ]
 
-os.system('X Wipe '+here+'.build.Apps rf~c~v')
-os.system('X Wipe '+here+'.build.RiscPkg rf~c~v')
-
+os.system('X Wipe '+here+'.dist rf~c~v')
 
 # Copy a file
 def copy(src,dst,typ=None):
@@ -66,23 +64,27 @@ def app_copy(src,dst):
 
             copy(src, os.path.join(dst,file), type)
 
-python3_target = os.path.join(here,'build','Apps','Development','!Python3')
+python3_target = os.path.join(here, 'dist','Apps','Development','!Python3')
 
-#app_copy(os.path.join(here, 'RISCOS', '_Python3'), python3_target)
+# app_copy(os.path.join(here, 'RISCOS', '_Python3'), python3_target)
 
-app_copy(os.path.join(here, 'RISCOS', 'RiscPkg'),
-         os.path.join(here, 'build', 'RiscPkg'))
+app_copy(os.path.join(here, 'RISCOS', 'RiscPkg-38'),
+         os.path.join(here, 'dist', 'RiscPkg'))
 
 # Use a stripped version of the executable
 os.makedirs(os.path.join(python3_target, 'Bin'))
 strip(os.path.join(here,'python3'), os.path.join(python3_target,'Bin','python38'))
+
+app_copy(os.path.join(here, 'RISCOS', '_Python3.Scripts'),
+         os.path.join(python3_target,'Scripts'))
 
 # Create lib dirs
 os.makedirs(os.path.join(python3_target,'Python38','Lib','lib-dynload'))
 
 #          EXT -> TYPE, STRIP, SUFFIX
 ext_map = {'/py':(0xa73,False, ''),
-           '/so':(0xa75,True,  '')}
+           '/so':(0xa75,True,  ''),
+           }
 
 # The library
 def lib_copy(srcdir,tgtroot,target):
@@ -120,6 +122,17 @@ def lib_copy(srcdir,tgtroot,target):
                src = os.path.join(here, path,   file)
                dst = os.path.join(here, target, tgtdir, file)
                copy(src,dst)
+
+def untype_archives(path):
+    for e in os.scandir(path):
+        st = e.stat()
+        if st.st_objtype == 3:
+            if st.st_filetype != 0xffd:
+                os.set_filetype(os.path.join(path, e.name), 0xffd)
+        elif st.st_objtype == 2:
+            untype_archives(os.path.join(path, e))
+
+untype_archives(os.path.join(here,'Lib','test'))
 
 lib_copy(os.path.join(here,'Lib'), 'Lib',
          os.path.join(python3_target,'Python38'))
