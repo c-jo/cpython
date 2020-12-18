@@ -1,0 +1,13 @@
+Package: Python3
+Version: 0.0.1-1
+Section: Development
+Priority: Optional
+Maintainer: Chris Johns <chris@lessthan3.org.uk>
+Standards-Version: 0.4.0
+Environment: any
+Licence: Free
+Description: Python 3 (Base)
+ This package provides the !Python3 application into which multiple version of the interpreter can be installed.
+Components: Apps.Development.!Python3 (Movable LookAt)
+Recommends: PythonSite (>=0.0.2-1), PythonUser (>=0.0.2-1)
+

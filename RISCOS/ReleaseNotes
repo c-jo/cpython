@@ -1,4 +1,4 @@
-Python 3.8.5 for RISC OS (release 4)
+Python 3.8.5 for RISC OS (release 5)
 ------------------------
 Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
@@ -6,6 +6,15 @@ Welcome to Python on RISC OS, bringing the power and flexibility of the Python l
 
 This document does not go into any detail about the python programming language itself, but details the RISC OS specific items. There are lots of documents and tutorials online and in books about Python itself.
 
+It can be obtained with the !PackMan package manager.
+
+Mailing List
+------------
+There is a riscos-python mailing list https://www.freelists.org/riscos-python for discussions about the python on RISC OS.
+
+Feedback and bugs
+-----------------
+Plese send any feedback or bug reports to chris@lessthan3.org.uk
 
 Filetypes
 ---------
@@ -33,11 +42,11 @@ swi.swi(arg1,arg2,arg3) allows Python code to call RISC OS SWIs.
   arg3 is the rest of the arguments.
 eg: swi.swi("OS_Write0","s","Hello RISC OS World")
 
+stat will also return st_loadaddr (Load Address), st_execaddr (Exex Address), st_filetype (Filetype), and st_objtype (Object type)
 
 Known Bugs
 ----------
 Much of the standard library is still largely untested.
-
 
 History
 -------
@@ -111,3 +120,7 @@ Treat '..' as '^' in paths.
 Updated importer to use cache fr typed files.
 os.stat now includes RISC OS attributes - st_loadaddr, st_execaddr, st_filetype and st_objtype
 Overhaul of the initial path setup code - not works more like the Unix one. Environment variables PYTHONPATH and PYTHONHOME are used. PythonX.Y$* not longer used. Will search from executable directory or use <Python3$Dir>.PythonXY.Lib(.Lib-Dynload).
+
+3.8.5-5
+Bug fixes.
+
