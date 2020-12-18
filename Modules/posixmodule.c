@@ -13388,8 +13388,9 @@ ScandirIterator_iternext(ScandirIterator *iterator)
 {
     PyObject *entry;
 
-    /* No buffer or already at end */
-    if (iterator->gbpb_buffer == NULL || iterator->gbpb_index == -1)
+    /* No buffer or already at end, and have no files left to return */
+    if (iterator->gbpb_buffer == NULL ||
+        (iterator->gbpb_count == 0 && iterator->gbpb_index == -1))
         return NULL;
 
     /* Do we need to read some entries from the FS? */
