@@ -1631,7 +1631,7 @@ class Popen(object):
                     break
 
                 time.sleep(0.005)
-                _state = swi.swi('TaskRunner_State','i;i',self._task_id)
+                _state = swi.swi('TaskRunner_Poll','i;i',self._task_id)
 
             if input:
                 swi.swi('TaskRunner_Input','iyi',
@@ -1645,7 +1645,7 @@ class Popen(object):
                     break
 
                 time.sleep(0.005)
-                _state,rc=swi.swi('TaskRunner_State','i;ii',self._task_id)
+                _state,rc=swi.swi('TaskRunner_Poll','i;ii',self._task_id)
                 self._handle_output()
                 if _state == 0x0f:
                     self.returncode = rc
