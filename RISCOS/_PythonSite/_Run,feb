@@ -1,0 +1,4 @@
+| !Run file for RISC OS Python Site.
+
+Unset PythonSite$Dir
+Run <Obey$Dir>.!Boot
