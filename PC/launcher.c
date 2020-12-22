@@ -425,11 +425,73 @@ compare_pythons(const void * p1, const void * p2)
     INSTALLED_PYTHON * ip1 = (INSTALLED_PYTHON *) p1;
     INSTALLED_PYTHON * ip2 = (INSTALLED_PYTHON *) p2;
     /* note reverse sorting on version */
-    int result = wcscmp(ip2->version, ip1->version);
+    int result = CompareStringW(LOCALE_INVARIANT, SORT_DIGITSASNUMBERS,
+                                ip2->version, -1, ip1->version, -1);
+    switch (result) {
+    case 0:
+        error(0, L"CompareStringW failed");
+        return 0;
+    case CSTR_LESS_THAN:
+        return -1;
+    case CSTR_EQUAL:
+        return ip2->bits - ip1->bits; /* 64 before 32 */
+    case CSTR_GREATER_THAN:
+        return 1;
+    default:
+        return 0; // This should never be reached.
+    }
+}
 
-    if (result == 0)
-        result = ip2->bits - ip1->bits; /* 64 before 32 */
-    return result;
+static void
+locate_pythons_for_key(HKEY root, REGSAM flags)
+{
+    _locate_pythons_for_key(root, CORE_PATH, flags, 0, FALSE);
+}
+
+static void
+locate_store_pythons()
+{
+#if defined(_M_X64)
+    /* 64bit process, so look in native registry */
+    _locate_pythons_for_key(HKEY_LOCAL_MACHINE, LOOKASIDE_PATH,
+                            KEY_READ, 64, TRUE);
+#else
+    /* 32bit process, so check that we're on 64bit OS */
+    BOOL f64 = FALSE;
+    if (IsWow64Process(GetCurrentProcess(), &f64) && f64) {
+        _locate_pythons_for_key(HKEY_LOCAL_MACHINE, LOOKASIDE_PATH,
+                                KEY_READ | KEY_WOW64_64KEY, 64, TRUE);
+    }
+#endif
+}
+
+static void
+locate_venv_python()
+{
+    static wchar_t venv_python[MAX_PATH];
+    INSTALLED_PYTHON * ip;
+    wchar_t *virtual_env = get_env(L"VIRTUAL_ENV");
+    DWORD attrs;
+
+    /* Check for VIRTUAL_ENV environment variable */
+    if (virtual_env == NULL || virtual_env[0] == L'\0') {
+        return;
+    }
+
+    /* Check for a python executable in the venv */
+    debug(L"Checking for Python executable in virtual env '%ls'\n", virtual_env);
+    _snwprintf_s(venv_python, MAX_PATH, _TRUNCATE,
+            L"%ls\\Scripts\\%ls", virtual_env, PYTHON_EXECUTABLE);
+    attrs = GetFileAttributesW(venv_python);
+    if (attrs == INVALID_FILE_ATTRIBUTES) {
+        debug(L"Python executable %ls missing from virtual env\n", venv_python);
+        return;
+    }
+
+    ip = &installed_pythons[num_installed_pythons++];
+    wcscpy_s(ip->executable, MAX_PATH, venv_python);
+    ip->bits = 0;
+    wcscpy_s(ip->version, MAX_VERSION_SIZE, L"venv");
 }
 
 static void
@@ -1247,6 +1309,8 @@ static PYC_MAGIC magic_values[] = {
     { 3360, 3379, L"3.6" },
     { 3390, 3399, L"3.7" },
     { 3400, 3419, L"3.8" },
+    { 3420, 3429, L"3.9" },
+    { 3430, 3439, L"3.10" },
     { 0 }
 };
 
@@ -1519,7 +1583,7 @@ show_help_text(wchar_t ** argv)
 Python Launcher for Windows Version %ls\n\n", version_text);
     fwprintf(stdout, L"\
 usage:\n\
-%ls [launcher-args] [python-args] script [script-args]\n\n", argv[0]);
+%ls [launcher-args] [python-args] [script [script-args]]\n\n", argv[0]);
     fputws(L"\
 Launcher arguments:\n\n\
 -2     : Launch the latest Python 2.x version\n\
@@ -1535,6 +1599,15 @@ Launcher arguments:\n\n\
     }
     fputws(L"\n-0  --list       : List the available pythons", stdout);
     fputws(L"\n-0p --list-paths : List with paths", stdout);
+    fputws(L"\n\n If no script is specified the specified interpreter is opened.", stdout);
+    fputws(L"\nIf an exact version is not given, using the latest version can be overridden by", stdout);
+    fputws(L"\nany of the following, (in priority order):", stdout);
+    fputws(L"\n An active virtual environment", stdout);
+    fputws(L"\n A shebang line in the script (if present)", stdout);
+    fputws(L"\n With -2 or -3 flag a matching PY_PYTHON2 or PY_PYTHON3 Enviroment variable", stdout);
+    fputws(L"\n A PY_PYTHON Enviroment variable", stdout);
+    fputws(L"\n From [defaults] in py.ini in your %LOCALAPPDATA%\\py.ini", stdout);
+    fputws(L"\n From [defaults] in py.ini beside py.exe (use `where py` to locate)", stdout);
     fputws(L"\n\nThe following help text is from Python:\n\n", stdout);
     fflush(stdout);
 }
@@ -1830,7 +1903,7 @@ process(int argc, wchar_t ** argv)
 
 #if !defined(VENV_REDIRECT)
     /* bpo-35811: The __PYVENV_LAUNCHER__ variable is used to
-     * override sys.executable and locate the original prefix path. 
+     * override sys.executable and locate the original prefix path.
      * However, if it is silently inherited by a non-venv Python
      * process, that process will believe it is running in the venv
      * still. This is the only place where *we* can clear it (that is,

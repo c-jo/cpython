@@ -149,7 +149,7 @@ diffs. For comparing directories and files, see also, the :mod:`filecmp` module.
    contains a good example of its use.
 
 
-.. function:: context_diff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3, lineterm='\\n')
+.. function:: context_diff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3, lineterm='\n')
 
    Compare *a* and *b* (lists of strings); return a delta (a :term:`generator`
    generating the delta lines) in context diff format.
@@ -279,7 +279,7 @@ diffs. For comparing directories and files, see also, the :mod:`filecmp` module.
       emu
 
 
-.. function:: unified_diff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3, lineterm='\\n')
+.. function:: unified_diff(a, b, fromfile='', tofile='', fromfiledate='', tofiledate='', n=3, lineterm='\n')
 
    Compare *a* and *b* (lists of strings); return a delta (a :term:`generator`
    generating the delta lines) in unified diff format.
@@ -321,7 +321,7 @@ diffs. For comparing directories and files, see also, the :mod:`filecmp` module.
 
    See :ref:`difflib-interface` for a more detailed example.
 
-.. function:: diff_bytes(dfunc, a, b, fromfile=b'', tofile=b'', fromfiledate=b'', tofiledate=b'', n=3, lineterm=b'\\n')
+.. function:: diff_bytes(dfunc, a, b, fromfile=b'', tofile=b'', fromfiledate=b'', tofiledate=b'', n=3, lineterm=b'\n')
 
    Compare *a* and *b* (lists of bytes objects) using *dfunc*; yield a
    sequence of delta lines (also bytes) in the format returned by *dfunc*.
@@ -422,7 +422,7 @@ The :class:`SequenceMatcher` class has this constructor:
       is not changed.
 
 
-   .. method:: find_longest_match(alo, ahi, blo, bhi)
+   .. method:: find_longest_match(alo=0, ahi=None, blo=0, bhi=None)
 
       Find longest matching block in ``a[alo:ahi]`` and ``b[blo:bhi]``.
 
@@ -458,6 +458,9 @@ The :class:`SequenceMatcher` class has this constructor:
       If no blocks match, this returns ``(alo, blo, 0)``.
 
       This method returns a :term:`named tuple` ``Match(a, b, size)``.
+
+      .. versionchanged:: 3.9
+         Added default arguments.
 
 
    .. method:: get_matching_blocks()

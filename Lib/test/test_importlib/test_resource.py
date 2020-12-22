@@ -1,13 +1,14 @@
 import sys
 import unittest
 import uuid
+import pathlib
 
 from . import data01
 from . import zipdata01, zipdata02
 from . import util
 from importlib import resources, import_module
-from pathlib import Path
-from test import support
+from test.support import import_helper
+from test.support.os_helper import unlink
 
 
 class ResourceTests:
@@ -172,13 +173,13 @@ class DeletingZipsTest(unittest.TestCase):
     ZIP_MODULE = zipdata01
 
     def setUp(self):
-        modules = support.modules_setup()
-        self.addCleanup(support.modules_cleanup, *modules)
+        modules = import_helper.modules_setup()
+        self.addCleanup(import_helper.modules_cleanup, *modules)
 
-        data_path = Path(self.ZIP_MODULE.__file__)
+        data_path = pathlib.Path(self.ZIP_MODULE.__file__)
         data_dir = data_path.parent
         self.source_zip_path = data_dir / 'ziptestdata.zip'
-        self.zip_path = Path.cwd() / '{}.zip'.format(uuid.uuid4())
+        self.zip_path = pathlib.Path('{}.zip'.format(uuid.uuid4())).absolute()
         self.zip_path.write_bytes(self.source_zip_path.read_bytes())
         sys.path.append(str(self.zip_path))
         self.data = import_module('ziptestdata')
@@ -196,7 +197,7 @@ class DeletingZipsTest(unittest.TestCase):
             pass
 
         try:
-            support.unlink(self.zip_path)
+            unlink(self.zip_path)
         except OSError:
             # If the test fails, this will probably fail too
             pass
@@ -204,32 +205,41 @@ class DeletingZipsTest(unittest.TestCase):
     def test_contents_does_not_keep_open(self):
         c = resources.contents('ziptestdata')
         self.zip_path.unlink()
+        del c
 
     def test_is_resource_does_not_keep_open(self):
         c = resources.is_resource('ziptestdata', 'binary.file')
         self.zip_path.unlink()
+        del c
 
     def test_is_resource_failure_does_not_keep_open(self):
         c = resources.is_resource('ziptestdata', 'not-present')
         self.zip_path.unlink()
+        del c
 
+    @unittest.skip("Desired but not supported.")
     def test_path_does_not_keep_open(self):
         c = resources.path('ziptestdata', 'binary.file')
         self.zip_path.unlink()
+        del c
 
     def test_entered_path_does_not_keep_open(self):
         # This is what certifi does on import to make its bundle
         # available for the process duration.
         c = resources.path('ziptestdata', 'binary.file').__enter__()
         self.zip_path.unlink()
+        del c
 
     def test_read_binary_does_not_keep_open(self):
         c = resources.read_binary('ziptestdata', 'binary.file')
         self.zip_path.unlink()
+        del c
 
     def test_read_text_does_not_keep_open(self):
         c = resources.read_text('ziptestdata', 'utf-8.file', encoding='utf-8')
         self.zip_path.unlink()
+        del c
+
 
 if __name__ == '__main__':
     unittest.main()

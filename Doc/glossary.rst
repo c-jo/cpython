@@ -158,6 +158,18 @@ Glossary
       See also :term:`text file` for a file object able to read and write
       :class:`str` objects.
 
+   borrowed reference
+      In Python's C API, a borrowed reference is a reference to an object.
+      It does not modify the object reference count. It becomes a dangling
+      pointer if the object is destroyed. For example, a garbage collection can
+      remove the last :term:`strong reference` to the object and so destroy it.
+
+      Calling :c:func:`Py_INCREF` on the :term:`borrowed reference` is
+      recommended to convert it to a :term:`strong reference` in-place, except
+      when the object cannot be destroyed before the last usage of the borrowed
+      reference. The :c:func:`Py_NewRef` function can be used to create a new
+      :term:`strong reference`.
+
    bytes-like object
       An object that supports the :ref:`bufferobjects` and can
       export a C-:term:`contiguous` buffer. This includes all :class:`bytes`,
@@ -301,7 +313,8 @@ Glossary
       including functions, methods, properties, class methods, static methods,
       and reference to super classes.
 
-      For more information about descriptors' methods, see :ref:`descriptors`.
+      For more information about descriptors' methods, see :ref:`descriptors`
+      or the :ref:`Descriptor How To Guide <descriptorhowto>`.
 
    dictionary
       An associative array, where arbitrary keys are mapped to values.  The
@@ -384,6 +397,25 @@ Glossary
 
    file-like object
       A synonym for :term:`file object`.
+
+   filesystem encoding and error handler
+      Encoding and error handler used by Python to decode bytes from the
+      operating system and encode Unicode to the operating system.
+
+      The filesystem encoding must guarantee to successfully decode all bytes
+      below 128. If the file system encoding fails to provide this guarantee,
+      API functions can raise :exc:`UnicodeError`.
+
+      The :func:`sys.getfilesystemencoding` and
+      :func:`sys.getfilesystemencodeerrors` functions can be used to get the
+      filesystem encoding and error handler.
+
+      The :term:`filesystem encoding and error handler` are configured at
+      Python startup by the :c:func:`PyConfig_Read` function: see
+      :c:member:`~PyConfig.filesystem_encoding` and
+      :c:member:`~PyConfig.filesystem_errors` members of :c:type:`PyConfig`.
+
+      See also the :term:`locale encoding`.
 
    finder
       An object that tries to find the :term:`loader` for a module that is
@@ -482,6 +514,13 @@ Glossary
       See also the :term:`single dispatch` glossary entry, the
       :func:`functools.singledispatch` decorator, and :pep:`443`.
 
+   generic type
+      A :term:`type` that can be parameterized; typically a container like
+      :class:`list`. Used for :term:`type hints <type hint>` and
+      :term:`annotations <annotation>`.
+
+      See :pep:`483` for more details, and :mod:`typing` or
+      :ref:`generic alias type <types-genericalias>` for its uses.
 
    GIL
       See :term:`global interpreter lock`.
@@ -664,6 +703,18 @@ Glossary
       code, ``if key in mapping: return mapping[key]`` can fail if another
       thread removes *key* from *mapping* after the test, but before the lookup.
       This issue can be solved with locks or by using the EAFP approach.
+
+   locale encoding
+      On Unix, it is the encoding of the LC_CTYPE locale. It can be set with
+      ``locale.setlocale(locale.LC_CTYPE, new_locale)``.
+
+      On Windows, it is is the ANSI code page (ex: ``cp1252``).
+
+      ``locale.getpreferredencoding(False)`` can be used to get the locale
+      encoding.
+
+      Python uses the :term:`filesystem encoding and error handler` to convert
+      between Unicode filenames and bytes filenames.
 
    list
       A built-in Python :term:`sequence`.  Despite its name it is more akin
@@ -1061,6 +1112,18 @@ Glossary
       an :term:`expression` or one of several constructs with a keyword, such
       as :keyword:`if`, :keyword:`while` or :keyword:`for`.
 
+   strong reference
+      In Python's C API, a strong reference is a reference to an object
+      which increments the object's reference count when it is created and
+      decrements the object's reference count when it is deleted.
+
+      The :c:func:`Py_NewRef` function can be used to create a strong reference
+      to an object. Usually, the :c:func:`Py_DECREF` function must be called on
+      the strong reference before exiting the scope of the strong reference, to
+      avoid leaking one reference.
+
+      See also :term:`borrowed reference`.
+
    text encoding
       A codec which encodes Unicode strings to bytes.
 
@@ -1096,19 +1159,15 @@ Glossary
       Type aliases are useful for simplifying :term:`type hints <type hint>`.
       For example::
 
-         from typing import List, Tuple
-
          def remove_gray_shades(
-                 colors: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
+                 colors: list[tuple[int, int, int]]) -> list[tuple[int, int, int]]:
              pass
 
       could be made more readable like this::
 
-         from typing import List, Tuple
+         Color = tuple[int, int, int]
 
-         Color = Tuple[int, int, int]
-
-         def remove_gray_shades(colors: List[Color]) -> List[Color]:
+         def remove_gray_shades(colors: list[Color]) -> list[Color]:
              pass
 
       See :mod:`typing` and :pep:`484`, which describe this functionality.

@@ -10,10 +10,10 @@
 */
 
 #include "Python.h"
-#include "pycore_pystate.h"
+#include "pycore_pystate.h"   // _PyThreadState_GET()
 #ifdef MS_WINDOWS
-#define WIN32_LEAN_AND_MEAN
-#include "windows.h"
+#  define WIN32_LEAN_AND_MEAN
+#  include "windows.h"
 #endif /* MS_WINDOWS */
 #ifdef RISCOS
 #include <swis.h>
@@ -21,7 +21,6 @@
 
 PyThreadState* _PyOS_ReadlineTState = NULL;
 
-#include "pythread.h"
 static PyThread_type_lock _PyOS_ReadlineLock = NULL;
 
 int (*PyOS_InputHook)(void) = NULL;
@@ -299,34 +298,6 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
         fprintf(stderr, "%s", prompt);
     }
     fflush(stderr);
-
-#ifdef RISCOS
-   int got, flags;
-   if (0 == _swix(OS_ReadLine32, _INR(0,4) | _OUT(1) | _OUT(_FLAGS),
-                                 p, n-2, 0x00, 0xff, 0,
-                                 &got, &flags))
-   {
-     if (flags & _C) // Escape
-         *p = '\0';
-       else
-         strcpy(p+got, "\n");
-   }
-   else // Error
-       *p = '\0';
-#else
-    switch (my_fgets(tstate, p, (int)n, sys_stdin)) {
-    case 0: /* Normal case */
-        break;
-    case 1: /* Interrupt */
-        PyMem_RawFree(p);
-        return NULL;
-    case -1: /* EOF */
-    case -2: /* Error */
-    default: /* Shouldn't happen */
-        *p = '\0';
-        break;
-    }
-#endif
 
     n = 0;
     p = NULL;

@@ -208,11 +208,6 @@ access internal read-only data of Unicode objects:
    .. versionadded:: 3.3
 
 
-.. c:function:: int PyUnicode_ClearFreeList()
-
-   Clear the free list. Return the total number of freed items.
-
-
 .. c:function:: Py_ssize_t PyUnicode_GET_SIZE(PyObject *o)
 
    Return the size of the deprecated :c:type:`Py_UNICODE` representation, in
@@ -254,6 +249,16 @@ access internal read-only data of Unicode objects:
    .. deprecated-removed:: 3.3 3.12
       Part of the old-style Unicode API, please migrate to using the
       :c:func:`PyUnicode_nBYTE_DATA` family of macros.
+
+
+.. c:function:: int PyUnicode_IsIdentifier(PyObject *o)
+
+   Return ``1`` if the string is a valid identifier according to the language
+   definition, section :ref:`identifiers`. Return ``0`` otherwise.
+
+   .. versionchanged:: 3.9
+      The function does not call :c:func:`Py_FatalError` anymore if the string
+      is not ready.
 
 
 Unicode Character Properties
@@ -714,8 +719,6 @@ Extension modules can continue using them, as they will not be removed in Python
       :c:func:`PyUnicode_AsUCS4`, :c:func:`PyUnicode_AsWideChar`,
       :c:func:`PyUnicode_ReadChar` or similar new APIs.
 
-   .. deprecated-removed:: 3.3 3.10
-
 
 .. c:function:: PyObject* PyUnicode_TransformDecimalToASCII(Py_UNICODE *s, Py_ssize_t size)
 
@@ -738,20 +741,6 @@ Extension modules can continue using them, as they will not be removed in Python
       Part of the old-style Unicode API, please migrate to using
       :c:func:`PyUnicode_AsUCS4`, :c:func:`PyUnicode_AsWideChar`,
       :c:func:`PyUnicode_ReadChar` or similar new APIs.
-
-
-.. c:function:: Py_UNICODE* PyUnicode_AsUnicodeCopy(PyObject *unicode)
-
-   Create a copy of a Unicode string ending with a null code point. Return ``NULL``
-   and raise a :exc:`MemoryError` exception on memory allocation failure,
-   otherwise return a new allocated buffer (use :c:func:`PyMem_Free` to free
-   the buffer). Note that the resulting :c:type:`Py_UNICODE*` string may
-   contain embedded null code points, which would cause the string to be
-   truncated when used in most C functions.
-
-   .. versionadded:: 3.2
-
-   Please migrate to using :c:func:`PyUnicode_AsUCS4Copy` or similar new APIs.
 
 
 .. c:function:: Py_ssize_t PyUnicode_GetSize(PyObject *unicode)
@@ -794,7 +783,7 @@ system.
    :c:data:`Py_FileSystemDefaultEncoding` (the locale encoding read at
    Python startup).
 
-   This function ignores the Python UTF-8 mode.
+   This function ignores the :ref:`Python UTF-8 Mode <utf8-mode>`.
 
    .. seealso::
 
@@ -830,7 +819,7 @@ system.
    :c:data:`Py_FileSystemDefaultEncoding` (the locale encoding read at
    Python startup).
 
-   This function ignores the Python UTF-8 mode.
+   This function ignores the :ref:`Python UTF-8 Mode <utf8-mode>`.
 
    .. seealso::
 
@@ -889,8 +878,7 @@ conversion function:
 
 .. c:function:: PyObject* PyUnicode_DecodeFSDefaultAndSize(const char *s, Py_ssize_t size)
 
-   Decode a string using :c:data:`Py_FileSystemDefaultEncoding` and the
-   :c:data:`Py_FileSystemDefaultEncodeErrors` error handler.
+   Decode a string from the :term:`filesystem encoding and error handler`.
 
    If :c:data:`Py_FileSystemDefaultEncoding` is not set, fall back to the
    locale encoding.
@@ -910,8 +898,8 @@ conversion function:
 
 .. c:function:: PyObject* PyUnicode_DecodeFSDefault(const char *s)
 
-   Decode a null-terminated string using :c:data:`Py_FileSystemDefaultEncoding`
-   and the :c:data:`Py_FileSystemDefaultEncodeErrors` error handler.
+   Decode a null-terminated string from the :term:`filesystem encoding and
+   error handler`.
 
    If :c:data:`Py_FileSystemDefaultEncoding` is not set, fall back to the
    locale encoding.
@@ -1006,7 +994,7 @@ have the same semantics as the ones of the built-in :func:`str` string object
 constructor.
 
 Setting encoding to ``NULL`` causes the default encoding to be used
-which is ASCII.  The file system calls should use
+which is UTF-8.  The file system calls should use
 :c:func:`PyUnicode_FSConverter` for encoding file names. This uses the
 variable :c:data:`Py_FileSystemDefaultEncoding` internally. This
 variable should be treated as read-only: on some systems, it will be a
@@ -1108,6 +1096,9 @@ These are the UTF-8 codec APIs:
 
    .. versionchanged:: 3.7
       The return type is now ``const char *`` rather of ``char *``.
+
+   .. versionchanged:: 3.10
+      This function is a part of the :ref:`limited API <stable>`.
 
 
 .. c:function:: const char* PyUnicode_AsUTF8(PyObject *unicode)

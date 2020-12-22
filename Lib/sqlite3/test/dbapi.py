@@ -25,7 +25,7 @@ import threading
 import unittest
 import sqlite3 as sqlite
 
-from test.support import TESTFN, unlink
+from test.support.os_helper import TESTFN, unlink
 
 
 class ModuleTests(unittest.TestCase):
@@ -185,12 +185,6 @@ class ConnectionTests(unittest.TestCase):
             with self.assertRaises(sqlite.OperationalError):
                 cx.execute('insert into test(id) values(1)')
 
-    @unittest.skipIf(sqlite.sqlite_version_info >= (3, 3, 1),
-                     'needs sqlite versions older than 3.3.1')
-    def CheckSameThreadErrorOnOldVersion(self):
-        with self.assertRaises(sqlite.NotSupportedError) as cm:
-            sqlite.connect(':memory:', check_same_thread=False)
-        self.assertEqual(str(cm.exception), 'shared connections not available')
 
 class CursorTests(unittest.TestCase):
     def setUp(self):
@@ -230,7 +224,7 @@ class CursorTests(unittest.TestCase):
             """)
 
     def CheckExecuteWrongSqlArg(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             self.cu.execute(42)
 
     def CheckExecuteArgInt(self):
@@ -389,7 +383,7 @@ class CursorTests(unittest.TestCase):
         self.cu.executemany("insert into test(income) values (?)", mygen())
 
     def CheckExecuteManyWrongSqlArg(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             self.cu.executemany(42, [(3,)])
 
     def CheckExecuteManySelect(self):

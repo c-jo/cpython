@@ -8,7 +8,9 @@ import threading
 import unittest
 import hashlib
 
-from test import support
+from test.support import hashlib_helper
+from test.support import threading_helper
+from test.support import warnings_helper
 
 try:
     import ssl
@@ -315,6 +317,7 @@ class BasicAuthTests(unittest.TestCase):
         self.assertRaises(urllib.error.HTTPError, urllib.request.urlopen, self.server_url)
 
 
+@hashlib_helper.requires_hashdigest("md5")
 class ProxyAuthTests(unittest.TestCase):
     URL = "http://localhost"
 
@@ -448,6 +451,9 @@ class TestUrlopen(unittest.TestCase):
     def setUp(self):
         super(TestUrlopen, self).setUp()
 
+        # clear _opener global variable
+        self.addCleanup(urllib.request.urlcleanup)
+
         # Ignore proxies for localhost tests.
         def restore_environ(old_environ):
             os.environ.clear()
@@ -562,7 +568,7 @@ class TestUrlopen(unittest.TestCase):
 
     def test_https_with_cafile(self):
         handler = self.start_https_server(certfile=CERT_localhost)
-        with support.check_warnings(('', DeprecationWarning)):
+        with warnings_helper.check_warnings(('', DeprecationWarning)):
             # Good cert
             data = self.urlopen("https://localhost:%s/bizarre" % handler.port,
                                 cafile=CERT_localhost)
@@ -580,7 +586,7 @@ class TestUrlopen(unittest.TestCase):
     def test_https_with_cadefault(self):
         handler = self.start_https_server(certfile=CERT_localhost)
         # Self-signed cert should fail verification with system certificate store
-        with support.check_warnings(('', DeprecationWarning)):
+        with warnings_helper.check_warnings(('', DeprecationWarning)):
             with self.assertRaises(urllib.error.URLError) as cm:
                 self.urlopen("https://localhost:%s/bizarre" % handler.port,
                              cadefault=True)
@@ -662,11 +668,11 @@ def setUpModule():
     # Store the threading_setup in a key and ensure that it is cleaned up
     # in the tearDown
     global threads_key
-    threads_key = support.threading_setup()
+    threads_key = threading_helper.threading_setup()
 
 def tearDownModule():
     if threads_key:
-        support.threading_cleanup(*threads_key)
+        threading_helper.threading_cleanup(*threads_key)
 
 if __name__ == "__main__":
     unittest.main()

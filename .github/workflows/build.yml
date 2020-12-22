@@ -4,9 +4,16 @@ name: Tests
 # it prevents to mark a job as mandatory. A PR cannot be merged if a job is
 # mandatory but not scheduled because of "paths-ignore".
 on:
+  push:
+    branches:
+    - master
+    - 3.9
+    - 3.8
+    - 3.7
   pull_request:
     branches:
     - master
+    - 3.9
     - 3.8
     - 3.7
 
@@ -53,7 +60,8 @@ jobs:
         run: sudo ./.github/workflows/posix-deps-apt.sh
       - name: Build CPython
         run: |
-          ./configure --with-pydebug
+          # Build Python with the libpython dynamic library
+          ./configure --with-pydebug --enable-shared
           make -j4 regen-all
       - name: Check for changes
         run: |
@@ -67,6 +75,8 @@ jobs:
           fi
       - name: Check exported libpython symbols
         run: make smelly
+      - name: Check limited ABI symbols
+        run: make check-limited-abi
 
   build_win32:
     name: 'Windows (x86)'
@@ -121,6 +131,8 @@ jobs:
       OPENSSL_VER: 1.1.1f
     steps:
     - uses: actions/checkout@v2
+    - name: Register gcc problem matcher
+      run: echo "::add-matcher::.github/problem-matchers/gcc.json"
     - name: Install Dependencies
       run: sudo ./.github/workflows/posix-deps-apt.sh
     - name: 'Restore OpenSSL build'

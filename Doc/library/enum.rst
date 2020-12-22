@@ -44,6 +44,11 @@ helper, :class:`auto`.
     Base class for creating enumerated constants that are also
     subclasses of :class:`int`.
 
+.. class:: StrEnum
+
+    Base class for creating enumerated constants that are also
+    subclasses of :class:`str`.
+
 .. class:: IntFlag
 
     Base class for creating enumerated constants that can be combined using
@@ -56,16 +61,18 @@ helper, :class:`auto`.
     the bitwise operations without losing their :class:`Flag` membership.
 
 .. function:: unique
-   :noindex:
+    :noindex:
 
     Enum class decorator that ensures only one name is bound to any one value.
 
 .. class:: auto
 
-    Instances are replaced with an appropriate value for Enum members. Initial value starts at 1.
+    Instances are replaced with an appropriate value for Enum members.
+    :class:`StrEnum` defaults to the lower-cased version of the member name,
+    while other Enums default to 1 and increase from there.
 
 .. versionadded:: 3.6  ``Flag``, ``IntFlag``, ``auto``
-
+.. versionadded:: 3.10  ``StrEnum``
 
 Creating an Enum
 ----------------
@@ -120,7 +127,6 @@ The *type* of an enumeration member is the enumeration it belongs to::
     <enum 'Color'>
     >>> isinstance(Color.GREEN, Color)
     True
-    >>>
 
 Enum members also have a property that contains just their item name::
 
@@ -394,8 +400,8 @@ enumeration, with the exception of special methods (:meth:`__str__`,
 variable names listed in :attr:`_ignore_`.
 
 Note:  if your enumeration defines :meth:`__new__` and/or :meth:`__init__` then
-whatever value(s) were given to the enum member will be passed into those
-methods.  See `Planet`_ for an example.
+any value(s) given to the enum member will be passed into those methods.
+See `Planet`_ for an example.
 
 
 Restricted Enum subclassing
@@ -602,6 +608,30 @@ However, they still can't be compared to standard :class:`Enum` enumerations::
     [0, 1]
 
 
+StrEnum
+^^^^^^^
+
+The second variation of :class:`Enum` that is provided is also a subclass of
+:class:`str`.  Members of a :class:`StrEnum` can be compared to strings;
+by extension, string enumerations of different types can also be compared
+to each other.  :class:`StrEnum` exists to help avoid the problem of getting
+an incorrect member::
+
+    >>> class Directions(StrEnum):
+    ...     NORTH = 'north',    # notice the trailing comma
+    ...     SOUTH = 'south'
+
+Before :class:`StrEnum`, ``Directions.NORTH`` would have been the :class:`tuple`
+``('north',)``.
+
+.. note::
+
+    Unlike other Enum's, ``str(StrEnum.member)`` will return the value of the
+    member instead of the usual ``"EnumClass.member"``.
+
+.. versionadded:: 3.10
+
+
 IntFlag
 ^^^^^^^
 
@@ -657,6 +687,13 @@ be combined with them::
     >>> Perm.X | 8
     <Perm.8|X: 9>
 
+:class:`IntFlag` members can also be iterated over::
+
+    >>> list(RW)
+    [<Perm.R: 4>, <Perm.W: 2>]
+
+.. versionadded:: 3.10
+
 
 Flag
 ^^^^
@@ -710,6 +747,14 @@ value::
     >>> bool(Color.BLACK)
     False
 
+:class:`Flag` members can also be iterated over::
+
+    >>> purple = Color.RED | Color.BLUE
+    >>> list(purple)
+    [<Color.BLUE: 2>, <Color.RED: 1>]
+
+.. versionadded:: 3.10
+
 .. note::
 
     For the majority of new code, :class:`Enum` and :class:`Flag` are strongly
@@ -741,8 +786,7 @@ Some rules:
 2. While :class:`Enum` can have members of any type, once you mix in an
    additional type, all the members must have values of that type, e.g.
    :class:`int` above.  This restriction does not apply to mix-ins which only
-   add methods and don't specify another data type such as :class:`int` or
-   :class:`str`.
+   add methods and don't specify another type.
 3. When another data type is mixed in, the :attr:`value` attribute is *not the
    same* as the enum member itself, although it is equivalent and will compare
    equal.
@@ -1091,7 +1135,7 @@ Supported ``_sunder_`` names
 
 - ``_missing_`` -- a lookup function used when a value is not found; may be
   overridden
-- ``_ignore_`` -- a list of names, either as a :func:`list` or a :func:`str`,
+- ``_ignore_`` -- a list of names, either as a :class:`list` or a :class:`str`,
   that will not be transformed into members, and will be removed from the final
   class
 - ``_order_`` -- used in Python 2/3 code to ensure member order is consistent
@@ -1122,6 +1166,15 @@ and raise an error if the two do not match::
     In Python 2 code the :attr:`_order_` attribute is necessary as definition
     order is lost before it can be recorded.
 
+
+_Private__names
+"""""""""""""""
+
+Private names are not converted to Enum members, but remain normal attributes.
+
+.. versionchanged:: 3.10
+
+
 ``Enum`` member type
 """"""""""""""""""""
 
@@ -1143,6 +1196,20 @@ all-uppercase names for members)::
     2
 
 .. versionchanged:: 3.5
+
+
+Creating members that are mixed with other data types
+"""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+When subclassing other data types, such as :class:`int` or :class:`str`, with
+an :class:`Enum`, all values after the `=` are passed to that data type's
+constructor.  For example::
+
+    >>> class MyEnum(IntEnum):
+    ...     example = '11', 16      # '11' will be interpreted as a hexadecimal
+    ...                             # number
+    >>> MyEnum.example
+    <MyEnum.example: 17>
 
 
 Boolean value of ``Enum`` classes and members
@@ -1191,4 +1258,14 @@ all named flags and all named combinations of flags that are in the value::
     <Color.YELLOW: 3>
     >>> Color(7)      # not named combination
     <Color.CYAN|MAGENTA|BLUE|YELLOW|GREEN|RED: 7>
+
+``StrEnum`` and :meth:`str.__str__`
+"""""""""""""""""""""""""""""""""""
+
+An important difference between :class:`StrEnum` and other Enums is the
+:meth:`__str__` method; because :class:`StrEnum` members are strings, some
+parts of Python will read the string data directly, while others will call
+:meth:`str()`. To make those two operations have the same result,
+:meth:`StrEnum.__str__` will be the same as :meth:`str.__str__` so that
+``str(StrEnum.member) == StrEnum.member`` is true.
 

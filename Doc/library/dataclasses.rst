@@ -188,7 +188,7 @@ Module-level decorators, classes, and functions
 
      @dataclass
      class C:
-         mylist: List[int] = field(default_factory=list)
+         mylist: list[int] = field(default_factory=list)
 
      c = C()
      c.mylist += [1, 2, 3]
@@ -301,7 +301,7 @@ Module-level decorators, classes, and functions
 
      @dataclass
      class C:
-          mylist: List[Point]
+          mylist: list[Point]
 
      p = Point(10, 20)
      assert asdict(p) == {'x': 10, 'y': 20}
@@ -359,7 +359,7 @@ Module-level decorators, classes, and functions
          def add_one(self):
              return self.x + 1
 
-.. function:: replace(instance, **changes)
+.. function:: replace(instance, /, **changes)
 
    Creates a new object of the same type of ``instance``, replacing
    fields with values from ``changes``.  If ``instance`` is not a Data

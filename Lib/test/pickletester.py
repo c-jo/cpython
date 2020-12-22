@@ -22,11 +22,15 @@ except ImportError:
     _testbuffer = None
 
 from test import support
+from test.support import os_helper
 from test.support import (
-    TestFailed, TESTFN, run_with_locale, no_tracing,
-    _2G, _4G, bigmemtest, reap_threads, forget,
-    save_restore_warnings_filters
+    TestFailed, run_with_locale, no_tracing,
+    _2G, _4G, bigmemtest
     )
+from test.support.import_helper import forget
+from test.support.os_helper import TESTFN
+from test.support import threading_helper
+from test.support.warnings_helper import save_restore_warnings_filters
 
 from pickle import bytes_types
 
@@ -1037,7 +1041,9 @@ class AbstractUnpickleTests(unittest.TestCase):
         self.assertEqual(self.loads(dumped), '\u20ac\x00')
 
     def test_misc_get(self):
-        self.check_unpickling_error(KeyError, b'g0\np0')
+        self.check_unpickling_error(pickle.UnpicklingError, b'g0\np0')
+        self.check_unpickling_error(pickle.UnpicklingError, b'jens:')
+        self.check_unpickling_error(pickle.UnpicklingError, b'hens:')
         self.assert_is_copy([(100,), (100,)],
                             self.loads(b'((Kdtp0\nh\x00l.))'))
 
@@ -1372,7 +1378,7 @@ class AbstractUnpickleTests(unittest.TestCase):
         for p in badpickles:
             self.check_unpickling_error(self.truncated_errors, p)
 
-    @reap_threads
+    @threading_helper.reap_threads
     def test_unpickle_module_race(self):
         # https://bugs.python.org/issue34572
         locker_module = dedent("""
@@ -1962,6 +1968,17 @@ class AbstractPickleTests(unittest.TestCase):
                 detail = (proto, C, B, x, y, type(y))
                 self.assertEqual(B(x), B(y), detail)
                 self.assertEqual(x.__dict__, y.__dict__, detail)
+
+    def test_newobj_overridden_new(self):
+        # Test that Python class with C implemented __new__ is pickleable
+        for proto in protocols:
+            x = MyIntWithNew2(1)
+            x.foo = 42
+            s = self.dumps(x, proto)
+            y = self.loads(s)
+            self.assertIs(type(y), MyIntWithNew2)
+            self.assertEqual(int(y), 1)
+            self.assertEqual(y.foo, 42)
 
     def test_newobj_not_class(self):
         # Issue 24552
@@ -3083,6 +3100,13 @@ myclasses = [MyInt, MyFloat,
              MyStr, MyUnicode,
              MyTuple, MyList, MyDict, MySet, MyFrozenSet]
 
+class MyIntWithNew(int):
+    def __new__(cls, value):
+        raise AssertionError
+
+class MyIntWithNew2(MyIntWithNew):
+    __new__ = int.__new__
+
 
 class SlotList(MyList):
     __slots__ = ["foo"]
@@ -3115,7 +3139,7 @@ class AbstractPickleModuleTests(unittest.TestCase):
             f.close()
             self.assertRaises(ValueError, self.dump, 123, f)
         finally:
-            support.unlink(TESTFN)
+            os_helper.unlink(TESTFN)
 
     def test_load_closed_file(self):
         f = open(TESTFN, "wb")
@@ -3123,7 +3147,7 @@ class AbstractPickleModuleTests(unittest.TestCase):
             f.close()
             self.assertRaises(ValueError, self.dump, 123, f)
         finally:
-            support.unlink(TESTFN)
+            os_helper.unlink(TESTFN)
 
     def test_load_from_and_dump_to_file(self):
         stream = io.BytesIO()
@@ -3154,7 +3178,7 @@ class AbstractPickleModuleTests(unittest.TestCase):
                 self.assertRaises(TypeError, self.dump, 123, f, proto)
         finally:
             f.close()
-            support.unlink(TESTFN)
+            os_helper.unlink(TESTFN)
 
     def test_incomplete_input(self):
         s = io.BytesIO(b"X''.")

@@ -2,15 +2,16 @@
    Test cases for codeop.py
    Nick Mathewson
 """
+import sys
 import unittest
 import warnings
 from test import support
+from test.support import warnings_helper
 
 from codeop import compile_command, PyCF_DONT_IMPLY_DEDENT
 import io
 
 if support.is_jython:
-    import sys
 
     def unify_callables(d):
         for n,v in d.items():
@@ -289,6 +290,15 @@ class CodeopTests(unittest.TestCase):
 
         ai("[i for i in range(10)] = (1, 2, 3)")
 
+    def test_invalid_exec(self):
+        ai = self.assertInvalid
+        ai("raise = 4", symbol="exec")
+        ai('def a-b', symbol='exec')
+        ai('await?', symbol='exec')
+        ai('=!=', symbol='exec')
+        ai('a await raise b', symbol='exec')
+        ai('a await raise b?+1', symbol='exec')
+
     def test_filename(self):
         self.assertEqual(compile_command("a = 1\n", "abc").co_filename,
                          compile("a = 1\n", "abc", 'single').co_filename)
@@ -297,7 +307,7 @@ class CodeopTests(unittest.TestCase):
 
     def test_warning(self):
         # Test that the warning is only returned once.
-        with support.check_warnings(
+        with warnings_helper.check_warnings(
                 (".*literal", SyntaxWarning),
                 (".*invalid", DeprecationWarning),
                 ) as w:

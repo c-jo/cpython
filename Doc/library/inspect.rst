@@ -556,7 +556,7 @@ The Signature object represents the call signature of a callable object and its
 return annotation.  To retrieve a Signature object, use the :func:`signature`
 function.
 
-.. function:: signature(callable, \*, follow_wrapped=True)
+.. function:: signature(callable, *, follow_wrapped=True)
 
    Return a :class:`Signature` object for the given ``callable``::
 
@@ -597,7 +597,7 @@ function.
       C provide no metadata about their arguments.
 
 
-.. class:: Signature(parameters=None, \*, return_annotation=Signature.empty)
+.. class:: Signature(parameters=None, *, return_annotation=Signature.empty)
 
    A Signature object represents the call signature of a function and its return
    annotation.  For each parameter accepted by the function it stores a
@@ -668,7 +668,7 @@ function.
          >>> str(new_sig)
          "(a, b) -> 'new return anno'"
 
-   .. classmethod:: Signature.from_callable(obj, \*, follow_wrapped=True)
+   .. classmethod:: Signature.from_callable(obj, *, follow_wrapped=True)
 
        Return a :class:`Signature` (or its subclass) object for a given callable
        ``obj``.  Pass ``follow_wrapped=False`` to get a signature of ``obj``
@@ -684,7 +684,7 @@ function.
        .. versionadded:: 3.5
 
 
-.. class:: Parameter(name, kind, \*, default=Parameter.empty, annotation=Parameter.empty)
+.. class:: Parameter(name, kind, *, default=Parameter.empty, annotation=Parameter.empty)
 
    Parameter objects are *immutable*.  Instead of modifying a Parameter object,
    you can use :meth:`Parameter.replace` to create a modified copy.
@@ -821,10 +821,9 @@ function.
 
    .. attribute:: BoundArguments.arguments
 
-      An ordered, mutable mapping (:class:`collections.OrderedDict`) of
-      parameters' names to arguments' values.  Contains only explicitly bound
-      arguments.  Changes in :attr:`arguments` will reflect in :attr:`args` and
-      :attr:`kwargs`.
+      A mutable mapping of parameters' names to arguments' values.
+      Contains only explicitly bound arguments.  Changes in :attr:`arguments`
+      will reflect in :attr:`args` and :attr:`kwargs`.
 
       Should be used in conjunction with :attr:`Signature.parameters` for any
       argument processing purposes.
@@ -835,6 +834,10 @@ function.
          :meth:`Signature.bind_partial` relied on a default value are skipped.
          However, if needed, use :meth:`BoundArguments.apply_defaults` to add
          them.
+
+      .. versionchanged:: 3.9
+         :attr:`arguments` is now of type :class:`dict`. Formerly, it was of
+         type :class:`collections.OrderedDict`.
 
    .. attribute:: BoundArguments.args
 
@@ -866,7 +869,7 @@ function.
         >>> ba = inspect.signature(foo).bind('spam')
         >>> ba.apply_defaults()
         >>> ba.arguments
-        OrderedDict([('a', 'spam'), ('b', 'ham'), ('args', ())])
+        {'a': 'spam', 'b': 'ham', 'args': ()}
 
       .. versionadded:: 3.5
 

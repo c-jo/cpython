@@ -293,7 +293,7 @@ Random generation
    Read the Wikipedia article, `Cryptographically secure pseudorandom number
    generator (CSPRNG)
    <https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator>`_,
-   to get the requirements of a cryptographically generator.
+   to get the requirements of a cryptographically strong generator.
 
    .. versionadded:: 3.3
 
@@ -1256,7 +1256,7 @@ SSL sockets also have the following additional methods and attributes:
       The returned dictionary includes additional X509v3 extension items
         such as ``crlDistributionPoints``, ``caIssuers`` and ``OCSP`` URIs.
 
-   .. versionchanged:: 3.8.1
+   .. versionchanged:: 3.9
       IPv6 address strings no longer have a trailing new line.
 
 .. method:: SSLSocket.cipher()
@@ -2031,6 +2031,16 @@ to speed up repeated connections from the same clients.
       Only writeable with OpenSSL 1.1.0 or higher.
 
    .. versionadded:: 3.7
+
+.. attribute:: SSLContext.security_level
+
+   An integer representing the `security level
+   <https://www.openssl.org/docs/manmaster/man3/SSL_CTX_get_security_level.html>`_
+   for the context. This attribute is read-only.
+
+   .. availability:: OpenSSL 1.1.0 or newer
+
+   .. versionadded:: 3.10
 
 .. attribute:: SSLContext.verify_flags
 

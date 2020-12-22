@@ -36,7 +36,7 @@ asyncio has the following basic synchronization primitives:
 Lock
 ====
 
-.. class:: Lock(\*, loop=None)
+.. class:: Lock()
 
    Implements a mutex lock for asyncio tasks.  Not thread-safe.
 
@@ -96,7 +96,7 @@ Lock
 Event
 =====
 
-.. class:: Event(\*, loop=None)
+.. class:: Event()
 
    An event object.  Not thread-safe.
 
@@ -166,7 +166,7 @@ Event
 Condition
 =========
 
-.. class:: Condition(lock=None, \*, loop=None)
+.. class:: Condition(lock=None)
 
    A Condition object.  Not thread-safe.
 
@@ -270,7 +270,7 @@ Condition
 Semaphore
 =========
 
-.. class:: Semaphore(value=1, \*, loop=None)
+.. class:: Semaphore(value=1)
 
    A Semaphore object.  Not thread-safe.
 
@@ -332,7 +332,7 @@ Semaphore
 BoundedSemaphore
 ================
 
-.. class:: BoundedSemaphore(value=1, \*, loop=None)
+.. class:: BoundedSemaphore(value=1)
 
    A bounded semaphore object.  Not thread-safe.
 
@@ -340,15 +340,11 @@ BoundedSemaphore
    a :exc:`ValueError` in :meth:`~Semaphore.release` if it
    increases the internal counter above the initial *value*.
 
-
-   .. deprecated-removed:: 3.8 3.10
-      The *loop* parameter.
-
 ---------
 
 
-.. deprecated:: 3.7
+.. versionchanged:: 3.9
 
    Acquiring a lock using ``await lock`` or ``yield from lock`` and/or
    :keyword:`with` statement (``with await lock``, ``with (yield from
-   lock)``) is deprecated.  Use ``async with lock`` instead.
+   lock)``) was removed.  Use ``async with lock`` instead.

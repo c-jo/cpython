@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - master
+    - 3.9
     - 3.8
     - 3.7
     paths-ignore:
@@ -12,6 +13,7 @@ on:
   #pull_request:
   #  branches:
   #  - master
+  #  - 3.9
   #  - 3.8
   #  - 3.7
   #  paths-ignore:
@@ -48,7 +50,9 @@ jobs:
         ./python -m venv .venv
         source ./.venv/bin/activate
         python -m pip install -U coverage
+        python -m pip install -r Misc/requirements-test.txt
         python -m test.pythoninfo
+        export PYTHONPATH=`find .venv -name fullcoverage`
     - name: 'Tests with coverage'
       run: >
         source ./.venv/bin/activate &&
@@ -64,8 +68,9 @@ jobs:
         || true
     - name: 'Publish code coverage results'
       run: |
+        export PYTHONPATH=
         source ./.venv/bin/activate
-        bash <(curl -s https://codecov.io/bash)
+        bash <(curl -s https://codecov.io/bash) -y .github/codecov.yml
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -84,6 +89,6 @@ jobs:
       if: always()
       run: |
         make pythoninfo
-        bash <(curl -s https://codecov.io/bash)
+        bash <(curl -s https://codecov.io/bash) -y .github/codecov.yml
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

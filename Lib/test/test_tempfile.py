@@ -4,18 +4,20 @@ import errno
 import io
 import os
 import pathlib
-import signal
 import sys
 import re
 import warnings
 import contextlib
 import stat
+import types
 import weakref
 from unittest import mock
 
 import unittest
 from test import support
+from test.support import os_helper
 from test.support import script_helper
+from test.support import warnings_helper
 
 
 has_textmode = (tempfile._text_openflags != tempfile._bin_openflags)
@@ -69,7 +71,7 @@ class BaseTestCase(unittest.TestCase):
     b_check = re.compile(br"^[a-z0-9_-]{8}$")
 
     def setUp(self):
-        self._warnings_manager = support.check_warnings()
+        self._warnings_manager = warnings_helper.check_warnings()
         self._warnings_manager.__enter__()
         warnings.filterwarnings("ignore", category=RuntimeWarning,
                                 message="mktemp", module=__name__)
@@ -151,8 +153,8 @@ class TestRandomNameSequence(BaseTestCase):
         self.r = tempfile._RandomNameSequence()
         super().setUp()
 
-    def test_get_six_char_str(self):
-        # _RandomNameSequence returns a six-character string
+    def test_get_eight_char_str(self):
+        # _RandomNameSequence returns a eight-character string
         s = next(self.r)
         self.nameCheck(s, '', '', '')
 
@@ -200,15 +202,7 @@ class TestRandomNameSequence(BaseTestCase):
             child_value = os.read(read_fd, len(parent_value)).decode("ascii")
         finally:
             if pid:
-                # best effort to ensure the process can't bleed out
-                # via any bugs above
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except OSError:
-                    pass
-
-                # Read the process exit status to avoid zombie process
-                os.waitpid(pid, 0)
+                support.wait_process(pid, exitcode=0)
 
             os.close(read_fd)
             os.close(write_fd)
@@ -232,7 +226,7 @@ class TestCandidateTempdirList(BaseTestCase):
         # _candidate_tempdir_list contains the expected directories
 
         # Make sure the interesting environment variables are all set.
-        with support.EnvironmentVarGuard() as env:
+        with os_helper.EnvironmentVarGuard() as env:
             for envname in 'TMPDIR', 'TEMP', 'TMP':
                 dirname = os.getenv(envname)
                 if not dirname:
@@ -318,7 +312,7 @@ def _inside_empty_temp_dir():
         with support.swap_attr(tempfile, 'tempdir', dir):
             yield
     finally:
-        support.rmtree(dir)
+        os_helper.rmtree(dir)
 
 
 def _mock_candidate_names(*names):
@@ -602,13 +596,13 @@ class TestGetTempDir(BaseTestCase):
         case_sensitive_tempdir = tempfile.mkdtemp("-Temp")
         _tempdir, tempfile.tempdir = tempfile.tempdir, None
         try:
-            with support.EnvironmentVarGuard() as env:
+            with os_helper.EnvironmentVarGuard() as env:
                 # Fake the first env var which is checked as a candidate
                 env["TMPDIR"] = case_sensitive_tempdir
                 self.assertEqual(tempfile.gettempdir(), case_sensitive_tempdir)
         finally:
             tempfile.tempdir = _tempdir
-            support.rmdir(case_sensitive_tempdir)
+            os_helper.rmdir(case_sensitive_tempdir)
 
 
 class TestMkstemp(BaseTestCase):
@@ -958,7 +952,7 @@ class TestNamedTemporaryFile(BaseTestCase):
 
     def test_bad_mode(self):
         dir = tempfile.mkdtemp()
-        self.addCleanup(support.rmtree, dir)
+        self.addCleanup(os_helper.rmtree, dir)
         with self.assertRaises(ValueError):
             tempfile.NamedTemporaryFile(mode='wr', dir=dir)
         with self.assertRaises(TypeError):
@@ -1231,6 +1225,9 @@ class TestSpooledTemporaryFile(BaseTestCase):
         self.assertTrue(f._rolled)
         self.assertEqual(os.fstat(f.fileno()).st_size, 20)
 
+    def test_class_getitem(self):
+        self.assertIsInstance(tempfile.SpooledTemporaryFile[bytes],
+                      types.GenericAlias)
 
 if tempfile.NamedTemporaryFile is not tempfile.TemporaryFile:
 
@@ -1356,7 +1353,7 @@ class TestTemporaryDirectory(BaseTestCase):
         finally:
             os.rmdir(dir)
 
-    @support.skip_unless_symlink
+    @os_helper.skip_unless_symlink
     def test_cleanup_with_symlink_to_a_directory(self):
         # cleanup() should not follow symlinks to directories (issue #12464)
         d1 = self.do_create()
@@ -1453,7 +1450,9 @@ class TestTemporaryDirectory(BaseTestCase):
             name = d.name
 
             # Check for the resource warning
-            with support.check_warnings(('Implicitly', ResourceWarning), quiet=False):
+            with warnings_helper.check_warnings(('Implicitly',
+                                                 ResourceWarning),
+                                                quiet=False):
                 warnings.filterwarnings("always", category=ResourceWarning)
                 del d
                 support.gc_collect()

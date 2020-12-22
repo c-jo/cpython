@@ -216,7 +216,7 @@ class build_py (Command):
 
     def find_package_modules(self, package, package_dir):
         self.check_package(package, package_dir)
-        module_files = glob.glob(os.path.join(glob.escape(package_dir), f"*{os.extsep}py"))
+        module_files = glob.glob(os.path.join(glob.escape(package_dir), "*.py"))
         modules = []
         setup_script = os.path.abspath(self.distribution.script_name)
 

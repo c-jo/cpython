@@ -67,7 +67,7 @@ The rest of the line provides detail based on the type of exception and what
 caused it.
 
 The preceding part of the error message shows the context where the exception
-happened, in the form of a stack traceback. In general it contains a stack
+occurred, in the form of a stack traceback. In general it contains a stack
 traceback listing source lines; however, it will not display lines read from
 standard input.
 
@@ -265,6 +265,54 @@ re-raise the exception::
    Traceback (most recent call last):
      File "<stdin>", line 2, in <module>
    NameError: HiThere
+
+
+.. _tut-exception-chaining:
+
+Exception Chaining
+==================
+
+The :keyword:`raise` statement allows an optional :keyword:`from` which enables
+chaining exceptions. For example::
+
+    # exc must be exception instance or None.
+    raise RuntimeError from exc
+
+This can be useful when you are transforming exceptions. For example::
+
+    >>> def func():
+    ...     raise ConnectionError
+    ...
+    >>> try:
+    ...     func()
+    ... except ConnectionError as exc:
+    ...     raise RuntimeError('Failed to open database') from exc
+    ...
+    Traceback (most recent call last):
+      File "<stdin>", line 2, in <module>
+      File "<stdin>", line 2, in func
+    ConnectionError
+    <BLANKLINE>
+    The above exception was the direct cause of the following exception:
+    <BLANKLINE>
+    Traceback (most recent call last):
+      File "<stdin>", line 4, in <module>
+    RuntimeError: Failed to open database
+
+Exception chaining happens automatically when an exception is raised inside an
+:keyword:`except` or :keyword:`finally` section. This can be
+disabled by using ``from None`` idiom:
+
+    >>> try:
+    ...     open('database.sqlite')
+    ... except IOError:
+    ...     raise RuntimeError from None
+    ...
+    Traceback (most recent call last):
+      File "<stdin>", line 4, in <module>
+    RuntimeError
+
+For more information about chaining mechanics, see :ref:`bltin-exceptions`.
 
 
 .. _tut-userexceptions:

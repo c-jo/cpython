@@ -67,9 +67,15 @@ class SymtableTest(unittest.TestCase):
         self.assertEqual(self.spam.get_type(), "function")
         self.assertEqual(self.internal.get_type(), "function")
 
+    def test_id(self):
+        self.assertGreater(self.top.get_id(), 0)
+        self.assertGreater(self.Mine.get_id(), 0)
+        self.assertGreater(self.a_method.get_id(), 0)
+        self.assertGreater(self.spam.get_id(), 0)
+        self.assertGreater(self.internal.get_id(), 0)
+
     def test_optimized(self):
         self.assertFalse(self.top.is_optimized())
-        self.assertFalse(self.top.has_exec())
 
         self.assertTrue(self.spam.is_optimized())
 
