@@ -409,8 +409,8 @@ class FastPath:
         names = zip_path.root.namelist()
         self.joinpath = zip_path.joinpath
 
-        return (
-            posixpath.split(child)[0]
+        return dict.fromkeys(
+            child.split(posixpath.sep, 1)[0]
             for child in names
             )
 
