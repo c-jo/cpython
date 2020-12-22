@@ -294,15 +294,6 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     }
 #endif
 
-    n = 100;
-    p = (char *)PyMem_RawMalloc(n);
-    if (p == NULL) {
-        PyEval_RestoreThread(tstate);
-        PyErr_NoMemory();
-        PyEval_SaveThread();
-        return NULL;
-    }
-
     fflush(sys_stdout);
     if (prompt) {
         fprintf(stderr, "%s", prompt);
@@ -337,9 +328,10 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     }
 #endif
 
-    n = strlen(p);
-    while (n > 0 && p[n-1] != '\n') {
-        size_t incr = n+2;
+    n = 0;
+    p = NULL;
+    do {
+        size_t incr = (n > 0) ? n + 2 : 100;
         if (incr > INT_MAX) {
             PyMem_RawFree(p);
             PyEval_RestoreThread(tstate);
@@ -347,7 +339,6 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
             PyEval_SaveThread();
             return NULL;
         }
-
         pr = (char *)PyMem_RawRealloc(p, n + incr);
         if (pr == NULL) {
             PyMem_RawFree(p);
@@ -357,12 +348,18 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
             return NULL;
         }
         p = pr;
-
-        if (my_fgets(tstate, p+n, (int)incr, sys_stdin) != 0) {
+        int err = my_fgets(tstate, p + n, (int)incr, sys_stdin);
+        if (err == 1) {
+            // Interrupt
+            PyMem_RawFree(p);
+            return NULL;
+        } else if (err != 0) {
+            // EOF or error
+            p[n] = '\0';
             break;
         }
-        n += strlen(p+n);
-    }
+        n += strlen(p + n);
+    } while (p[n-1] != '\n');
 
     pr = (char *)PyMem_RawRealloc(p, n+1);
     if (pr == NULL) {

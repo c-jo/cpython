@@ -1173,6 +1173,32 @@ class MemoryHandlerTest(BaseTest):
         # assert that no new lines have been added
         self.assert_log_lines(lines)  # no change
 
+    def test_race_between_set_target_and_flush(self):
+        class MockRaceConditionHandler:
+            def __init__(self, mem_hdlr):
+                self.mem_hdlr = mem_hdlr
+                self.threads = []
+
+            def removeTarget(self):
+                self.mem_hdlr.setTarget(None)
+
+            def handle(self, msg):
+                thread = threading.Thread(target=self.removeTarget)
+                self.threads.append(thread)
+                thread.start()
+
+        target = MockRaceConditionHandler(self.mem_hdlr)
+        try:
+            self.mem_hdlr.setTarget(target)
+
+            for _ in range(10):
+                time.sleep(0.005)
+                self.mem_logger.info("not flushed")
+                self.mem_logger.warning("flushed")
+        finally:
+            for thread in target.threads:
+                support.join_thread(thread)
+
 
 class ExceptionFormatter(logging.Formatter):
     """A special exception formatter."""
@@ -4143,6 +4169,15 @@ class ModuleLevelMiscTest(BaseTest):
 
         logging.disable(83)
         self.assertEqual(logging.root.manager.disable, 83)
+
+        self.assertRaises(ValueError, logging.disable, "doesnotexists")
+
+        class _NotAnIntOrString:
+            pass
+
+        self.assertRaises(TypeError, logging.disable, _NotAnIntOrString())
+
+        logging.disable("WARN")
 
         # test the default value introduced in 3.7
         # (Issue #28524)

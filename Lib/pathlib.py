@@ -332,7 +332,10 @@ class _PosixFlavour(_Flavour):
                     # parent dir
                     path, _, _ = path.rpartition(sep)
                     continue
-                newpath = path + sep + name
+                if path.endswith(sep):
+                    newpath = path + name
+                else:
+                    newpath = path + sep + name
                 if newpath in seen:
                     # Already seen this path
                     path = seen[newpath]
@@ -1431,8 +1434,13 @@ class Path(PurePath):
 
     def rename(self, target):
         """
-        Rename this path to the given path,
-        and return a new Path instance pointing to the given path.
+        Rename this path to the target path.
+
+        The target path may be absolute or relative. Relative paths are
+        interpreted relative to the current working directory, *not* the
+        directory of the Path object.
+
+        Returns the new Path instance pointing to the target path.
         """
         if self._closed:
             self._raise_closed()
@@ -1441,9 +1449,13 @@ class Path(PurePath):
 
     def replace(self, target):
         """
-        Rename this path to the given path, clobbering the existing
-        destination if it exists, and return a new Path instance
-        pointing to the given path.
+        Rename this path to the target path, overwriting if that path exists.
+
+        The target path may be absolute or relative. Relative paths are
+        interpreted relative to the current working directory, *not* the
+        directory of the Path object.
+
+        Returns the new Path instance pointing to the target path.
         """
         if self._closed:
             self._raise_closed()
