@@ -70,11 +70,11 @@ _PyImport_FindSharedFuncptr(const char *prefix,
 {
     dl_funcptr p;
     void *handle;
-    int dlopenflags=0;
     char funcname[258];
-#ifndef RISCOS
     char pathbuf[260];
+    int dlopenflags=0;
 
+#ifndef RISCOS
     if (strchr(pathname, '/') == NULL) {
         /* Prefix bare filename with "./" */
         PyOS_snprintf(pathbuf, sizeof(pathbuf), "./%-.255s", pathname);

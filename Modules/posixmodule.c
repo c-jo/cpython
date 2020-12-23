@@ -7,6 +7,8 @@
    of the compiler used.  Different compilers define their own feature
    test macro, e.g. '_MSC_VER'. */
 
+/* It is also used for RISC OS, using the macro RISCOS. */
+
 #define PY_SSIZE_T_CLEAN
 
 #include "Python.h"
@@ -34,8 +36,6 @@
 #else
 #  include "winreparse.h"
 #endif
-#include "osdefs.h"
-#undef HAVE_DIRENT_D_TYPE
 
 /* On android API level 21, 'AT_EACCESS' is not declared although
  * HAVE_FACCESSAT is defined. */
@@ -46,7 +46,8 @@
 #ifdef RISCOS
 static const int GBPB_BUFSIZE = 4096;
 #include "swis.h"
-//#include <unixlib/local.h>
+#include "osdefs.h"
+#undef HAVE_DIRENT_D_TYPE
 #endif
 
 #include <stdio.h>  /* needed for ctermid() */
@@ -335,7 +336,9 @@ corresponding Unix manual entries for more information on calls.");
 #    define HAVE_PIPE       1
 #    define HAVE_SYSTEM     1
 #    define HAVE_WAIT       1
+#ifndef RISCOS
 #    define HAVE_TTYNAME    1
+#endif
 #  endif  /* _MSC_VER */
 #endif  /* ! __WATCOMC__ || __QNX__ */
 
@@ -482,12 +485,18 @@ extern char        *ctermid_r(char *);
 #  define LSTAT win32_lstat
 #  define FSTAT _Py_fstat_noraise
 #  define STRUCT_STAT struct _Py_stat_struct
+#elif defined(RISCOS)
+#  define STAT riscos_stat
+#  define LSTAT riscos_stat
+#  define FSTAT _Py_fstat_noraise
+#  define STRUCT_STAT struct _Py_stat_struct
 #else
 #  define STAT stat
 #  define LSTAT lstat
 #  define FSTAT fstat
 #  define STRUCT_STAT struct stat
 #endif
+
 #if defined(MAJOR_IN_MKDEV)
 #  include <sys/mkdev.h>
 #else
@@ -502,6 +511,9 @@ extern char        *ctermid_r(char *);
 #ifdef MS_WINDOWS
 #  define INITFUNC PyInit_nt
 #  define MODNAME "nt"
+#elif RISCOS
+#  define INITFUNC PyInit_riscos
+#  define MODNAME "riscos"
 #else
 #  define INITFUNC PyInit_posix
 #  define MODNAME "posix"
@@ -1078,6 +1090,7 @@ get_posix_state(PyObject *module)
  * Use as follows:
  *      path_t path;
  *      memset(&path, 0, sizeof(path));
+ *      PyArg_ParseTuple(args, "O&", path_converter, &path);
  *      // ... use values from path ...
  *      path_cleanup(&path);
  *
@@ -2072,7 +2085,6 @@ win32_stat(const wchar_t* path, struct _Py_stat_struct *result)
 #endif /* MS_WINDOWS */
 
 #ifdef RISCOS
-
 static const uint64_t epoch_offset = 25567LL * 24 * 60 * 60 * 100;
 
 static int stat_from_riscos(uint32_t loadaddr, uint32_t execaddr,
@@ -2169,7 +2181,6 @@ static int riscos_stat(const char* path, struct _Py_stat_struct *result)
     return stat_from_riscos(load_addr, exec_addr, length, attributes, obj_type,
                             leafname, result);
 }
-
 #endif /* RISCOS */
 
 PyDoc_STRVAR(stat_result__doc__,
@@ -2563,7 +2574,6 @@ _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
                               PyLong_FromUnsignedLong(st->st_reparse_tag));
 #endif
 
-#endif
     if (PyErr_Occurred()) {
         Py_DECREF(v);
         return NULL;
@@ -3720,11 +3730,6 @@ os_chown_impl(PyObject *module, path_t *path, uid_t uid, gid_t gid,
         return NULL;
     }
 
-    if (PySys_Audit("os.chown", "OIIi", path->object, uid, gid,
-                    dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
-        return NULL;
-    }
-
     Py_BEGIN_ALLOW_THREADS
 #ifdef HAVE_FCHOWN
     if (path->fd != -1)
@@ -4542,11 +4547,6 @@ os_mkdir_impl(PyObject *module, path_t *path, int mode, int dir_fd)
         return NULL;
     }
 
-    if (PySys_Audit("os.mkdir", "Oii", path->object, mode,
-                    dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
-        return NULL;
-    }
-
 #ifdef MS_WINDOWS
     Py_BEGIN_ALLOW_THREADS
     result = CreateDirectoryW(path->wide, NULL);
@@ -4835,11 +4835,6 @@ os_rmdir_impl(PyObject *module, path_t *path, int dir_fd)
         return NULL;
     }
 
-    if (PySys_Audit("os.rmdir", "Oi", path->object,
-                    dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
-        return NULL;
-    }
-
     Py_BEGIN_ALLOW_THREADS
 #ifdef MS_WINDOWS
     /* Windows, success=1, UNIX, success=0 */
@@ -5012,11 +5007,6 @@ os_unlink_impl(PyObject *module, path_t *path, int dir_fd)
 #ifdef HAVE_UNLINKAT
     int unlinkat_unavailable = 0;
 #endif
-
-    if (PySys_Audit("os.remove", "Oi", path->object,
-                    dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
-        return NULL;
-    }
 
     if (PySys_Audit("os.remove", "Oi", path->object,
                     dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
@@ -6775,9 +6765,6 @@ os_fork_impl(PyObject *module)
     if (interp->config._isolated_interpreter) {
         PyErr_SetString(PyExc_RuntimeError,
                         "fork not supported for isolated subinterpreters");
-        return NULL;
-    }
-    if (PySys_Audit("os.fork", NULL) < 0) {
         return NULL;
     }
     if (PySys_Audit("os.fork", NULL) < 0) {
@@ -8823,11 +8810,6 @@ os_symlink_impl(PyObject *module, path_t *src, path_t *dst,
     int symlinkat_unavailable = 0;
 #endif
 #endif
-
-    if (PySys_Audit("os.symlink", "OOi", src->object, dst->object,
-                    dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
-        return NULL;
-    }
 
     if (PySys_Audit("os.symlink", "OOi", src->object, dst->object,
                     dir_fd == DEFAULT_DIR_FD ? -1 : dir_fd) < 0) {
@@ -13552,7 +13534,7 @@ _Py_COMP_DIAG_POP
 #else /* POSIX */
     if (!PyUnicode_FSConverter(self->path, &ub))
         return NULL;
-        const char *path = PyBytes_AS_STRING(ub);
+    const char *path = PyBytes_AS_STRING(ub);
 #ifndef RISCOS
     if (self->dir_fd != DEFAULT_DIR_FD) {
 #ifdef HAVE_FSTATAT
@@ -13804,7 +13786,7 @@ _Py_COMP_DIAG_POP
     Py_BUILD_ASSERT(sizeof(unsigned long long) >= sizeof(self->d_ino));
     return PyLong_FromUnsignedLongLong(self->d_ino);
 #endif
-#endif
+#endif // def RISCOS
 }
 
 static PyObject *
@@ -13902,6 +13884,56 @@ join_path_filenameW(const wchar_t *path_wide, const wchar_t *filename)
     return result;
 }
 
+static PyObject *
+DirEntry_from_find_data(PyObject *module, path_t *path, WIN32_FIND_DATAW *dataW)
+{
+    DirEntry *entry;
+    BY_HANDLE_FILE_INFORMATION file_info;
+    ULONG reparse_tag;
+    wchar_t *joined_path;
+
+    PyObject *DirEntryType = get_posix_state(module)->DirEntryType;
+    entry = PyObject_New(DirEntry, (PyTypeObject *)DirEntryType);
+    if (!entry)
+        return NULL;
+    entry->name = NULL;
+    entry->path = NULL;
+    entry->stat = NULL;
+    entry->lstat = NULL;
+    entry->got_file_index = 0;
+
+    entry->name = PyUnicode_FromWideChar(dataW->cFileName, -1);
+    if (!entry->name)
+        goto error;
+    if (path->narrow) {
+        Py_SETREF(entry->name, PyUnicode_EncodeFSDefault(entry->name));
+        if (!entry->name)
+            goto error;
+    }
+
+    joined_path = join_path_filenameW(path->wide, dataW->cFileName);
+    if (!joined_path)
+        goto error;
+
+    entry->path = PyUnicode_FromWideChar(joined_path, -1);
+    PyMem_Free(joined_path);
+    if (!entry->path)
+        goto error;
+    if (path->narrow) {
+        Py_SETREF(entry->path, PyUnicode_EncodeFSDefault(entry->path));
+        if (!entry->path)
+            goto error;
+    }
+
+    find_data_to_file_info(dataW, &file_info, &reparse_tag);
+    _Py_attribute_data_to_stat(&file_info, reparse_tag, &entry->win32_lstat);
+
+    return (PyObject *)entry;
+
+error:
+    Py_DECREF(entry);
+    return NULL;
+}
 
 
 #elif defined(RISCOS)
@@ -13948,13 +13980,10 @@ join_path_filename(const char *path_narrow, const char* filename, Py_ssize_t fil
 }
 
 static PyObject *
-DirEntry_from_find_data(PyObject *module, path_t *path, WIN32_FIND_DATAW *dataW)
+DirEntry_from_gbpb_data(PyObject *module, path_t *path, gbpb_data_t *data, uint32_t namelen)
 {
-    DirEntry *entry;
-    char *joined_path;
-
     PyObject *DirEntryType = get_posix_state(module)->DirEntryType;
-    entry = PyObject_New(DirEntry, (PyTypeObject *)DirEntryType);
+    DirEntry *entry = PyObject_New(DirEntry, (PyTypeObject *)DirEntryType);
     if (!entry)
         return NULL;
 
@@ -13962,7 +13991,7 @@ DirEntry_from_find_data(PyObject *module, path_t *path, WIN32_FIND_DATAW *dataW)
     if (!entry->name)
         goto error;
 
-    joined_path = join_path_filename(path->narrow, data->name, namelen);
+    char *joined_path = join_path_filename(path->narrow, data->name, namelen);
     if (!joined_path)
         goto error;
 
@@ -13976,8 +14005,8 @@ DirEntry_from_find_data(PyObject *module, path_t *path, WIN32_FIND_DATAW *dataW)
                      data->attributes, data->obj_type, &data->name,
                      &stat_struct);
 
-    entry->stat  = _pystat_fromstructstat(&stat_struct);
-    entry->lstat = _pystat_fromstructstat(&stat_struct);
+    entry->stat  = _pystat_fromstructstat(module, &stat_struct);
+    entry->lstat = _pystat_fromstructstat(module, &stat_struct);
 
     return (PyObject *)entry;
 error:
@@ -14236,7 +14265,8 @@ ScandirIterator_iternext(ScandirIterator *iterator)
         gbpb_data_t *data = iterator->gbpb_buffer + iterator->gbpb_offset;
         uint32_t namelen  = strlen(data->name);
 
-        entry = DirEntry_from_gbpb_data(&iterator->path, data, namelen);
+        PyObject *module = PyType_GetModule(Py_TYPE(iterator));
+        entry = DirEntry_from_gbpb_data(module, &iterator->path, data, namelen);
         if (entry)
         {
             /* Decrment the counter, If there is another entry in the buffer,
@@ -14878,6 +14908,70 @@ os_waitstatus_to_exitcode_impl(PyObject *module, PyObject *status_obj)
 }
 #endif
 
+#ifdef RISCOS
+#include "swis.h"
+
+PyDoc_STRVAR(get_filetype__doc__,
+    "Return the RISC OS filetype of the specified file.\n");
+
+static PyObject*
+get_filetype(PyObject *module,
+             PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    static const char * const _keywords[] = {"path", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "get_filetype", 0};
+    PyObject *argsbuf[1];
+    path_t path = PATH_T_INITIALIZE("get_filetype", "path", 0, 0);
+    int objtype = -1, filetype = -1;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames,
+                                 &_parser, 1, 1, 0, argsbuf);
+
+    if (args && path_converter(args[0], &path))
+    {
+
+        _swix(OS_File, _INR(0,1) | _OUT(0)|_OUT(6),
+              23, path.narrow,
+              &objtype, &filetype);
+    }
+
+    /* Cleanup for path */
+    path_cleanup(&path);
+
+    if (objtype == 0 || filetype == -1)
+        return Py_BuildValue("");
+    else
+        return Py_BuildValue("i", filetype);
+}
+
+PyDoc_STRVAR(set_filetype__doc__,
+    "Sets RISC OS filetype of the specified file.\n");
+
+static PyObject*
+set_filetype(PyObject *module,
+             PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    static const char * const _keywords[] = {"path", "type", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "set_filetype", 0};
+    PyObject *argsbuf[2];
+    path_t path = PATH_T_INITIALIZE("set_filetype", "path", 0, 0);
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames,
+                                 &_parser, 2, 2, 0, argsbuf);
+
+    if (args && path_converter(args[0], &path))
+    {
+        int type = _PyLong_AsInt(args[1]);
+
+        _swix(OS_File, _INR(0,2), 18, path.narrow, type);
+    }
+
+    /* Cleanup for path */
+    path_cleanup(&path);
+
+    return Py_BuildValue("");
+}
+#endif /* RISCOS */
 
 static PyMethodDef posix_methods[] = {
 
@@ -15062,6 +15156,12 @@ static PyMethodDef posix_methods[] = {
     OS__ADD_DLL_DIRECTORY_METHODDEF
     OS__REMOVE_DLL_DIRECTORY_METHODDEF
     OS_WAITSTATUS_TO_EXITCODE_METHODDEF
+#ifdef RISCOS
+    {"get_filetype",   get_filetype, METH_FASTCALL|METH_KEYWORDS,
+                       get_filetype__doc__},
+    {"set_filetype",   set_filetype, METH_FASTCALL|METH_KEYWORDS,
+                       set_filetype__doc__},
+#endif
     {NULL,              NULL}            /* Sentinel */
 };
 

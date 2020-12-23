@@ -1737,12 +1737,6 @@ _Py_COMP_DIAG_POP
         return NULL;
     }
 
-    if (PySys_Audit("winreg.SetValue", "nunu#",
-                    (Py_ssize_t)key, sub_key, (Py_ssize_t)type,
-                    value, value_length) < 0) {
-        return NULL;
-    }
-
     Py_BEGIN_ALLOW_THREADS
     rc = RegSetValueW(key, sub_key, REG_SZ, value, (DWORD)(value_length + 1));
     Py_END_ALLOW_THREADS

@@ -1178,25 +1178,6 @@ handle_resurrected_objects(PyGC_Head *unreachable, PyGC_Head* still_unreachable,
     gc_list_merge(resurrected, old_generation);
 }
 
-// Show stats for objects in each gennerations.
-static void
-show_stats_each_generations(struct _gc_runtime_state *state)
-{
-    char buf[100];
-    size_t pos = 0;
-
-    for (int i = 0; i < NUM_GENERATIONS && pos < sizeof(buf); i++) {
-        pos += PyOS_snprintf(buf+pos, sizeof(buf)-pos,
-                             " %"PY_FORMAT_SIZE_T"d",
-                             gc_list_size(GEN_HEAD(state, i)));
-    }
-
-    PySys_FormatStderr(
-        "gc: objects in each generation:%s\n"
-        "gc: objects in permanent generation: %zd\n",
-        buf, gc_list_size(&state->permanent_generation.head));
-}
-
 /* This is the main function.  Read this to understand how the
  * collection process works. */
 static Py_ssize_t

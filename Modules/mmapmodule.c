@@ -51,7 +51,7 @@ my_getallocationgranularity (void)
 
 #endif
 
-#if defined(UNIX)
+#ifdef UNIX
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -61,10 +61,11 @@ my_getpagesize(void)
 {
     return sysconf(_SC_PAGESIZE);
 }
+
+#define my_getallocationgranularity my_getpagesize
 #else
 #define my_getpagesize getpagesize
 #endif
-#define my_getallocationgranularity my_getpagesize
 
 #endif /* UNIX */
 

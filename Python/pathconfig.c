@@ -268,13 +268,6 @@ _PyConfig_WritePathConfig(const PyConfig *config)
 }
 
 
-PyStatus
-_PyConfig_WritePathConfig(const PyConfig *config)
-{
-    return pathconfig_set_from_config(&_Py_path_config, config);
-}
-
-
 static PyStatus
 config_init_module_search_paths(PyConfig *config, _PyPathConfig *pathconfig)
 {

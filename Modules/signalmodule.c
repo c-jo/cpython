@@ -205,13 +205,6 @@ The default handler for SIGINT installed by Python.
 It raises KeyboardInterrupt.
 [clinic start generated code]*/
 
-static int
-is_main(_PyRuntimeState *runtime)
-{
-    PyInterpreterState *interp = _PyRuntimeState_GetThreadState(runtime)->interp;
-    return is_main_interp(runtime, interp);
-}
-
 static PyObject *
 signal_default_int_handler_impl(PyObject *module, int signalnum,
                                 PyObject *frame)

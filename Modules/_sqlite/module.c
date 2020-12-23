@@ -95,10 +95,6 @@ static PyObject* module_connect(PyObject* self, PyObject* args, PyObject*
         return NULL;
     }
 
-    if (PySys_Audit("sqlite3.connect", "O", database) < 0) {
-        return NULL;
-    }
-
     result = PyObject_Call(factory, args, kwargs);
 
     return result;

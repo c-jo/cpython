@@ -2,7 +2,6 @@ __all__ = ('Queue', 'PriorityQueue', 'LifoQueue', 'QueueFull', 'QueueEmpty')
 
 import collections
 import heapq
-import warnings
 
 from . import locks
 from . import mixins

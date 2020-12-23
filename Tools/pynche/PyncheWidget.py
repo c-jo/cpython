@@ -36,11 +36,15 @@ class PyncheWidget:
         else:
             # Is there already a default root for Tk, say because we're
             # running under Guido's IDE? :-) Two conditions say no, either the
-            # _default_root is None or it is unset.
-            tkroot = getattr(tkinter, '_default_root', None)
+            # import fails or _default_root is None.
+            tkroot = None
+            try:
+                from Tkinter import _default_root
+                tkroot = self.__tkroot = _default_root
+            except ImportError:
+                pass
             if not tkroot:
-                tkroot = Tk(className='Pynche')
-            self.__tkroot = tkroot
+                tkroot = self.__tkroot = Tk(className='Pynche')
             # but this isn't our top level widget, so make it invisible
             tkroot.withdraw()
         # create the menubar

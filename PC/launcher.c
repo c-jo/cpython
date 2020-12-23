@@ -495,58 +495,6 @@ locate_venv_python()
 }
 
 static void
-locate_pythons_for_key(HKEY root, REGSAM flags)
-{
-    _locate_pythons_for_key(root, CORE_PATH, flags, 0, FALSE);
-}
-
-static void
-locate_store_pythons()
-{
-#if defined(_M_X64)
-    /* 64bit process, so look in native registry */
-    _locate_pythons_for_key(HKEY_LOCAL_MACHINE, LOOKASIDE_PATH,
-                            KEY_READ, 64, TRUE);
-#else
-    /* 32bit process, so check that we're on 64bit OS */
-    BOOL f64 = FALSE;
-    if (IsWow64Process(GetCurrentProcess(), &f64) && f64) {
-        _locate_pythons_for_key(HKEY_LOCAL_MACHINE, LOOKASIDE_PATH,
-                                KEY_READ | KEY_WOW64_64KEY, 64, TRUE);
-    }
-#endif
-}
-
-static void
-locate_venv_python()
-{
-    static wchar_t venv_python[MAX_PATH];
-    INSTALLED_PYTHON * ip;
-    wchar_t *virtual_env = get_env(L"VIRTUAL_ENV");
-    DWORD attrs;
-
-    /* Check for VIRTUAL_ENV environment variable */
-    if (virtual_env == NULL || virtual_env[0] == L'\0') {
-        return;
-    }
-
-    /* Check for a python executable in the venv */
-    debug(L"Checking for Python executable in virtual env '%ls'\n", virtual_env);
-    _snwprintf_s(venv_python, MAX_PATH, _TRUNCATE,
-            L"%ls\\Scripts\\%ls", virtual_env, PYTHON_EXECUTABLE);
-    attrs = GetFileAttributesW(venv_python);
-    if (attrs == INVALID_FILE_ATTRIBUTES) {
-        debug(L"Python executable %ls missing from virtual env\n", venv_python);
-        return;
-    }
-
-    ip = &installed_pythons[num_installed_pythons++];
-    wcscpy_s(ip->executable, MAX_PATH, venv_python);
-    ip->bits = 0;
-    wcscpy_s(ip->version, MAX_VERSION_SIZE, L"venv");
-}
-
-static void
 locate_all_pythons()
 {
     /* venv Python is highest priority */

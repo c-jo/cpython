@@ -6,18 +6,22 @@
 
 
 /* Define if building universal (internal helper macro) */
-#undef AC_APPLE_UNIVERSAL_BUILD
+/* #undef AC_APPLE_UNIVERSAL_BUILD */
+
+/* BUILD_GNU_TYPE + AIX_BUILDDATE are used to construct the PEP425 tag of the
+   build system. */
+/* #undef AIX_BUILDDATE */
 
 /* Define for AIX if your compiler is a genuine IBM xlC/xlC_r and you want
    support for AIX C++ shared extension modules. */
-#undef AIX_GENUINE_CPLUSPLUS
+/* #undef AIX_GENUINE_CPLUSPLUS */
 
 /* Alternative SOABI used in debug build to load C extensions built in release
    mode */
-#undef ALT_SOABI
+/* #undef ALT_SOABI */
 
 /* The Android API level. */
-#undef ANDROID_API_LEVEL
+/* #undef ANDROID_API_LEVEL */
 
 /* Define if C doubles are 64-bit IEEE 754 binary format, stored in ARM
    mixed-endian order (byte order 45670123) */
@@ -36,17 +40,13 @@
 
 /* Define to 1 if your system stores words within floats with the most
    significant word first */
-#undef FLOAT_WORDS_BIGENDIAN
+/* #undef FLOAT_WORDS_BIGENDIAN */
 
 /* Define if flock needs to be linked with bsd library. */
-#undef FLOCK_NEEDS_LIBBSD
+/* #undef FLOCK_NEEDS_LIBBSD */
 
 /* Define if getpgrp() must be called as getpgrp(0). */
-#undef GETPGRP_HAVE_ARG
-
-/* Define if gettimeofday() does not have second (timezone) argument This is
-   the case on Motorola V4 (R40V4.2) */
-#undef GETTIMEOFDAY_NO_TZ
+/* #undef GETPGRP_HAVE_ARG */
 
 /* Define to 1 if you have the `accept4' function. */
 #define HAVE_ACCEPT4 1
@@ -135,6 +135,9 @@
 
 /* Define to 1 if you have the `clock_settime' function. */
 #define HAVE_CLOCK_SETTIME 1
+
+/* Define to 1 if you have the `close_range' function. */
+/* #undef HAVE_CLOSE_RANGE */
 
 /* Define if the C compiler supports computed gotos. */
 #define HAVE_COMPUTED_GOTOS 1
@@ -301,6 +304,9 @@
 
 /* Define to 1 if you have the <errno.h> header file. */
 #define HAVE_ERRNO_H 1
+
+/* Define if you have the 'eventfd' function. */
+#undef HAVE_EVENTFD
 
 /* Define to 1 if you have the `execv' function. */
 #define HAVE_EXECV 1
@@ -625,11 +631,18 @@
 /* Define to 1 if you have the <linux/can.h> header file. */
 #undef HAVE_LINUX_CAN_H
 
+/* Define to 1 if you have the <linux/can/j1939.h> header file. */
+/* #undef HAVE_LINUX_CAN_J1939_H */
+
 /* Define if compiling using Linux 3.6 or later. */
 #undef HAVE_LINUX_CAN_RAW_FD_FRAMES
 
 /* Define to 1 if you have the <linux/can/raw.h> header file. */
 #undef HAVE_LINUX_CAN_RAW_H
+
+/* Define if compiling using Linux 4.1 or later. */
+/* #undef HAVE_LINUX_CAN_RAW_JOIN_FILTERS */
+
 
 /* Define to 1 if you have the <linux/memfd.h> header file. */
 #undef HAVE_LINUX_MEMFD_H
@@ -1550,43 +1563,43 @@
 # endif
 #else
 # ifndef WORDS_BIGENDIAN
-#  undef WORDS_BIGENDIAN
+/* #  undef WORDS_BIGENDIAN */
 # endif
 #endif
 
 /* Define if arithmetic is subject to x87-style double rounding issue */
-#undef X87_DOUBLE_ROUNDING
+/* #undef X87_DOUBLE_ROUNDING */
 
 /* Define on OpenBSD to activate all library features */
 #define _BSD_SOURCE
 
 /* Define on Darwin to activate all library features */
-#undef _DARWIN_C_SOURCE
+/* #undef _DARWIN_C_SOURCE */
 
 /* This must be set to 64 on some systems to enable large file support. */
-#undef _FILE_OFFSET_BITS
+/* #undef _FILE_OFFSET_BITS */
 
 /* Define on Linux to activate all library features */
-#define _GNU_SOURCE
+#define _GNU_SOURCE 1
 
 /* Define to include mbstate_t for mbrtowc */
-#undef _INCLUDE__STDC_A1_SOURCE
+/* #undef _INCLUDE__STDC_A1_SOURCE */
 
 /* This must be defined on some systems to enable large file support. */
 #undef _LARGEFILE_SOURCE
 
 /* This must be defined on AIX systems to enable large file support. */
-#undef _LARGE_FILES
+/* #undef _LARGE_FILES */
 
 /* Define to 1 if on MINIX. */
-#undef _MINIX
+/* #undef _MINIX */
 
 /* Define on NetBSD to activate all library features */
 #undef _NETBSD_SOURCE
 
 /* Define to 2 if the system does not provide POSIX.1 features except with
    this defined. */
-#undef _POSIX_1_SOURCE
+/* #undef _POSIX_1_SOURCE */
 
 /* Define to activate features from IEEE Stds 1003.1-2008 */
 #define _POSIX_C_SOURCE 200809L
@@ -1595,13 +1608,13 @@
 #define _POSIX_SOURCE
 
 /* Define if you have POSIX threads, and your system does not define that. */
-#undef _POSIX_THREADS
+/* #undef _POSIX_THREADS */
 
 /* framework name */
 #define _PYTHONFRAMEWORK ""
 
 /* Define to force use of thread-safe errno, h_errno, and other functions */
-#undef _REENTRANT
+/* #undef _REENTRANT */
 
 /* Define to the level of X/Open that your system supports */
 #define _XOPEN_SOURCE 700
@@ -1614,38 +1627,38 @@
 
 /* Define to 1 if type `char' is unsigned and you are not using gcc.  */
 #ifndef __CHAR_UNSIGNED__
-# undef __CHAR_UNSIGNED__
+/* # undef __CHAR_UNSIGNED__ */
 #endif
 
 /* Define to 'long' if <time.h> doesn't define. */
-#undef clock_t
+/* #undef clock_t */
 
 /* Define to empty if `const' does not conform to ANSI C. */
-#undef const
+/* #undef const */
 
 /* Define to `int' if <sys/types.h> doesn't define. */
-#undef gid_t
+/* #undef gid_t */
 
 /* Define to `int' if <sys/types.h> does not define. */
-#undef mode_t
+/* #undef mode_t */
 
 /* Define to `long int' if <sys/types.h> does not define. */
-#undef off_t
+/* #undef off_t */
 
 /* Define to `int' if <sys/types.h> does not define. */
-#undef pid_t
+/* #undef pid_t */
 
 /* Define to empty if the keyword does not work. */
-#undef signed
+/* #undef signed */
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
-#undef size_t
+/* #undef size_t */
 
 /* Define to `int' if <sys/socket.h> does not define. */
-#undef socklen_t
+/* #undef socklen_t */
 
 /* Define to `int' if <sys/types.h> doesn't define. */
-#undef uid_t
+/* #undef uid_t */
 
 
 /* Define the macros needed if on a UnixWare 7.x system. */

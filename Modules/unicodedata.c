@@ -21,8 +21,6 @@
 
 #include <stdbool.h>
 
-#include <stdbool.h>
-
 _Py_IDENTIFIER(NFC);
 _Py_IDENTIFIER(NFD);
 _Py_IDENTIFIER(NFKC);

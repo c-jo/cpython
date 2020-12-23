@@ -450,10 +450,6 @@ static PyStatus
 search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
                   wchar_t *prefix, size_t prefix_len, int *found)
 {
-    wchar_t path[MAXPATHLEN+1];
-    memset(path, 0, sizeof(path));
-    size_t path_len = Py_ARRAY_LENGTH(path);
-
     PyStatus status;
 
     /* If PYTHONHOME is set, we believe it unconditionally */
@@ -518,7 +514,7 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
     }
 
     /* Search from argv0_path, until root is found */
-    status = copy_absolute(prefix, argv0_path, prefix_len);
+    status = copy_absolute(prefix, calculate->argv0_path, prefix_len);
     if (_PyStatus_EXCEPTION(status)) {
         return status;
     }
@@ -538,7 +534,6 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
         }
         if (module) {
             *found = 1;
-            reduce(prefix);
             return _PyStatus_OK();
         }
         prefix[n] = L'\0';
@@ -562,7 +557,6 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
     }
     if (module) {
         *found = 1;
-        reduce(prefix);
         return _PyStatus_OK();
     }
 
@@ -636,7 +630,6 @@ calculate_set_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig)
                 return _PyStatus_NO_MEMORY();
             }
         }
-        pathconfig->prefix = _PyMem_RawWcsdup(prefix);
     }
     else {
         pathconfig->prefix = _PyMem_RawWcsdup(calculate->prefix_macro);
@@ -747,7 +740,7 @@ search_for_exec_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
     }
 
     /* Search from argv0_path, until root is found */
-    status = copy_absolute(exec_prefix, argv0_path, exec_prefix_len);
+    status = copy_absolute(exec_prefix, calculate->argv0_path, exec_prefix_len);
     if (_PyStatus_EXCEPTION(status)) {
         return status;
     }
@@ -871,8 +864,6 @@ calculate_set_exec_prefix(PyCalculatePath *calculate,
                 return _PyStatus_NO_MEMORY();
             }
         }
-
-        pathconfig->exec_prefix = _PyMem_RawWcsdup(exec_prefix);
     }
     else {
         pathconfig->exec_prefix = _PyMem_RawWcsdup(calculate->exec_prefix_macro);
@@ -880,7 +871,6 @@ calculate_set_exec_prefix(PyCalculatePath *calculate,
             return _PyStatus_NO_MEMORY();
         }
     }
-
     return _PyStatus_OK();
 }
 
@@ -1388,7 +1378,7 @@ calculate_module_search_path(PyCalculatePath *calculate,
     }
 
     /* Next is the default zip path */
-    wcscat(buf, zip_path);
+    wcscat(buf, calculate->zip_path);
     wcscat(buf, delimiter);
 
     /* Next goes merge of compile-time $PYTHONPATH with

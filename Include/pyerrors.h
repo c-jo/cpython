@@ -133,6 +133,7 @@ PyAPI_DATA(PyObject *) PyExc_ProcessLookupError;
 PyAPI_DATA(PyObject *) PyExc_TimeoutError;
 #endif
 
+
 /* Compatibility aliases */
 PyAPI_DATA(PyObject *) PyExc_EnvironmentError;
 PyAPI_DATA(PyObject *) PyExc_IOError;

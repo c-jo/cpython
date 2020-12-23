@@ -2996,10 +2996,6 @@ PyType_FromModuleAndSpec(PyObject *module, PyType_Spec *spec, PyObject *bases)
         bases = PyTuple_Pack(1, bases);
         if (!bases)
             goto fail;
-        }
-        else {
-            Py_INCREF(bases);
-        }
     }
     else {
         Py_INCREF(bases);

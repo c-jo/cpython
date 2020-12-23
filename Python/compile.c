@@ -1572,17 +1572,6 @@ compiler_addop_j(struct compiler *c, int opcode, basicblock *b)
     } \
 }
 
-/* These macros allows to check only for errors and not emmit bytecode
- * while visiting nodes.
-*/
-
-#define BEGIN_DO_NOT_EMIT_BYTECODE { \
-    c->c_do_not_emit_bytecode++;
-
-#define END_DO_NOT_EMIT_BYTECODE \
-    c->c_do_not_emit_bytecode--; \
-}
-
 /* Search if variable annotations are present statically in a block. */
 
 static int
@@ -1735,19 +1724,6 @@ compiler_unwind_fblock(struct compiler *c, struct fblockinfo *info,
                 ADDOP(c, ROT_FOUR);
             }
             ADDOP(c, POP_EXCEPT);
-            return 1;
-
-        case FINALLY_TRY2:
-            ADDOP(c, POP_BLOCK);
-            if (preserve_tos) {
-                ADDOP(c, ROT_TWO);
-                ADDOP(c, POP_TOP);
-                ADDOP_JREL(c, CALL_FINALLY, info->fb_exit);
-            }
-            else {
-                ADDOP_JREL(c, CALL_FINALLY, info->fb_exit);
-                ADDOP(c, POP_TOP);
-            }
             return 1;
 
         case WITH:
@@ -2981,26 +2957,6 @@ compiler_try_finally(struct compiler *c, stmt_ty s)
     if (body == NULL || end == NULL || exit == NULL)
         return 0;
 
-    start = c->u->u_curblock;
-
-    /* `finally` block. Compile it first to determine if any of "break",
-       "continue" or "return" are used in it. */
-    compiler_use_next_block(c, end);
-    if (!compiler_push_fblock(c, FINALLY_END, end, end))
-        return 0;
-    VISIT_SEQ(c, stmt, s->v.Try.finalbody);
-    ADDOP(c, END_FINALLY);
-    break_finally = (c->u->u_fblock[c->u->u_nfblocks - 1].fb_exit == NULL);
-    if (break_finally) {
-        /* Pops a placeholder. See below */
-        ADDOP(c, POP_TOP);
-    }
-    compiler_pop_fblock(c, FINALLY_END, end);
-
-    newcurblock = c->u->u_curblock;
-    c->u->u_curblock = start;
-    start->b_next = NULL;
-
     /* `try` block */
     ADDOP_JUMP(c, SETUP_FINALLY, end);
     compiler_use_next_block(c, body);
@@ -3173,8 +3129,6 @@ compiler_try_except(struct compiler *c, stmt_ty s)
         compiler_use_next_block(c, except);
     }
     compiler_pop_fblock(c, EXCEPTION_HANDLER, NULL);
-    /* Mark as artificial */
-    c->u->u_lineno = -1;
     ADDOP_I(c, RERAISE, 0);
     compiler_use_next_block(c, orelse);
     VISIT_SEQ(c, stmt, s->v.Try.orelse);

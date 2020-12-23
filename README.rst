@@ -11,11 +11,11 @@ This is Python version 3.10.0 alpha 3
 
 .. image:: https://dev.azure.com/python/cpython/_apis/build/status/Azure%20Pipelines%20CI?branchName=master
    :alt: CPython build status on Azure DevOps
-   :target: https://dev.azure.com/python/cpython/_build/latest?definitionId=4&branchName=3.8
+   :target: https://dev.azure.com/python/cpython/_build/latest?definitionId=4&branchName=master
 
-.. image:: https://codecov.io/gh/python/cpython/branch/3.8/graph/badge.svg
+.. image:: https://codecov.io/gh/python/cpython/branch/master/graph/badge.svg
    :alt: CPython code coverage on Codecov
-   :target: https://codecov.io/gh/python/cpython/branch/3.8
+   :target: https://codecov.io/gh/python/cpython
 
 .. image:: https://img.shields.io/badge/zulip-join_chat-brightgreen.svg
    :alt: Python Zulip chat
@@ -82,7 +82,7 @@ to macOS framework and universal builds.  Refer to `Mac/README.rst
 <https://github.com/python/cpython/blob/master/Mac/README.rst>`_.
 
 On Windows, see `PCbuild/readme.txt
-<https://github.com/python/cpython/blob/3.8/PCbuild/readme.txt>`_.
+<https://github.com/python/cpython/blob/master/PCbuild/readme.txt>`_.
 
 If you wish, you can create a subdirectory and invoke configure from there.
 For example::
@@ -143,9 +143,9 @@ What's New
 We have a comprehensive overview of the changes in the `What's New in Python
 3.10 <https://docs.python.org/3.10/whatsnew/3.10.html>`_ document.  For a more
 detailed change log, read `Misc/NEWS
-<https://github.com/python/cpython/blob/3.8/Misc/NEWS.d>`_, but a full
+<https://github.com/python/cpython/blob/master/Misc/NEWS.d>`_, but a full
 accounting of changes can only be gleaned from the `commit history
-<https://github.com/python/cpython/commits/3.8>`_.
+<https://github.com/python/cpython/commits/master>`_.
 
 If you want to install multiple versions of Python, see the section below
 entitled "Installing multiple versions".
@@ -163,7 +163,7 @@ is primarily for documentation authors, translators, and people with special
 formatting requirements.
 
 For information about building Python's documentation, refer to `Doc/README.rst
-<https://github.com/python/cpython/blob/3.8/Doc/README.rst>`_.
+<https://github.com/python/cpython/blob/master/Doc/README.rst>`_.
 
 
 Converting From Python 2.x to 3.x

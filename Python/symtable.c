@@ -334,14 +334,6 @@ PySymtable_BuildObject(mod_ty mod, PyObject *filename, PyFutureFeatures *future)
         PySymtable_Free(st);
         return NULL;
     }
-    /* Check that the recursion depth counting balanced correctly */
-    if (st->recursion_depth != starting_recursion_depth) {
-        PyErr_Format(PyExc_SystemError,
-            "symtable analysis recursion depth mismatch (before=%d, after=%d)",
-            starting_recursion_depth, st->recursion_depth);
-        PySymtable_Free(st);
-        return NULL;
-    }
     /* Make the second symbol analysis pass */
     if (symtable_analyze(st))
         return st;

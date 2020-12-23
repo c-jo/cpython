@@ -469,7 +469,6 @@ static void LoadPython(void)
 {
     if (!Py_IsInitialized()) {
         Py_Initialize();
-        PyEval_InitThreads();
     }
 }
 

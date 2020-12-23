@@ -445,7 +445,6 @@ frame_setlineno(PyFrameObject *f, PyObject* p_new_lineno, void *Py_UNUSED(ignore
                 }
             }
         }
-        prevop = op;
     }
     PyMem_Free(blocks);
     PyMem_Free(lines);

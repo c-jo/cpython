@@ -1270,51 +1270,6 @@ static PyStructSequence_Desc asyncgen_hooks_desc = {
     2
 };
 
-static int
-set_async_gen_firstiter(PyObject *firstiter)
-{
-    PyThreadState *tstate = _PyThreadState_GET();
-
-    if (PySys_Audit("sys.set_asyncgen_hook_firstiter", NULL) < 0) {
-        return -1;
-    }
-
-    Py_XINCREF(firstiter);
-    Py_XSETREF(tstate->async_gen_firstiter, firstiter);
-    return 0;
-}
-
-void
-_PyEval_SetAsyncGenFirstiter(PyObject *firstiter)
-{
-    if (set_async_gen_firstiter(firstiter) < 0) {
-        PyErr_WriteUnraisable(NULL);
-    }
-}
-
-static int
-set_async_gen_finalizer(PyObject *finalizer)
-{
-    PyThreadState *tstate = _PyThreadState_GET();
-
-    if (PySys_Audit("sys.set_asyncgen_hook_finalizer", NULL) < 0) {
-        return -1;
-    }
-
-    Py_XINCREF(finalizer);
-    Py_XSETREF(tstate->async_gen_finalizer, finalizer);
-    return 0;
-}
-
-void
-_PyEval_SetAsyncGenFinalizer(PyObject *finalizer)
-{
-    if (set_async_gen_finalizer(finalizer) < 0) {
-        PyErr_WriteUnraisable(NULL);
-    }
-}
-
-
 static PyObject *
 sys_set_asyncgen_hooks(PyObject *self, PyObject *args, PyObject *kw)
 {

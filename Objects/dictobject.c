@@ -3180,23 +3180,7 @@ static PyObject *
 dict_pop_impl(PyDictObject *self, PyObject *key, PyObject *default_value)
 /*[clinic end generated code: output=3abb47b89f24c21c input=e221baa01044c44c]*/
 {
-    PyObject *return_value = NULL;
-    PyObject *key;
-    PyObject *default_value = NULL;
-
-    if (!_PyArg_CheckPositional("pop", nargs, 1, 2)) {
-        goto exit;
-    }
-    key = args[0];
-    if (nargs < 2) {
-        goto skip_optional;
-    }
-    default_value = args[1];
-skip_optional:
-    return_value = _PyDict_Pop((PyObject*)self, key, default_value);
-
-exit:
-    return return_value;
+    return _PyDict_Pop((PyObject*)self, key, default_value);
 }
 
 /*[clinic input]

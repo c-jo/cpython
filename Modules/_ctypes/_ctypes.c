@@ -5744,10 +5744,6 @@ _ctypes_add_types(PyObject *mod)
     TYPE_READY(&DictRemover_Type);
     TYPE_READY(&StructParam_Type);
 
-    if (PyType_Ready(&StructParam_Type) < 0) {
-        return NULL;
-    }
-
 #ifdef MS_WIN32
     TYPE_READY_BASE(&PyComError_Type, (PyTypeObject*)PyExc_Exception);
 #endif

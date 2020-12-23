@@ -60,6 +60,10 @@
 #  define HAVE_CLOCK_GETTIME_RUNTIME 1
 #endif
 
+#ifdef RISCOS
+#include "swis.h"
+#endif
+
 #define SEC_TO_NS (1000 * 1000 * 1000)
 
 /* Forward declarations */
@@ -2072,7 +2076,7 @@ pysleep(_PyTime_t secs)
         if (_PyTime_AsTimeval(secs, &timeout, _PyTime_ROUND_CEILING) < 0)
             return -1;
 
-            Py_BEGIN_ALLOW_THREADS
+        Py_BEGIN_ALLOW_THREADS
 #ifdef RISCOS
         unsigned int end = _swi(OS_ReadMonotonicTime, _RETURN(0)) +
                            (timeout.tv_sec * 100 + timeout.tv_usec / 10000);

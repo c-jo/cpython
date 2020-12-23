@@ -32,7 +32,6 @@
    * Changed SwiError to use PyExc_RISCOSError
 */
 
-//#include "oslib/os.h"
 #include <kernel.h>
 #include <swis.h>
 

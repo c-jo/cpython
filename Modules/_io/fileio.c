@@ -236,7 +236,6 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
     int fd = -1;
     int fd_is_own = 0;
 #if !defined(RISCOS) && defined(O_CLOEXEC)
-//#ifdef O_CLOEXEC
     int *atomic_flag_works = &_Py_open_cloexec_works;
 #elif !defined(MS_WINDOWS) && !defined(RISCOS)
     int *atomic_flag_works = NULL;
