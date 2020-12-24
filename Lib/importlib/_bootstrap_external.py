@@ -31,15 +31,19 @@ import marshal
 
 
 _MS_WINDOWS = (sys.platform == 'win32')
+_RISCOS = (sys.platform == 'riscos')
 if _MS_WINDOWS:
     import nt as _os
     import winreg
+elif _RISCOS:
+    import riscos as _os
 else:
     import posix as _os
 
-
 if _MS_WINDOWS:
     path_separators = ['\\', '/']
+elif _RISCOS:
+    path_separators = ['.']
 else:
     path_separators = ['/']
 # Assumption made in _path_join()
@@ -1538,14 +1542,15 @@ class FileFinder:
             cache = self._path_cache
             cache_module = tail_module
 
-        _bootstrap._verbose_message('cache_module {}', cache_module)
         is_dir = cache_module in cache
+        _bootstrap._verbose_message('cache_module {} in cache {}', cache_module, is_dir)
 
         if sys.platform == 'riscos':
             equiv_suffix = None # Suffix version of the filetype
             if is_dir:
                 # Might be a diretory, might be a typed file with no suffix.
                 filetype = cache[cache_module].st_filetype
+                _bootstrap._verbose_message('file type {}',filetype)
                 is_dir = (filetype == 0x1000)
                 if filetype in FILETYPE_MAP:
                     equiv_suffix = FILETYPE_MAP[filetype]
@@ -1558,6 +1563,8 @@ class FileFinder:
                 # Look for a typed'__init__' (no suffix)
                 equiv_suffix = None
                 full_path = _path_join(base_path, '__init__')
+                _bootstrap._verbose_message('looking for {}', full_path)
+
                 filetype = _os.get_filetype(full_path)
                 if filetype in FILETYPE_MAP:
                     equiv_suffix = FILETYPE_MAP[filetype]
@@ -1565,10 +1572,12 @@ class FileFinder:
 
             for suffix, loader_class in self._loaders:
                 if sys.platform == 'riscos' and suffix == equiv_suffix:
+                    _bootstrap._verbose_message('using {}', _path_join(base_path, '__init__'))
                     return self._get_spec(loader_class, fullname, _path_join(base_path, '__init__'), [base_path], target)
 
                 init_filename = '__init__' + suffix
                 full_path = _path_join(base_path, init_filename)
+                _bootstrap._verbose_message('trying {}', full_path)
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path, [base_path], target)
             else:
@@ -1699,7 +1708,7 @@ def _set_bootstrap_module(_bootstrap_module):
 
     # RISC OS doesn't have extensions, but we also allow a '/py' suffix for
     # .py files from other systems.
-    if builtin_os == 'riscos':
+    if _RISCOS:
         SOURCE_SUFFIXES.clear()
         SOURCE_SUFFIXES.append('/py')
         BYTECODE_SUFFIXES.clear()

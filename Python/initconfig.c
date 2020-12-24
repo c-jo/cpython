@@ -1856,6 +1856,10 @@ static PyStatus
 config_get_locale_encoding(PyConfig *config, const PyPreConfig *preconfig,
                            wchar_t **locale_encoding)
 {
+#ifdef RISCOS
+    return PyConfig_SetString(config, locale_encoding, L"latin-1");
+#endif
+
     wchar_t *encoding = _Py_GetLocaleEncoding();
     if (encoding == NULL) {
         return _PyStatus_NO_MEMORY();
@@ -1975,6 +1979,9 @@ static PyStatus
 config_get_fs_encoding(PyConfig *config, const PyPreConfig *preconfig,
                        wchar_t **fs_encoding)
 {
+#ifdef RISCOS
+    return PyConfig_SetString(config, fs_encoding, L"latin-1");
+#endif
 #ifdef _Py_FORCE_UTF8_FS_ENCODING
     return PyConfig_SetString(config, fs_encoding, L"utf-8");
 #elif defined(MS_WINDOWS)
@@ -2006,7 +2013,6 @@ static PyStatus
 config_init_fs_encoding(PyConfig *config, const PyPreConfig *preconfig)
 {
     PyStatus status;
-
     if (config->filesystem_encoding == NULL) {
         status = config_get_fs_encoding(config, preconfig,
                                         &config->filesystem_encoding);

@@ -1525,7 +1525,6 @@ static int _PyCodecRegistry_Init(void)
             return -1;
         }
     }
-
     mod = PyImport_ImportModuleNoBlock("encodings");
     if (mod == NULL) {
         return -1;

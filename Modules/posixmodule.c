@@ -2239,6 +2239,12 @@ static PyStructSequence_Field stat_result_fields[] = {
 #ifdef HAVE_STRUCT_STAT_ST_REPARSE_TAG
     {"st_reparse_tag", "Windows reparse tag"},
 #endif
+#ifdef RISCOS
+    {"st_loadaddr", "RISC OS load address"},
+    {"st_execaddr", "RISC OS exec address"},
+    {"st_objtype",  "RISC OS object type"},
+    {"st_filetype", "RISC OS filetype"},
+#endif
     {0}
 };
 
@@ -2294,6 +2300,13 @@ static PyStructSequence_Field stat_result_fields[] = {
 #define ST_REPARSE_TAG_IDX (ST_FSTYPE_IDX+1)
 #else
 #define ST_REPARSE_TAG_IDX ST_FSTYPE_IDX
+#endif
+
+#ifdef RISCOS
+#define ST_LOADADDR_IDX (ST_REPARSE_TAG_IDX+1)
+#define ST_EXECADDR_IDX (ST_LOADADDR_IDX+1)
+#define ST_OBJTYPE_IDX  (ST_EXECADDR_IDX+1)
+#define ST_FILETYPE_IDX (ST_OBJTYPE_IDX+1)
 #endif
 
 static PyStructSequence_Desc stat_result_desc = {
@@ -2573,7 +2586,16 @@ _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
     PyStructSequence_SET_ITEM(v, ST_REPARSE_TAG_IDX,
                               PyLong_FromUnsignedLong(st->st_reparse_tag));
 #endif
-
+#ifdef RISCOS
+    PyStructSequence_SET_ITEM(v, ST_LOADADDR_IDX,
+                              PyLong_FromUnsignedLong(st->st_loadaddr));
+    PyStructSequence_SET_ITEM(v, ST_EXECADDR_IDX,
+                              PyLong_FromUnsignedLong(st->st_execaddr));
+    PyStructSequence_SET_ITEM(v, ST_OBJTYPE_IDX,
+                              PyLong_FromLong(st->st_objtype));
+    PyStructSequence_SET_ITEM(v, ST_FILETYPE_IDX,
+                              PyLong_FromLong(st->st_filetype));
+#endif
     if (PyErr_Occurred()) {
         Py_DECREF(v);
         return NULL;

@@ -635,7 +635,7 @@ calculate_exec_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
         if (safe_strcpy(exec_prefix, calculate->exec_prefix, exec_prefix_len) < 0) {
             return PATHLEN_ERR();
         }
-        status = joinpath(exec_prefix, "lib/lib-dynload", exec_prefix_len);
+        status = joinpath(exec_prefix, "lib.lib-dynload", exec_prefix_len);
         if (_PyStatus_EXCEPTION(status)) {
             return status;
         }
@@ -927,7 +927,7 @@ calculate_init(PyCalculatePath *calculate, const PyConfig *config)
     if (!calculate->lib_python) {
         return _PyStatus_NO_MEMORY();
     }
-    sprintf(calculate->lib_python, "python%c%c.lib", VERSION[0], VERSION[2]);
+    sprintf(calculate->lib_python, "python%d%d.lib", PY_MAJOR_VERSION, PY_MINOR_VERSION);
 
     calculate->warnings = config->pathconfig_warnings;
 

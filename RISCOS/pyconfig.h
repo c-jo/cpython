@@ -1532,7 +1532,7 @@
 #undef WINDOW_HAS_FLAGS
 
 /* Define if you want documentation strings in extension modules */
-#undef WITH_DOC_STRINGS
+#define WITH_DOC_STRINGS
 
 /* Define if you want to compile in DTrace support */
 #undef WITH_DTRACE
