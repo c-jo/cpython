@@ -288,7 +288,10 @@ def _getuserbase():
                         "%d.%d" % sys.version_info[:2])
 
     if os.name == "riscos":
-        return os.path.canonicalise("<PythonUser$Dir>")
+        try:
+            return os.path.canonicalise("<PythonUser$Dir>")
+        except:
+            return None
 
     return joinuser("~", ".local")
 
