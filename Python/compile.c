@@ -193,12 +193,6 @@ struct compiler {
     int c_optimize;              /* optimization level */
     int c_interactive;           /* true if in interactive mode */
     int c_nestlevel;
-    int c_do_not_emit_bytecode;  /* The compiler won't emit any bytecode
-                                    if this value is different from zero.
-                                    This can be used to temporarily visit
-                                    nodes without emitting bytecode to
-                                    check only errors. */
-
     PyObject *c_const_cache;     /* Python dict holding all constants,
                                     including names tuple */
     struct compiler_unit *u; /* compiler state for current block */
@@ -379,7 +373,6 @@ PyAST_CompileObject(mod_ty mod, PyObject *filename, PyCompilerFlags *flags,
     c.c_flags = flags;
     c.c_optimize = (optimize == -1) ? _Py_GetConfig()->optimization_level : optimize;
     c.c_nestlevel = 0;
-    c.c_do_not_emit_bytecode = 0;
 
     _PyASTOptimizeState state;
     state.optimize = c.c_optimize;
@@ -1181,9 +1174,6 @@ compiler_addop(struct compiler *c, int opcode)
     struct instr *i;
     int off;
     assert(!HAS_ARG(opcode));
-    if (c->c_do_not_emit_bytecode) {
-        return 1;
-    }
     off = compiler_next_instr(c->u->u_curblock);
     if (off < 0)
         return 0;
@@ -1337,10 +1327,6 @@ merge_consts_recursive(struct compiler *c, PyObject *o)
 static Py_ssize_t
 compiler_add_const(struct compiler *c, PyObject *o)
 {
-    if (c->c_do_not_emit_bytecode) {
-        return 0;
-    }
-
     PyObject *key = merge_consts_recursive(c, o);
     if (key == NULL) {
         return -1;
@@ -1354,10 +1340,6 @@ compiler_add_const(struct compiler *c, PyObject *o)
 static int
 compiler_addop_load_const(struct compiler *c, PyObject *o)
 {
-    if (c->c_do_not_emit_bytecode) {
-        return 1;
-    }
-
     Py_ssize_t arg = compiler_add_const(c, o);
     if (arg < 0)
         return 0;
@@ -1368,10 +1350,6 @@ static int
 compiler_addop_o(struct compiler *c, int opcode, PyObject *dict,
                      PyObject *o)
 {
-    if (c->c_do_not_emit_bytecode) {
-        return 1;
-    }
-
     Py_ssize_t arg = compiler_add_o(dict, o);
     if (arg < 0)
         return 0;
@@ -1383,10 +1361,6 @@ compiler_addop_name(struct compiler *c, int opcode, PyObject *dict,
                     PyObject *o)
 {
     Py_ssize_t arg;
-
-    if (c->c_do_not_emit_bytecode) {
-        return 1;
-    }
 
     PyObject *mangled = _Py_Mangle(c->u->u_private, o);
     if (!mangled)
@@ -1408,10 +1382,6 @@ compiler_addop_i(struct compiler *c, int opcode, Py_ssize_t oparg)
     struct instr *i;
     int off;
 
-    if (c->c_do_not_emit_bytecode) {
-        return 1;
-    }
-
     /* oparg value is unsigned, but a signed C int is usually used to store
        it in the C code (like Python/ceval.c).
 
@@ -1432,26 +1402,27 @@ compiler_addop_i(struct compiler *c, int opcode, Py_ssize_t oparg)
     return 1;
 }
 
+static int add_jump_to_block(basicblock *b, int opcode, int lineno, basicblock *target)
+{
+    assert(HAS_ARG(opcode));
+    assert(b != NULL);
+    assert(target != NULL);
+
+    int off = compiler_next_instr(b);
+    struct instr *i = &b->b_instr[off];
+    if (off < 0) {
+        return 0;
+    }
+    i->i_opcode = opcode;
+    i->i_target = target;
+    i->i_lineno = lineno;
+    return 1;
+}
+
 static int
 compiler_addop_j(struct compiler *c, int opcode, basicblock *b)
 {
-    struct instr *i;
-    int off;
-
-    if (c->c_do_not_emit_bytecode) {
-        return 1;
-    }
-
-    assert(HAS_ARG(opcode));
-    assert(b != NULL);
-    off = compiler_next_instr(c->u->u_curblock);
-    if (off < 0)
-        return 0;
-    i = &c->u->u_curblock->b_instr[off];
-    i->i_opcode = opcode;
-    i->i_target = b;
-    i->i_lineno = c->u->u_lineno;
-    return 1;
+    return add_jump_to_block(c->u->u_curblock, opcode, c->u->u_lineno, b);
 }
 
 /* NEXT_BLOCK() creates an implicit jump from the current block
@@ -6065,6 +6036,27 @@ fold_tuple_on_constants(struct instr *inst,
     return 0;
 }
 
+
+static int
+eliminate_jump_to_jump(basicblock *bb, int opcode) {
+    assert (bb->b_iused > 0);
+    struct instr *inst = &bb->b_instr[bb->b_iused-1];
+    assert (is_jump(inst));
+    assert (inst->i_target->b_iused > 0);
+    struct instr *target = &inst->i_target->b_instr[0];
+    if (inst->i_target == target->i_target) {
+        /* Nothing to do */
+        return 0;
+    }
+    int lineno = target->i_lineno;
+    if (add_jump_to_block(bb, opcode, lineno, target->i_target) == 0) {
+        return -1;
+    }
+    assert (bb->b_iused >= 2);
+    bb->b_instr[bb->b_iused-2].i_opcode = NOP;
+    return 0;
+}
+
 /* Maximum size of basic block that should be copied in optimizer */
 #define MAX_COPY_SIZE 4
 
@@ -6181,22 +6173,27 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
             case JUMP_IF_FALSE_OR_POP:
                 switch(target->i_opcode) {
                     case POP_JUMP_IF_FALSE:
-                        *inst = *target;
-                        --i;
+                        if (inst->i_lineno == target->i_lineno) {
+                            *inst = *target;
+                            i--;
+                        }
                         break;
                     case JUMP_ABSOLUTE:
                     case JUMP_FORWARD:
                     case JUMP_IF_FALSE_OR_POP:
-                        if (inst->i_target != target->i_target) {
+                        if (inst->i_lineno == target->i_lineno &&
+                            inst->i_target != target->i_target) {
                             inst->i_target = target->i_target;
-                            --i;
+                            i--;
                         }
                         break;
                     case JUMP_IF_TRUE_OR_POP:
                         assert (inst->i_target->b_iused == 1);
-                        inst->i_opcode = POP_JUMP_IF_FALSE;
-                        inst->i_target = inst->i_target->b_next;
-                        --i;
+                        if (inst->i_lineno == target->i_lineno) {
+                            inst->i_opcode = POP_JUMP_IF_FALSE;
+                            inst->i_target = inst->i_target->b_next;
+                            --i;
+                        }
                         break;
                 }
                 break;
@@ -6204,22 +6201,27 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
             case JUMP_IF_TRUE_OR_POP:
                 switch(target->i_opcode) {
                     case POP_JUMP_IF_TRUE:
-                        *inst = *target;
-                        --i;
+                        if (inst->i_lineno == target->i_lineno) {
+                            *inst = *target;
+                            i--;
+                        }
                         break;
                     case JUMP_ABSOLUTE:
                     case JUMP_FORWARD:
                     case JUMP_IF_TRUE_OR_POP:
-                        if (inst->i_target != target->i_target) {
+                        if (inst->i_lineno == target->i_lineno &&
+                            inst->i_target != target->i_target) {
                             inst->i_target = target->i_target;
-                            --i;
+                            i--;
                         }
                         break;
                     case JUMP_IF_FALSE_OR_POP:
                         assert (inst->i_target->b_iused == 1);
-                        inst->i_opcode = POP_JUMP_IF_TRUE;
-                        inst->i_target = inst->i_target->b_next;
-                        --i;
+                        if (inst->i_lineno == target->i_lineno) {
+                            inst->i_opcode = POP_JUMP_IF_TRUE;
+                            inst->i_target = inst->i_target->b_next;
+                            --i;
+                        }
                         break;
                 }
                 break;
@@ -6228,9 +6230,9 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                 switch(target->i_opcode) {
                     case JUMP_ABSOLUTE:
                     case JUMP_FORWARD:
-                        if (inst->i_target != target->i_target) {
+                        if (inst->i_lineno == target->i_lineno) {
                             inst->i_target = target->i_target;
-                            --i;
+                            i--;
                         }
                         break;
                 }
@@ -6240,9 +6242,9 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                 switch(target->i_opcode) {
                     case JUMP_ABSOLUTE:
                     case JUMP_FORWARD:
-                        if (inst->i_target != target->i_target) {
+                        if (inst->i_lineno == target->i_lineno) {
                             inst->i_target = target->i_target;
-                            --i;
+                            i--;
                         }
                         break;
                 }
@@ -6253,32 +6255,30 @@ optimize_basic_block(basicblock *bb, PyObject *consts)
                 assert (i == bb->b_iused-1);
                 switch(target->i_opcode) {
                     case JUMP_FORWARD:
-                        if (inst->i_target != target->i_target) {
-                            inst->i_target = target->i_target;
-//                             --i;
+                        if (eliminate_jump_to_jump(bb, inst->i_opcode)) {
+                            goto error;
                         }
                         break;
+
                     case JUMP_ABSOLUTE:
-                        if (inst->i_target != target->i_target) {
-                            inst->i_target = target->i_target;
-                            inst->i_opcode = target->i_opcode;
-                            --i;
+                        if (eliminate_jump_to_jump(bb, JUMP_ABSOLUTE)) {
+                            goto error;
                         }
                         break;
-                }
-                if (inst->i_target->b_exit && inst->i_target->b_iused <= MAX_COPY_SIZE) {
-                    basicblock *to_copy = inst->i_target;
-                    inst->i_opcode = NOP;
-                    for (i = 0; i < to_copy->b_iused; i++) {
-                        int index = compiler_next_instr(bb);
-                        if (index < 0) {
-                            return -1;
+                    default:
+                        if (inst->i_target->b_exit && inst->i_target->b_iused <= MAX_COPY_SIZE) {
+                            basicblock *to_copy = inst->i_target;
+                            inst->i_opcode = NOP;
+                            for (i = 0; i < to_copy->b_iused; i++) {
+                                int index = compiler_next_instr(bb);
+                                if (index < 0) {
+                                    return -1;
+                                }
+                                bb->b_instr[index] = to_copy->b_instr[i];
+                            }
+                            bb->b_exit = 1;
                         }
-                        bb->b_instr[index] = to_copy->b_instr[i];
-                    }
-                    bb->b_exit = 1;
                 }
-                break;
         }
     }
     return 0;
