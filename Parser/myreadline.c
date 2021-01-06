@@ -319,6 +319,24 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
             return NULL;
         }
         p = pr;
+#ifdef RISCOS
+       int got, flags;
+       if (0 == _swix(OS_ReadLine32, _INR(0,4) | _OUT(1) | _OUT(_FLAGS),
+                                     p, n-2, 0x00, 0xff, 0,
+                                     &got, &flags))
+       {
+           if (flags & _C) { // Escape
+               *p = '\0';
+               break;
+           } else {
+               strcpy(p+got, "\n");
+           }
+       }
+       else { // Error
+           *p = '\0';
+           break;
+       }
+#else  
         int err = my_fgets(tstate, p + n, (int)incr, sys_stdin);
         if (err == 1) {
             // Interrupt
@@ -329,6 +347,7 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
             p[n] = '\0';
             break;
         }
+#endif
         n += strlen(p + n);
     } while (p[n-1] != '\n');
 
