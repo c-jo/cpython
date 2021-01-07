@@ -486,7 +486,7 @@ extern char        *ctermid_r(char *);
 #undef STAT
 #undef FSTAT
 #undef STRUCT_STAT
-#ifdef MS_WINDOWS
+#if defined(MS_WINDOWS)
 #  define STAT win32_stat
 #  define LSTAT win32_lstat
 #  define FSTAT _Py_fstat_noraise
