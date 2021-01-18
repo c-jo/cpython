@@ -99,6 +99,23 @@ if 'riscos' in _names:
     except ImportError:
         pass
     import riscospath as path
+    import swi
+
+    def putenv(var,val):
+        if issubclass(var.__class__, bytes):
+            var = var.decode()
+        if issubclass(val.__class__, bytes):
+            val = val.decode()
+        swi.swi('OS_SetVarVal','ssiii',var,val,len(val),0,4)
+
+    def unsetenv(var):
+        if issubclass(var.__class__, bytes):
+            var = var.decode()
+        try:
+            swi.swi('OS_SetVarVal','s0iii',var,-1,0,4)
+        except swi.error:
+            pass
+
 
     try:
         from riscos import _have_functions
@@ -754,8 +771,6 @@ class _Environ(MutableMapping):
         return new
 
 if name == 'riscos':
-    import swi
-
     def _riscos_envdata():
         environ = {}
         blk = swi.block(4096)
@@ -779,21 +794,6 @@ if name == 'riscos':
                 environ[swi.bytes(nameptr)] = val
 
         return environ
-
-    def _riscos_putenv(var,val):
-        if issubclass(var.__class__, bytes):
-            var = var.decode()
-        if issubclass(val.__class__, bytes):
-            val = val.decode()
-        swi.swi('OS_SetVarVal','ssiii',var,val,len(val),0,4)
-
-    def _riscos_unsetenv(var):
-        if issubclass(var.__class__, bytes):
-            var = var.decode()
-        try:
-            swi.swi('OS_SetVarVal','s0iii',var,-1,0,4)
-        except swi.error:
-            pass
 
 def _createenviron():
     if name == 'nt':
@@ -820,11 +820,10 @@ def _createenviron():
             return value.decode(encoding, 'surrogateescape')
         encodekey = encode
         if name == 'riscos':
-            data      = _riscos_envdata()
+            data = _riscos_envdata()
             return _Environ(data,
                 encodekey, decode,
-                encode, decode,
-                _riscos_putenv, _riscos_unsetenv)
+                encode, decode)
         else:
             data = environ
     return _Environ(data,
