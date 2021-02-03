@@ -705,11 +705,7 @@ calculate_read_pyenv(PyCalculatePath *calculate,
                      char *argv0_path, size_t argv0_path_len)
 {
     PyStatus status;
-#ifdef RISCOS
     const char *env_cfg = "pyvenv/cfg";
-#else
-    const char *env_cfg = "pyvenv.cfg";
-#endif
     FILE *env_file;
 
     char filename[MAXPATHLEN+1];
