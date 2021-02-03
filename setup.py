@@ -47,6 +47,9 @@ TEST_EXTENSIONS = (sysconfig.get_config_var('TEST_MODULES') == 'yes')
 DISABLED_MODULE_LIST = []
 ONLY_BUILD_MODULE_LIST = None
 
+# --list-module-names option used by Tools/scripts/generate_module_names.py
+LIST_MODULE_NAMES = False
+
 def get_platform():
     # Cross compiling
     if "_PYTHON_HOST_PLATFORM" in os.environ:
@@ -80,7 +83,7 @@ is also usable as an extension language for applications that need a
 programmable interface.
 
 The Python implementation is portable: it runs on many brands of UNIX,
-on Windows, DOS, Mac, Amiga... If your favorite system isn't
+on Windows, DOS, Mac, Amiga, RISC OS... If your favorite system isn't
 listed here, it may still be supported, if there's a C compiler for
 it. Ask around on comp.lang.python -- or just try compiling Python
 yourself.
@@ -451,11 +454,19 @@ class PyBuildExt(build_ext):
         # Detect which modules should be compiled
         self.detect_modules()
 
-        self.remove_disabled()
+        if not LIST_MODULE_NAMES:
+            self.remove_disabled()
 
         self.update_sources_depends()
         mods_built, mods_disabled = self.remove_configured_extensions()
         self.set_compiler_executables()
+
+        if LIST_MODULE_NAMES:
+            for ext in self.extensions:
+                print(ext.name)
+            for name in self.missing:
+                print(name)
+            return
 
         build_ext.build_extensions(self)
 
@@ -675,6 +686,51 @@ class PyBuildExt(build_ext):
         finally:
             os.unlink(tmpfile)
 
+    def add_wrcc_search_dirs(self):
+        # add library search path by wr-cc, the compiler wrapper
+
+        def convert_mixed_path(path):
+            # convert path like C:\folder1\folder2/folder3/folder4
+            # to msys style /c/folder1/folder2/folder3/folder4
+            drive = path[0].lower()
+            left = path[2:].replace("\\", "/")
+            return "/" + drive + left
+
+        def add_search_path(line):
+            # On Windows building machine, VxWorks does
+            # cross builds under msys2 environment.
+            pathsep = (";" if sys.platform == "msys" else ":")
+            for d in line.strip().split("=")[1].split(pathsep):
+                d = d.strip()
+                if sys.platform == "msys":
+                    # On Windows building machine, compiler
+                    # returns mixed style path like:
+                    # C:\folder1\folder2/folder3/folder4
+                    d = convert_mixed_path(d)
+                d = os.path.normpath(d)
+                add_dir_to_list(self.compiler.library_dirs, d)
+
+        cc = sysconfig.get_config_var('CC')
+        tmpfile = os.path.join(self.build_temp, 'wrccpaths')
+        os.makedirs(self.build_temp, exist_ok=True)
+        try:
+            ret = run_command('%s --print-search-dirs >%s' % (cc, tmpfile))
+            if ret:
+                return
+            with open(tmpfile) as fp:
+                # Parse paths in libraries line. The line is like:
+                # On Linux, "libraries: = path1:path2:path3"
+                # On Windows, "libraries: = path1;path2;path3"
+                for line in fp:
+                    if not line.startswith("libraries"):
+                        continue
+                    add_search_path(line)
+        finally:
+            try:
+                os.unlink(tmpfile)
+            except OSError:
+                pass
+
     def add_cross_compiling_paths(self):
         cc = sysconfig.get_config_var('CC')
         tmpfile = os.path.join(self.build_temp, 'ccpaths')
@@ -707,6 +763,9 @@ class PyBuildExt(build_ext):
                                             line.strip())
         finally:
             os.unlink(tmpfile)
+
+        if VXWORKS:
+            self.add_wrcc_search_dirs()
 
     def add_ldflags_cppflags(self):
         # Add paths specified in the environment variables LDFLAGS and
@@ -1027,7 +1086,7 @@ class PyBuildExt(build_ext):
             os_release = int(os.uname()[2].split('.')[0])
             dep_target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
             if (dep_target and
-                    (tuple(int(n) for n in str(dep_target).split('.')[0:2])
+                    (tuple(int(n) for n in dep_target.split('.')[0:2])
                         < (10, 5) ) ):
                 os_release = 8
             if os_release < 9:
@@ -1133,6 +1192,7 @@ class PyBuildExt(build_ext):
             # bpo-31904: crypt() function is not provided by VxWorks.
             # DES_crypt() OpenSSL provides is too weak to implement
             # the encryption.
+            self.missing.append('_crypt')
             return
 
         if self.compiler.find_library_file(self.lib_dirs, 'crypt'):
@@ -1140,8 +1200,7 @@ class PyBuildExt(build_ext):
         else:
             libs = []
 
-        self.add(Extension('_crypt', ['_cryptmodule.c'],
-                               libraries=libs))
+        self.add(Extension('_crypt', ['_cryptmodule.c'], libraries=libs))
 
     def detect_socket(self):
         # socket(2)
@@ -1462,8 +1521,7 @@ class PyBuildExt(build_ext):
                                  ]
         if CROSS_COMPILING:
             sqlite_inc_paths = []
-        # We need to find >= sqlite version 3.7.3, for sqlite3_create_function_v2()
-        MIN_SQLITE_VERSION_NUMBER = (3, 7, 3)
+        MIN_SQLITE_VERSION_NUMBER = (3, 7, 15)  # Issue 40810
         MIN_SQLITE_VERSION = ".".join([str(x)
                                     for x in MIN_SQLITE_VERSION_NUMBER])
 
@@ -1786,26 +1844,28 @@ class PyBuildExt(build_ext):
         if MS_WINDOWS:
             multiprocessing_srcs = ['_multiprocessing/multiprocessing.c',
                                     '_multiprocessing/semaphore.c']
-
         else:
             multiprocessing_srcs = ['_multiprocessing/multiprocessing.c']
             if (sysconfig.get_config_var('HAVE_SEM_OPEN') and not
                 sysconfig.get_config_var('POSIX_SEMAPHORES_NOT_ENABLED')):
                 multiprocessing_srcs.append('_multiprocessing/semaphore.c')
-            if (sysconfig.get_config_var('HAVE_SHM_OPEN') and
-                sysconfig.get_config_var('HAVE_SHM_UNLINK')):
-                posixshmem_srcs = ['_multiprocessing/posixshmem.c']
-                libs = []
-                if sysconfig.get_config_var('SHM_NEEDS_LIBRT'):
-                    # need to link with librt to get shm_open()
-                    libs.append('rt')
-                self.add(Extension('_posixshmem', posixshmem_srcs,
-                                   define_macros={},
-                                   libraries=libs,
-                                   include_dirs=["Modules/_multiprocessing"]))
-
         self.add(Extension('_multiprocessing', multiprocessing_srcs,
                            include_dirs=["Modules/_multiprocessing"]))
+
+        if (not MS_WINDOWS and
+           sysconfig.get_config_var('HAVE_SHM_OPEN') and
+           sysconfig.get_config_var('HAVE_SHM_UNLINK')):
+            posixshmem_srcs = ['_multiprocessing/posixshmem.c']
+            libs = []
+            if sysconfig.get_config_var('SHM_NEEDS_LIBRT'):
+                # need to link with librt to get shm_open()
+                libs.append('rt')
+            self.add(Extension('_posixshmem', posixshmem_srcs,
+                               define_macros={},
+                               libraries=libs,
+                               include_dirs=["Modules/_multiprocessing"]))
+        else:
+            self.missing.append('_posixshmem')
 
     def detect_uuid(self):
         # Build the _uuid module if possible
@@ -2610,6 +2670,12 @@ class PyBuildScripts(build_scripts):
 
 
 def main():
+    global LIST_MODULE_NAMES
+
+    if "--list-module-names" in sys.argv:
+        LIST_MODULE_NAMES = True
+        sys.argv.remove("--list-module-names")
+
     set_compiler_flags('CFLAGS', 'PY_CFLAGS_NODIST')
     set_compiler_flags('LDFLAGS', 'PY_LDFLAGS_NODIST')
 
