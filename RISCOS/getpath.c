@@ -211,7 +211,7 @@ ismodule(const char *directory, const char *module)
     strcat(buffer, ".");
     strcat(buffer, module);
 
-    // Is ita typed file?
+    // Is it a typed file?
     int filetype = get_filetype(buffer);
     if (filetype == 0xa73 || filetype == 0xa74)
          return 1; // It's a python one
