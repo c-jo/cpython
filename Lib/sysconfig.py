@@ -56,6 +56,15 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/Scripts',
         'data': '{base}',
         },
+    'riscos': {
+        'stdlib': 'Python3:Python{py_version_nodot}.Lib',
+        'platstdlib': 'Python3:.Python{py_version_nodot}.Lib',
+        'purelib': 'PythonSite:Python{py_version_nodot}.Site-Packages',
+        'platlib': 'PythonSite:Python{py_version_nodot}.Site-Packages',
+        'include': '<Python3:Python{py_version_nodot}.Include',
+        'scripts': '<Python3$Dir>.Scripts',
+        'data': '<Python3$Dir>.Data',
+        },
     }
 
 
