@@ -107,7 +107,17 @@ class Extension:
             raise AssertionError("'sources' must be a list of strings")
 
         self.name = name
-        self.sources = sources
+        if os.name == 'riscos':
+           self.sources = []
+           for source in sources:
+               path,extn = source.rsplit('.',1)
+               path = path.replace('.','-')
+               elements = path.split('/')
+               #path = path.replace('/','.')
+               newsource = os.path.join('.'.join(elements[:-1]),extn,elements[-1])
+               self.sources.append(newsource)
+        else:
+            self.sources = sources
         self.include_dirs = include_dirs or []
         self.define_macros = define_macros or []
         self.undef_macros = undef_macros or []
@@ -119,7 +129,20 @@ class Extension:
         self.extra_link_args = extra_link_args or []
         self.export_symbols = export_symbols or []
         self.swig_opts = swig_opts or []
-        self.depends = depends or []
+
+        if os.name == 'riscos':
+           self.depends = []
+           if depends:
+               for depend in depends:
+                   path,extn = depend.rsplit('.',1)
+                   path = path.replace('.','-')
+                   elements = path.split('/')
+                   #path = path.replace('/','.')
+                   newdepend = os.path.join('.'.join(elements[:-1]),extn,elements[-1])
+                   self.depends.append(newdepend)
+        else:
+            self.depends = depends or []
+
         self.language = language
         self.optional = optional
 
@@ -129,17 +152,6 @@ class Extension:
             options = ', '.join(sorted(options))
             msg = "Unknown Extension options: %s" % options
             warnings.warn(msg)
-
-        if os.name == 'riscos':
-           sources = []
-           for source in self.sources:
-               path,extn = source.rsplit('.',1)
-               path = path.replace('.','-')
-               elements = path.split('/')
-               #path = path.replace('/','.')
-               newsource = os.path.join('.'.join(elements[:-1]),extn,elements[-1])
-               sources.append(newsource)
-           self.sources = sources
 
     def __repr__(self):
         return '<%s.%s(%r) at %#x>' % (
