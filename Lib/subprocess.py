@@ -571,7 +571,6 @@ def run(*popenargs,
 
     with Popen(*popenargs, **kwargs) as process:
         try:
-            retcode = None
             stdout, stderr = process.communicate(input, timeout=timeout)
         except TimeoutExpired as exc:
             process.kill()
@@ -591,12 +590,10 @@ def run(*popenargs,
             process.kill()
             # We don't call process.wait() as .__exit__ does that for us.
             raise
-        if not retcode is not None:
-            retcode = process.poll()
+        retcode = process.poll()
         if check and retcode:
             raise CalledProcessError(retcode, process.args,
                                      output=stdout, stderr=stderr)
-
     return CompletedProcess(process.args, retcode, stdout, stderr)
 
 
@@ -833,7 +830,8 @@ class Popen(object):
                  startupinfo=None, creationflags=0,
                  restore_signals=True, start_new_session=False,
                  pass_fds=(), *, user=None, group=None, extra_groups=None,
-                 encoding=None, errors=None, text=None, umask=-1, pipesize=-1):
+                 encoding=None, errors=None, text=None, umask=-1, pipesize=-1,
+                 wimpslot=None):
         """Create new Popen instance."""
         _cleanup()
         # Held while anything is calling waitpid before returncode has been
@@ -1016,9 +1014,23 @@ class Popen(object):
             if uid < 0:
                 raise ValueError(f"User ID cannot be negative, got {uid}")
 
-        try:
-            if p2cwrite != -1:
-                self.stdin = io.open(p2cwrite, 'wb', bufsize)
+        if _riscos:
+            cmd = ' '.join(escape_args(self.args))
+            #print("cmd: {}".format(cmd))
+            if cwd:
+                flags = 1
+                self._task_id = \
+                    swi.swi('TaskRunner_Run','isis;i', 1, cmd,
+                            wimpslot if wimpslot else 16*1024, cwd )
+            else:
+                self._task_id = \
+                    swi.swi('TaskRunner_Run','isi0;i', 0, cmd,
+                            wimpslot if wimpslot else 16*1024 )
+
+            self._child_created = True
+
+            if stdin is not None:
+                self.stdin = TaskRunnerInput(self._task_id)
                 if self.text_mode:
                     self.stdin = io.TextIOWrapper(self.stdin,
                             write_through=True,
@@ -1033,9 +1045,25 @@ class Popen(object):
                             encoding=encoding, errors=errors)
             return
 
+
         try:
             if p2cwrite != -1:
                 self.stdin = io.open(p2cwrite, 'wb', bufsize)
+                if self.text_mode:
+                    self.stdin = io.TextIOWrapper(self.stdin, write_through=True,
+                            line_buffering=line_buffering,
+                            encoding=encoding, errors=errors)
+            if c2pread != -1:
+                self.stdout = io.open(c2pread, 'rb', bufsize)
+
+            if stdout is not None:
+                self._output_redirected = True
+                self.stdout = TaskRunnerOutput(self._task_id)
+                if self.text_mode:
+                    self.stdout = io.TextIOWrapper(self.stdout,
+                            encoding=encoding, errors=errors)
+            return
+
             if errread != -1:
                 self.stderr = io.open(errread, 'rb', bufsize)
                 if self.text_mode:
