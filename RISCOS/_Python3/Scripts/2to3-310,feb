@@ -1,4 +1,4 @@
-python38 -xx Python3:Scripts.2to3-38 %*0
+python310 -xx Python3:Scripts.2to3-310 %*0
 Obey
 import sys
 from lib2to3.main import main

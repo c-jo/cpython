@@ -1,4 +1,4 @@
-python38 -xx Python3:Scripts.pydoc38 %*0
+python310 -xx Python3:Scripts.pydoc310 %*0
 Obey
 
 import pydoc
