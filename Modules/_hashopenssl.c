@@ -28,8 +28,10 @@
 
 #include <openssl/crypto.h>       // FIPS_mode()
 
-#ifndef OPENSSL_THREADS
-#  error "OPENSSL_THREADS is not defined, Python requires thread-safe OpenSSL"
+#ifndef RISCOS
+#  ifndef OPENSSL_THREADS
+#    error "OPENSSL_THREADS is not defined, Python requires thread-safe OpenSSL"
+#  endif
 #endif
 
 #if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(LIBRESSL_VERSION_NUMBER)
