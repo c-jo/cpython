@@ -973,8 +973,9 @@ class PyBuildExt(build_ext):
         # select(2); not on ancient System V
         self.add(Extension('select', ['selectmodule.c']))
 
-        # Memory-mapped files (also works on Win32).
-        self.add(Extension('mmap', ['mmapmodule.c']))
+        if not RISCOS:
+            # Memory-mapped files (also works on Win32).
+            self.add(Extension('mmap', ['mmapmodule.c']))
 
         # Lance Ellinghaus's syslog module
         # syslog daemon interface
@@ -2243,6 +2244,10 @@ class PyBuildExt(build_ext):
 
         elif HOST_PLATFORM == 'riscos':
             extra_link_args.append('-fPIC')
+            extra_link_args.append('-LLibFFI6:')
+            extra_link_args.append('-lffi')
+            extra_compile_args.append('-DRISCOS')
+            include_dirs.append('LibFFI6:')
 
         ext = Extension('_ctypes',
                         include_dirs=include_dirs,
@@ -2552,7 +2557,7 @@ class PyBuildExt(build_ext):
             ))
 
     def detect_nis(self):
-        if MS_WINDOWS or CYGWIN or HOST_PLATFORM == 'qnx6':
+        if MS_WINDOWS or CYGWIN or RISCOS or HOST_PLATFORM == 'qnx6':
             self.missing.append('nis')
             return
 
@@ -2684,7 +2689,8 @@ def main():
         ProcessPoolExecutor = None
 
     sys.modules['concurrent.futures.process'] = DummyProcess
-    validate_tzpath()
+    if not RISCOS:
+        validate_tzpath()
 
     # turn off warnings when deprecated modules are imported
     import warnings
