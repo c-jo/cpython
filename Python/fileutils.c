@@ -1552,6 +1552,7 @@ _Py_fopen_obj(PyObject *path, const char *mode)
 
     Py_DECREF(bytes);
 #endif
+
     if (async_err)
         return NULL;
 
@@ -1560,10 +1561,12 @@ _Py_fopen_obj(PyObject *path, const char *mode)
         return NULL;
     }
 
+#ifndef RISCOS
     if (set_inheritable(fileno(f), 0, 1, NULL) < 0) {
         fclose(f);
         return NULL;
     }
+#endif
     return f;
 }
 
