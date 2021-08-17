@@ -1,5 +1,5 @@
-This is Python version 3.8.7
-============================
+This is Python version 3.8.10
+=============================
 
 .. image:: https://travis-ci.org/python/cpython.svg?branch=3.8
    :alt: CPython build status on Travis CI
@@ -13,12 +13,12 @@ This is Python version 3.8.7
    :alt: CPython code coverage on Codecov
    :target: https://codecov.io/gh/python/cpython/branch/3.8
 
-.. image:: https://img.shields.io/badge/zulip-join_chat-brightgreen.svg
-   :alt: Python Zulip chat
-   :target: https://python.zulipchat.com
+.. image:: https://img.shields.io/badge/discourse-join_chat-brightgreen.svg
+   :alt: Python Discourse chat
+   :target: https://discuss.python.org/
 
 
-Copyright (c) 2001-2020 Python Software Foundation.  All rights reserved.
+Copyright (c) 2001-2021 Python Software Foundation.  All rights reserved.
 
 See the end of this file for further copyright and license information.
 
@@ -246,7 +246,7 @@ See :pep:`569` for Python 3.8 release details.
 Copyright and License Information
 ---------------------------------
 
-Copyright (c) 2001-2020 Python Software Foundation.  All rights reserved.
+Copyright (c) 2001-2021 Python Software Foundation.  All rights reserved.
 
 Copyright (c) 2000 BeOpen.com.  All rights reserved.
 
