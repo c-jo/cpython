@@ -18,12 +18,12 @@ CXX=	cxx
 RM=	X Wipe
 RMFLAGS=~CFR~V
 
-ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")
-	CC=	arm-unknown-riscos-gcc
-	CXX=	arm-unknown-riscos-g++
-	RM=	rm
-	RMFLAGS=-rf
-endif
+#ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")
+#	CC=	arm-unknown-riscos-gcc
+#	CXX=	arm-unknown-riscos-g++
+#	RM=	rm
+#	RMFLAGS=-rf
+#endif
 
 MAINCC=		$(CC)
 LINKCC=		$(PURIFY) $(MAINCC)
@@ -153,10 +153,10 @@ DESTSHARED=	$(BINLIBDEST)/lib-dynload
 # Executable suffix (.exe on Windows and Mac OS X)
 EXE=
 BUILDEXE=
-ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")
-	EXE=,e1f
-	BUILDEXE=,e1f
-endif
+#ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")
+#	EXE=,e1f
+#	BUILDEXE=,e1f
+#endif
 
 # Option to install to strip binaries
 STRIPFLAG=-s
@@ -195,10 +195,10 @@ DISTDIRS=	$(SUBDIRS) $(SUBDIRSTOO) Ext-dummy
 DIST=		$(DISTFILES) $(DISTDIRS)
 
 
-LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
-LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
-#LIBRARY=	libpython38
-#LDLIBRARY=	$(LIBRARY)
+#LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
+#LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
+LIBRARY=	libpython38
+LDLIBRARY=	$(LIBRARY)
 BLDLIBRARY=     $(LDLIBRARY)
 PY3LIBRARY=
 DLLLIBRARY=

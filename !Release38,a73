@@ -66,7 +66,8 @@ def app_copy(src,dst):
 
 python3_target = os.path.join(here, 'dist','Apps','Development','!Python3')
 
-# app_copy(os.path.join(here, 'RISCOS', '_Python3'), python3_target)
+#app_copy(os.path.join(here, 'RISCOS', '_Python3'),
+#         os.path.join(here, 'dist', python3_target)
 
 app_copy(os.path.join(here, 'RISCOS', 'RiscPkg-38'),
          os.path.join(here, 'dist', 'RiscPkg'))

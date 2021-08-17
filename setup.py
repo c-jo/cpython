@@ -1600,9 +1600,9 @@ class PyBuildExt(build_ext):
             self.missing.append('_bz2')
 
         # LZMA compression support.
-        if RISCOS and os.path.exists('LibLZMA:h.lzma'):
+        if RISCOS and os.path.exists('LibLZMA5:h.lzma'):
                 self.add(Extension('_lzma', ['_lzmamodule.c'],
-                                   include_dirs=['LibLZMA:'],
+                                   include_dirs=['LibLZMA5:'],
                                    libraries=['lzma']))
         elif self.compiler.find_library_file(self.lib_dirs, 'lzma'):
             self.add(Extension('_lzma', ['_lzmamodule.c'],

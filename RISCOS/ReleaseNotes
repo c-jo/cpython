@@ -1,4 +1,4 @@
-Python 3.8.5 for RISC OS (release 5)
+Python 3.8.8 for RISC OS (release 1)
 ------------------------
 Port by Chris Johns, development supported by RISC OS Developments Ltd.
 
@@ -124,3 +124,5 @@ Overhaul of the initial path setup code - not works more like the Unix one. Envi
 3.8.5-5
 Bug fixes.
 
+3.8.8-1
+Update to Python 3.8.8

@@ -294,26 +294,30 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
     }
 #endif
 
-    fflush(sys_stdout);
-    if (prompt) {
-        fprintf(stderr, "%s", prompt);
-    }
-    fflush(stderr);
-
 #ifdef RISCOS
+   if (prompt)
+       _swix(OS_Write0, _IN(0), prompt);
+
+   char linebuf[1024];
    int got, flags;
    if (0 == _swix(OS_ReadLine32, _INR(0,4) | _OUT(1) | _OUT(_FLAGS),
-                                 p, n-2, 0x00, 0xff, 0,
+                                 linebuf, 1022, 0x00, 0xff, 0,
                                  &got, &flags))
    {
      if (flags & _C) // Escape
-         *p = '\0';
+         linebuf[0] = '\0';
        else
-         strcpy(p+got, "\n");
+         { linebuf[got] = '\n'; linebuf[got+1] = '\0'; }
    }
    else // Error
-       *p = '\0';
-#else
+       linebuf[0] = '\0';
+
+   char *r = PyMem_Malloc(strlen(linebuf)+1);
+   strcpy(r, linebuf);
+   return r;
+
+#endif
+
     switch (my_fgets(tstate, p, (int)n, sys_stdin)) {
     case 0: /* Normal case */
         break;
@@ -326,7 +330,12 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
         *p = '\0';
         break;
     }
-#endif
+
+    fflush(sys_stdout);
+    if (prompt) {
+        fprintf(stderr, "%s", prompt);
+    }
+    fflush(stderr);
 
     n = 0;
     p = NULL;
