@@ -2073,7 +2073,7 @@ class PyBuildExt(build_ext):
                     ffi_inc_dirs.append('/usr/include/ffi')
 
         if RISCOS:
-            ffi_inc = ['<LibFFI6$Dir>']
+            ffi_inc = '<LibFFI6$Dir>'
             ffi_lib = 'ffi'
 
         if not ffi_inc:
@@ -2081,7 +2081,8 @@ class PyBuildExt(build_ext):
             if found:
                 ffi_inc = found[0]
         if ffi_inc:
-            ffi_h = ffi_inc + '/ffi.h'
+            ffi_h = ffi_inc + ('.h.ffi' if RISCOS else 'ffi.h')
+
             if not os.path.exists(ffi_h):
                 ffi_inc = None
                 print('Header file {} does not exist'.format(ffi_h))
