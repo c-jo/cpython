@@ -28,15 +28,20 @@ import marshal
 
 
 _MS_WINDOWS = (sys.platform == 'win32')
+_RISCOS = (sys.platform == 'riscos')
+
 if _MS_WINDOWS:
     import nt as _os
     import winreg
+elif _RISCOS:
+    import riscos as _os
 else:
     import posix as _os
 
-
 if _MS_WINDOWS:
     path_separators = ['\\', '/']
+elif _RISCOS:
+    path_separators = ['.']
 else:
     path_separators = ['/']
 # Assumption made in _path_join()
@@ -116,7 +121,6 @@ if _MS_WINDOWS:
             # Avoid losing the root's trailing separator when joining with nothing
             return root + path_sep
         return root + path_sep.join(path)
-
 else:
     def _path_join(*path_parts):
         """Replacement for os.path.join()."""
@@ -170,7 +174,9 @@ if _MS_WINDOWS:
             return False
         root = _os._path_splitroot(path)[0].replace('/', '\\')
         return len(root) > 1 and (root.startswith('\\\\') or root.endswith('\\'))
-
+elif _RISCOS:
+    def _path_isabs(path):
+        return any(c in path for c in '$&')
 else:
     def _path_isabs(path):
         """Replacement for os.path.isabs."""
@@ -182,7 +188,7 @@ def _write_atomic(path, data, mode=0o666):
     Be prepared to handle a FileExistsError if concurrent writing of the
     temporary file is attempted."""
     # id() is used to generate a pseudo-random filename.
-    if sys.platform == 'riscos':
+    if _RISCOS:
         path_tmp = '{}-{}'.format(path, id(path))
     else:
         path_tmp = '{}.{}'.format(path, id(path))
@@ -1527,7 +1533,7 @@ class FileFinder:
             loaders.extend((suffix, loader) for suffix in suffixes)
         self._loaders = loaders
         # Base (directory) path
-        if sys.platform == 'riscos':
+        if _RISCOS:
             self.path = path or '@'
         else:
             self.path = path or '.'
@@ -1571,7 +1577,7 @@ class FileFinder:
             mtime = _path_stat(self.path or _os.getcwd()).st_mtime
         except OSError:
             mtime = -1
-            _bootstrap._verbose_message('_path_stat failed {}'.self.path)
+            _bootstrap._verbose_message('_path_stat failed {}'.format(self.path))
         if mtime != self._path_mtime:
             self._fill_cache()
             self._path_mtime = mtime

@@ -133,7 +133,6 @@ def join(a, *p):
     """Join two or more pathname components, inserting '.' as needed.
     handle file system, special field, disc specifier and absolutes."""
     a = os.fspath(a)
-    #print("a",a,explode(a))
     sep = _get_sep(a)
     fs,sf,disc,abs,path = explode(a)
     try:
@@ -245,10 +244,10 @@ def splitdrive(p):
     It is always true that:
         result[0] + result[1] == p
 
-    On RISC OS, we se drive to mean the filesystem, special fields and media
+    On RISC OS, we use drive to mean the filesystem, special fields and media
     descriptior. Eg. Net#0.254::Server., ADFS:, SDFS::RISCOSPi. In order to
     satisfy the condtion above, the drive may include a trailing . (marking the
-    end of disc specification).
+    end of the disc specification).
     """
     p = os.fspath(p)
 

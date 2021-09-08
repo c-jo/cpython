@@ -23,7 +23,6 @@
 #define PY_RELEASE_SERIAL       0
 
 /* Version as a string */
-<<<<<<< HEAD
 #define PY_VERSION              "3.8.12+"
 /*--end constants--*/
 

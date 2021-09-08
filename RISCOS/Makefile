@@ -497,7 +497,7 @@ RISCOS/swimodule.o: RISCOS/swimodule.c
 
 # RISC OS getpath
 RISCOS/getpath.o: RISCOS/getpath.c
-	$(CC) -c $(PY_CORE_CFLAGS) -DVERSION=\"$(VERSION)\" -DPYTHONPATH=\"\" -DPREFIX=\"<Python3$$Dir>\" -DEXEC_PREFIX=\"<Python3$$Dir>\" -DVPATH=\"\" -o $@ $<
+	$(CC) -c $(PY_CORE_CFLAGS) -DVERSION=\"$(VERSION)\" -DPYTHONPATH=\"\" -DPREFIX=\"\<Python3$$Dir\>\" -DEXEC_PREFIX=\"\<Python3$$Dir\>\" -DVPATH=\"\" -o $@ $<
 #		-DP`REFIX='"$(prefix)"' \
 #		-DEXEC_PREFIX='"$(exec_prefix)"' \
 #		-DVPATH='"$(VPATH)"' \
