@@ -20,7 +20,7 @@ library and will be able to skip this step.)
 
 For third-party packages, search the `Python Package Index
 <https://pypi.org>`_ or try `Google <https://www.google.com>`_ or
-another Web search engine.  Searching for "Python" plus a keyword or two for
+another web search engine.  Searching for "Python" plus a keyword or two for
 your topic of interest will usually find something helpful.
 
 
@@ -319,11 +319,11 @@ Here's a trivial example::
            try:
                arg = q.get(block=False)
            except queue.Empty:
-               print('Worker', threading.currentThread(), end=' ')
+               print('Worker', threading.current_thread(), end=' ')
                print('queue empty')
                break
            else:
-               print('Worker', threading.currentThread(), end=' ')
+               print('Worker', threading.current_thread(), end=' ')
                print('running with argument', arg)
                time.sleep(0.5)
 

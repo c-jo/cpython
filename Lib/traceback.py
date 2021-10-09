@@ -84,14 +84,20 @@ _context_message = (
     "another exception occurred:\n\n")
 
 
-_sentinel = object()
+class _Sentinel:
+    def __repr__(self):
+        return "<implicit>"
 
+_sentinel = _Sentinel()
 
 def _parse_value_tb(exc, value, tb):
     if (value is _sentinel) != (tb is _sentinel):
         raise ValueError("Both or neither of value and tb must be given")
     if value is tb is _sentinel:
-        return exc, exc.__traceback__
+        if exc is not None:
+            return exc, exc.__traceback__
+        else:
+            return None, None
     return value, tb
 
 
@@ -295,9 +301,10 @@ class FrameSummary:
     @property
     def line(self):
         if self._line is None:
-            self._line = linecache.getline(self.filename, self.lineno).strip()
-        return self._line
-
+            if self.lineno is None:
+                return None
+            self._line = linecache.getline(self.filename, self.lineno)
+        return self._line.strip()
 
 def walk_stack(f):
     """Walk a stack yielding the frame and line number for each frame.
@@ -468,10 +475,14 @@ class TracebackException:
       occurred.
     - :attr:`lineno` For syntax errors - the linenumber where the error
       occurred.
+    - :attr:`end_lineno` For syntax errors - the end linenumber where the error
+      occurred. Can be `None` if not present.
     - :attr:`text` For syntax errors - the text where the error
       occurred.
     - :attr:`offset` For syntax errors - the offset into the text where the
       error occurred.
+    - :attr:`end_offset` For syntax errors - the offset into the text where the
+      error occurred. Can be `None` if not present.
     - :attr:`msg` For syntax errors - the compiler error message.
     """
 
@@ -500,8 +511,11 @@ class TracebackException:
             self.filename = exc_value.filename
             lno = exc_value.lineno
             self.lineno = str(lno) if lno is not None else None
+            end_lno = exc_value.end_lineno
+            self.end_lineno = str(end_lno) if end_lno is not None else None
             self.text = exc_value.text
             self.offset = exc_value.offset
+            self.end_offset = exc_value.end_offset
             self.msg = exc_value.msg
         if lookup_lines:
             self._load_lines()
@@ -528,7 +542,9 @@ class TracebackException:
                     cause = None
 
                 if compact:
-                    need_context = cause is None and not e.__suppress_context__
+                    need_context = (cause is None and
+                                    e is not None and
+                                    not e.__suppress_context__)
                 else:
                     need_context = True
                 if (e and e.__context__ is not None
@@ -614,12 +630,20 @@ class TracebackException:
             ltext = rtext.lstrip(' \n\f')
             spaces = len(rtext) - len(ltext)
             yield '    {}\n'.format(ltext)
-            # Convert 1-based column offset to 0-based index into stripped text
-            caret = (self.offset or 0) - 1 - spaces
-            if caret >= 0:
-                # non-space whitespace (likes tabs) must be kept for alignment
-                caretspace = ((c if c.isspace() else ' ') for c in ltext[:caret])
-                yield '    {}^\n'.format(''.join(caretspace))
+
+            if self.offset is not None:
+                offset = self.offset
+                end_offset = self.end_offset if self.end_offset is not None else offset
+                if offset == end_offset or end_offset == -1:
+                    end_offset = offset + 1
+
+                # Convert 1-based column offset to 0-based index into stripped text
+                colno = offset - 1 - spaces
+                end_colno = end_offset - 1 - spaces
+                if colno >= 0:
+                    # non-space whitespace (likes tabs) must be kept for alignment
+                    caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
+                    yield '    {}{}'.format("".join(caretspace), ('^' * (end_colno - colno) + "\n"))
         msg = self.msg or "<no detail available>"
         yield "{}: {}{}\n".format(stype, msg, filename_suffix)
 

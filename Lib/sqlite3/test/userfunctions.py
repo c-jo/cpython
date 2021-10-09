@@ -23,10 +23,13 @@
 
 import unittest
 import unittest.mock
+import gc
 import sqlite3 as sqlite
 
 def func_returntext():
     return "foo"
+def func_returntextwithnull():
+    return "1\x002"
 def func_returnunicode():
     return "bar"
 def func_returnint():
@@ -137,11 +140,21 @@ class AggrSum:
     def finalize(self):
         return self.val
 
+class AggrText:
+    def __init__(self):
+        self.txt = ""
+    def step(self, txt):
+        self.txt = self.txt + txt
+    def finalize(self):
+        return self.txt
+
+
 class FunctionTests(unittest.TestCase):
     def setUp(self):
         self.con = sqlite.connect(":memory:")
 
         self.con.create_function("returntext", 0, func_returntext)
+        self.con.create_function("returntextwithnull", 0, func_returntextwithnull)
         self.con.create_function("returnunicode", 0, func_returnunicode)
         self.con.create_function("returnint", 0, func_returnint)
         self.con.create_function("returnfloat", 0, func_returnfloat)
@@ -184,6 +197,12 @@ class FunctionTests(unittest.TestCase):
         val = cur.fetchone()[0]
         self.assertEqual(type(val), str)
         self.assertEqual(val, "foo")
+
+    def test_func_return_text_with_null_char(self):
+        cur = self.con.cursor()
+        res = cur.execute("select returntextwithnull()").fetchone()[0]
+        self.assertEqual(type(res), str)
+        self.assertEqual(res, "1\x002")
 
     def test_func_return_unicode(self):
         cur = self.con.cursor()
@@ -236,9 +255,11 @@ class FunctionTests(unittest.TestCase):
 
     def test_param_string(self):
         cur = self.con.cursor()
-        cur.execute("select isstring(?)", ("foo",))
-        val = cur.fetchone()[0]
-        self.assertEqual(val, 1)
+        for text in ["foo", str()]:
+            with self.subTest(text=text):
+                cur.execute("select isstring(?)", (text,))
+                val = cur.fetchone()[0]
+                self.assertEqual(val, 1)
 
     def test_param_int(self):
         cur = self.con.cursor()
@@ -275,6 +296,10 @@ class FunctionTests(unittest.TestCase):
         cur.execute("select spam(?, ?)", (1, 2))
         val = cur.fetchone()[0]
         self.assertEqual(val, 2)
+
+    def test_empty_blob(self):
+        cur = self.con.execute("select isblob(x'')")
+        self.assertTrue(cur.fetchone()[0])
 
     # Regarding deterministic functions:
     #
@@ -316,6 +341,22 @@ class FunctionTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.con.create_function("deterministic", 0, int, True)
 
+    def test_function_destructor_via_gc(self):
+        # See bpo-44304: The destructor of the user function can
+        # crash if is called without the GIL from the gc functions
+        dest = sqlite.connect(':memory:')
+        def md5sum(t):
+            return
+
+        dest.create_function("md5", 1, md5sum)
+        x = dest("create table lang (name, first_appeared)")
+        del md5sum, dest
+
+        y = [x]
+        y.append(y)
+
+        del x,y
+        gc.collect()
 
 class AggregateTests(unittest.TestCase):
     def setUp(self):
@@ -341,6 +382,7 @@ class AggregateTests(unittest.TestCase):
         self.con.create_aggregate("checkType", 2, AggrCheckType)
         self.con.create_aggregate("checkTypes", -1, AggrCheckTypes)
         self.con.create_aggregate("mysum", 1, AggrSum)
+        self.con.create_aggregate("aggtxt", 1, AggrText)
 
     def tearDown(self):
         #self.cur.close()
@@ -387,9 +429,9 @@ class AggregateTests(unittest.TestCase):
 
     def test_aggr_check_param_str(self):
         cur = self.con.cursor()
-        cur.execute("select checkType('str', ?)", ("foo",))
+        cur.execute("select checkTypes('str', ?, ?)", ("foo", str()))
         val = cur.fetchone()[0]
-        self.assertEqual(val, 1)
+        self.assertEqual(val, 2)
 
     def test_aggr_check_param_int(self):
         cur = self.con.cursor()
@@ -428,6 +470,20 @@ class AggregateTests(unittest.TestCase):
         cur.execute("select mysum(i) from test")
         val = cur.fetchone()[0]
         self.assertEqual(val, 60)
+
+    def test_aggr_no_match(self):
+        cur = self.con.execute("select mysum(i) from (select 1 as i) where i == 0")
+        val = cur.fetchone()[0]
+        self.assertIsNone(val)
+
+    def test_aggr_text(self):
+        cur = self.con.cursor()
+        for txt in ["foo", "1\x002"]:
+            with self.subTest(txt=txt):
+                cur.execute("select aggtxt(?) from test", (txt,))
+                val = cur.fetchone()[0]
+                self.assertEqual(val, txt)
+
 
 class AuthorizerTests(unittest.TestCase):
     @staticmethod

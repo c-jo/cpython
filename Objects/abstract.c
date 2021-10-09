@@ -6,7 +6,7 @@
 #include "pycore_object.h"        // _Py_CheckSlotResult()
 #include "pycore_pyerrors.h"      // _PyErr_Occurred()
 #include "pycore_pystate.h"       // _PyThreadState_GET()
-#include "pycore_unionobject.h"   // _Py_UnionType && _Py_Union()
+#include "pycore_unionobject.h"   // _PyUnion_Check()
 #include <ctype.h>
 #include <stddef.h>               // offsetof()
 #include "longintrepr.h"
@@ -292,6 +292,85 @@ PyObject_CheckBuffer(PyObject *obj)
     return (tp_as_buffer != NULL && tp_as_buffer->bf_getbuffer != NULL);
 }
 
+
+/* We release the buffer right after use of this function which could
+   cause issues later on.  Don't use these functions in new code.
+ */
+int
+PyObject_CheckReadBuffer(PyObject *obj)
+{
+    PyBufferProcs *pb = Py_TYPE(obj)->tp_as_buffer;
+    Py_buffer view;
+
+    if (pb == NULL ||
+        pb->bf_getbuffer == NULL)
+        return 0;
+    if ((*pb->bf_getbuffer)(obj, &view, PyBUF_SIMPLE) == -1) {
+        PyErr_Clear();
+        return 0;
+    }
+    PyBuffer_Release(&view);
+    return 1;
+}
+
+static int
+as_read_buffer(PyObject *obj, const void **buffer, Py_ssize_t *buffer_len)
+{
+    Py_buffer view;
+
+    if (obj == NULL || buffer == NULL || buffer_len == NULL) {
+        null_error();
+        return -1;
+    }
+    if (PyObject_GetBuffer(obj, &view, PyBUF_SIMPLE) != 0)
+        return -1;
+
+    *buffer = view.buf;
+    *buffer_len = view.len;
+    PyBuffer_Release(&view);
+    return 0;
+}
+
+int
+PyObject_AsCharBuffer(PyObject *obj,
+                      const char **buffer,
+                      Py_ssize_t *buffer_len)
+{
+    return as_read_buffer(obj, (const void **)buffer, buffer_len);
+}
+
+int PyObject_AsReadBuffer(PyObject *obj,
+                          const void **buffer,
+                          Py_ssize_t *buffer_len)
+{
+    return as_read_buffer(obj, buffer, buffer_len);
+}
+
+int PyObject_AsWriteBuffer(PyObject *obj,
+                           void **buffer,
+                           Py_ssize_t *buffer_len)
+{
+    PyBufferProcs *pb;
+    Py_buffer view;
+
+    if (obj == NULL || buffer == NULL || buffer_len == NULL) {
+        null_error();
+        return -1;
+    }
+    pb = Py_TYPE(obj)->tp_as_buffer;
+    if (pb == NULL ||
+        pb->bf_getbuffer == NULL ||
+        ((*pb->bf_getbuffer)(obj, &view, PyBUF_WRITABLE) != 0)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "expected a writable bytes-like object");
+        return -1;
+    }
+
+    *buffer = view.buf;
+    *buffer_len = view.len;
+    PyBuffer_Release(&view);
+    return 0;
+}
 
 /* Buffer C-API for Python 3.0 */
 
@@ -882,10 +961,8 @@ static PyObject *
 ternary_op(PyObject *v,
            PyObject *w,
            PyObject *z,
-           const int op_slot
-#ifndef NDEBUG
-           , const char *op_name
-#endif
+           const int op_slot,
+           const char *op_name
            )
 {
     PyNumberMethods *mv = Py_TYPE(v)->tp_as_number;
@@ -955,29 +1032,24 @@ ternary_op(PyObject *v,
     if (z == Py_None) {
         PyErr_Format(
             PyExc_TypeError,
-            "unsupported operand type(s) for ** or pow(): "
+            "unsupported operand type(s) for %.100s: "
             "'%.100s' and '%.100s'",
+            op_name,
             Py_TYPE(v)->tp_name,
             Py_TYPE(w)->tp_name);
     }
     else {
         PyErr_Format(
             PyExc_TypeError,
-            "unsupported operand type(s) for pow(): "
+            "unsupported operand type(s) for %.100s: "
             "'%.100s', '%.100s', '%.100s'",
+            op_name,
             Py_TYPE(v)->tp_name,
             Py_TYPE(w)->tp_name,
             Py_TYPE(z)->tp_name);
     }
     return NULL;
 }
-
-#ifdef NDEBUG
-#  define TERNARY_OP(v, w, z, op_slot, op_name) ternary_op(v, w, z, op_slot)
-#else
-#  define TERNARY_OP(v, w, z, op_slot, op_name) ternary_op(v, w, z, op_slot, op_name)
-#endif
-
 
 #define BINARY_FUNC(func, op, op_name) \
     PyObject * \
@@ -1077,7 +1149,7 @@ PyNumber_Remainder(PyObject *v, PyObject *w)
 PyObject *
 PyNumber_Power(PyObject *v, PyObject *w, PyObject *z)
 {
-    return TERNARY_OP(v, w, z, NB_SLOT(nb_power), "** or pow()");
+    return ternary_op(v, w, z, NB_SLOT(nb_power), "** or pow()");
 }
 
 /* Binary in-place operators */
@@ -1138,6 +1210,24 @@ binary_iop(PyObject *v, PyObject *w, const int iop_slot, const int op_slot,
         return binop_type_error(v, w, op_name);
     }
     return result;
+}
+
+static PyObject *
+ternary_iop(PyObject *v, PyObject *w, PyObject *z, const int iop_slot, const int op_slot,
+                const char *op_name)
+{
+    PyNumberMethods *mv = Py_TYPE(v)->tp_as_number;
+    if (mv != NULL) {
+        ternaryfunc slot = NB_TERNOP(mv, iop_slot);
+        if (slot) {
+            PyObject *x = (slot)(v, w, z);
+            if (x != Py_NotImplemented) {
+                return x;
+            }
+            Py_DECREF(x);
+        }
+    }
+    return ternary_op(v, w, z, op_slot, op_name);
 }
 
 #define INPLACE_BINOP(func, iop, op, op_name) \
@@ -1237,13 +1327,8 @@ PyNumber_InPlaceRemainder(PyObject *v, PyObject *w)
 PyObject *
 PyNumber_InPlacePower(PyObject *v, PyObject *w, PyObject *z)
 {
-    if (Py_TYPE(v)->tp_as_number &&
-        Py_TYPE(v)->tp_as_number->nb_inplace_power != NULL) {
-        return TERNARY_OP(v, w, z, NB_SLOT(nb_inplace_power), "**=");
-    }
-    else {
-        return TERNARY_OP(v, w, z, NB_SLOT(nb_power), "**=");
-    }
+    return ternary_iop(v, w, z, NB_SLOT(nb_inplace_power),
+                                NB_SLOT(nb_power), "**=");
 }
 
 
@@ -2523,7 +2608,7 @@ object_isinstance(PyObject *inst, PyObject *cls)
     }
     else {
         if (!check_class(cls,
-            "isinstance() arg 2 must be a type, a tuple of types or a union"))
+            "isinstance() arg 2 must be a type, a tuple of types, or a union"))
             return -1;
         retval = _PyObject_LookupAttrId(inst, &PyId___class__, &icls);
         if (icls != NULL) {
@@ -2617,11 +2702,9 @@ recursive_issubclass(PyObject *derived, PyObject *cls)
                      "issubclass() arg 1 must be a class"))
         return -1;
 
-    PyTypeObject *type = Py_TYPE(cls);
-    int is_union = (PyType_Check(type) && type == &_Py_UnionType);
-    if (!is_union && !check_class(cls,
+    if (!_PyUnion_Check(cls) && !check_class(cls,
                             "issubclass() arg 2 must be a class,"
-                            " a tuple of classes, or a union.")) {
+                            " a tuple of classes, or a union")) {
         return -1;
     }
 
@@ -2732,12 +2815,41 @@ PyObject_GetIter(PyObject *o)
     }
 }
 
-#undef PyIter_Check
+PyObject *
+PyObject_GetAIter(PyObject *o) {
+    PyTypeObject *t = Py_TYPE(o);
+    unaryfunc f;
 
-int PyIter_Check(PyObject *obj)
+    if (t->tp_as_async == NULL || t->tp_as_async->am_aiter == NULL) {
+        return type_error("'%.200s' object is not an async iterable", o);
+    }
+    f = t->tp_as_async->am_aiter;
+    PyObject *it = (*f)(o);
+    if (it != NULL && !PyAIter_Check(it)) {
+        PyErr_Format(PyExc_TypeError,
+                     "aiter() returned not an async iterator of type '%.100s'",
+                     Py_TYPE(it)->tp_name);
+        Py_DECREF(it);
+        it = NULL;
+    }
+    return it;
+}
+
+int
+PyIter_Check(PyObject *obj)
 {
-    return Py_TYPE(obj)->tp_iternext != NULL &&
-           Py_TYPE(obj)->tp_iternext != &_PyObject_NextNotImplemented;
+    PyTypeObject *tp = Py_TYPE(obj);
+    return (tp->tp_iternext != NULL &&
+            tp->tp_iternext != &_PyObject_NextNotImplemented);
+}
+
+int
+PyAIter_Check(PyObject *obj)
+{
+    PyTypeObject *tp = Py_TYPE(obj);
+    return (tp->tp_as_async != NULL &&
+            tp->tp_as_async->am_anext != NULL &&
+            tp->tp_as_async->am_anext != &_PyObject_NextNotImplemented);
 }
 
 /* Return next item.
@@ -2769,9 +2881,7 @@ PyIter_Send(PyObject *iter, PyObject *arg, PyObject **result)
     _Py_IDENTIFIER(send);
     assert(arg != NULL);
     assert(result != NULL);
-    if (PyType_HasFeature(Py_TYPE(iter), Py_TPFLAGS_HAVE_AM_SEND)) {
-        assert (Py_TYPE(iter)->tp_as_async != NULL);
-        assert (Py_TYPE(iter)->tp_as_async->am_send != NULL);
+    if (Py_TYPE(iter)->tp_as_async && Py_TYPE(iter)->tp_as_async->am_send) {
         PySendResult res = Py_TYPE(iter)->tp_as_async->am_send(iter, arg, result);
         assert(_Py_CheckSlotResult(iter, "am_send", res != PYGEN_ERROR));
         return res;

@@ -45,7 +45,7 @@ Module interface:
 - socket.if_nameindex() -> list of tuples (if_index, if_name)
 - socket.if_nametoindex(name) -> corresponding interface index
 - socket.if_indextoname(index) -> corresponding interface name
-- an Internet socket address is a pair (hostname, port)
+- an internet socket address is a pair (hostname, port)
   where hostname can be anything recognized by gethostbyname()
   (including the dd.dd.dd.dd notation) and port is in host byte order
 - where a hostname is returned, the dd.dd.dd.dd notation is used
@@ -151,9 +151,6 @@ getblocking() -- return True if socket is blocking, False if non-blocking\n\
 setsockopt(level, optname, value[, optlen]) -- set socket options\n\
 settimeout(None | float) -- set or clear the timeout\n\
 shutdown(how) -- shut down traffic in one or both directions\n\
-if_nameindex() -- return all network interface indices and names\n\
-if_nametoindex(name) -- return the corresponding interface index\n\
-if_indextoname(index) -- return the corresponding interface name\n\
 \n\
  [*] not available on all platforms!");
 
@@ -1520,10 +1517,10 @@ makesockaddr(SOCKET_T sockfd, struct sockaddr *addr, size_t addrlen, int proto)
 #ifdef CAN_J1939
           case CAN_J1939:
           {
-              return Py_BuildValue("O&KkB", PyUnicode_DecodeFSDefault,
+              return Py_BuildValue("O&KIB", PyUnicode_DecodeFSDefault,
                                           ifname,
-                                          a->can_addr.j1939.name,
-                                          a->can_addr.j1939.pgn,
+                                          (unsigned long long)a->can_addr.j1939.name,
+                                          (unsigned int)a->can_addr.j1939.pgn,
                                           a->can_addr.j1939.addr);
           }
 #endif /* CAN_J1939 */
@@ -2214,13 +2211,13 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
             PyObject *interfaceName;
             struct ifreq ifr;
             Py_ssize_t len;
-            uint64_t j1939_name;
-            uint32_t j1939_pgn;
+            unsigned long long j1939_name; /* at least 64 bits */
+            unsigned int j1939_pgn; /* at least 32 bits */
             uint8_t j1939_addr;
 
             struct sockaddr_can *addr = &addrbuf->can;
 
-            if (!PyArg_ParseTuple(args, "O&KkB", PyUnicode_FSConverter,
+            if (!PyArg_ParseTuple(args, "O&KIB", PyUnicode_FSConverter,
                                               &interfaceName,
                                               &j1939_name,
                                               &j1939_pgn,
@@ -2248,8 +2245,8 @@ getsockaddrarg(PySocketSockObject *s, PyObject *args,
 
             addr->can_family = AF_CAN;
             addr->can_ifindex = ifr.ifr_ifindex;
-            addr->can_addr.j1939.name = j1939_name;
-            addr->can_addr.j1939.pgn = j1939_pgn;
+            addr->can_addr.j1939.name = (uint64_t)j1939_name;
+            addr->can_addr.j1939.pgn = (uint32_t)j1939_pgn;
             addr->can_addr.j1939.addr = j1939_addr;
 
             *len_ret = sizeof(*addr);
@@ -5514,7 +5511,7 @@ sock_decode_hostname(const char *name)
 #ifdef MS_WINDOWS
     /* Issue #26227: gethostbyaddr() returns a string encoded
      * to the ANSI code page */
-    return PyUnicode_DecodeFSDefault(name);
+    return PyUnicode_DecodeMBCS(name, strlen(name), "surrogatepass");
 #else
     /* Decode from UTF-8 */
     return PyUnicode_FromString(name);
@@ -7935,6 +7932,9 @@ PyInit__socket(void)
 #ifdef  IPPROTO_BIP
     PyModule_AddIntMacro(m, IPPROTO_BIP);
 #endif
+#ifdef  IPPROTO_MPTCP
+    PyModule_AddIntMacro(m, IPPROTO_MPTCP);
+#endif
 /**/
 #ifdef  IPPROTO_RAW
     PyModule_AddIntMacro(m, IPPROTO_RAW);
@@ -8028,6 +8028,9 @@ PyInit__socket(void)
 #endif
 #ifdef  IP_RECVRETOPTS
     PyModule_AddIntMacro(m, IP_RECVRETOPTS);
+#endif
+#ifdef  IP_RECVTOS
+    PyModule_AddIntMacro(m, IP_RECVTOS);
 #endif
 #ifdef  IP_RECVDSTADDR
     PyModule_AddIntMacro(m, IP_RECVDSTADDR);
@@ -8160,6 +8163,10 @@ PyInit__socket(void)
 #endif
 #ifdef  TCP_KEEPIDLE
     PyModule_AddIntMacro(m, TCP_KEEPIDLE);
+#endif
+    /* TCP_KEEPALIVE is OSX's TCP_KEEPIDLE equivalent */
+#if defined(__APPLE__) && defined(TCP_KEEPALIVE)
+    PyModule_AddIntMacro(m, TCP_KEEPALIVE);
 #endif
 #ifdef  TCP_KEEPINTVL
     PyModule_AddIntMacro(m, TCP_KEEPINTVL);

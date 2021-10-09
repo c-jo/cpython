@@ -1,4 +1,3 @@
-from test.support import run_unittest
 from test.support.import_helper import unload, CleanImport
 from test.support.warnings_helper import check_warnings
 import unittest
@@ -498,7 +497,8 @@ class ImportlibMigrationTests(unittest.TestCase):
 
     def check_deprecated(self):
         return check_warnings(
-            ("This emulation is deprecated, use 'importlib' instead",
+            ("This emulation is deprecated and slated for removal in "
+             "Python 3.12; use 'importlib' instead",
              DeprecationWarning))
 
     def test_importer_deprecated(self):
@@ -579,9 +579,7 @@ class ImportlibMigrationTests(unittest.TestCase):
             self.assertEqual(len(w.warnings), 0)
 
 
-def test_main():
-    run_unittest(PkgutilTests, PkgutilPEP302Tests, ExtendPathTests,
-                 NestedNamespacePackageTest, ImportlibMigrationTests)
+def tearDownModule():
     # this is necessary if test is run repeated (like when finding leaks)
     import zipimport
     import importlib
@@ -590,4 +588,4 @@ def test_main():
 
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

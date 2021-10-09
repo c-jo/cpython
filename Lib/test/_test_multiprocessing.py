@@ -611,6 +611,7 @@ class _TestProcess(BaseTestCase):
         del c
         p.start()
         p.join()
+        gc.collect()  # For PyPy or other GCs.
         self.assertIs(wr(), None)
         self.assertEqual(q.get(), 5)
         close_queue(q)
@@ -826,7 +827,7 @@ class _TestSubclassingProcess(BaseTestCase):
         proc = self.Process(target=self._test_stderr_flush, args=(testfn,))
         proc.start()
         proc.join()
-        with open(testfn, 'r') as f:
+        with open(testfn, encoding="utf-8") as f:
             err = f.read()
             # The whole traceback was printed
             self.assertIn("ZeroDivisionError", err)
@@ -836,14 +837,14 @@ class _TestSubclassingProcess(BaseTestCase):
     @classmethod
     def _test_stderr_flush(cls, testfn):
         fd = os.open(testfn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        sys.stderr = open(fd, 'w', closefd=False)
+        sys.stderr = open(fd, 'w', encoding="utf-8", closefd=False)
         1/0 # MARKER
 
 
     @classmethod
     def _test_sys_exit(cls, reason, testfn):
         fd = os.open(testfn, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        sys.stderr = open(fd, 'w', closefd=False)
+        sys.stderr = open(fd, 'w', encoding="utf-8", closefd=False)
         sys.exit(reason)
 
     def test_sys_exit(self):
@@ -864,7 +865,7 @@ class _TestSubclassingProcess(BaseTestCase):
             join_process(p)
             self.assertEqual(p.exitcode, 1)
 
-            with open(testfn, 'r') as f:
+            with open(testfn, encoding="utf-8") as f:
                 content = f.read()
             self.assertEqual(content.rstrip(), str(reason))
 
@@ -1118,7 +1119,7 @@ class _TestQueue(BaseTestCase):
     def test_no_import_lock_contention(self):
         with os_helper.temp_cwd():
             module_name = 'imported_by_an_imported_module'
-            with open(module_name + '.py', 'w') as f:
+            with open(module_name + '.py', 'w', encoding="utf-8") as f:
                 f.write("""if 1:
                     import multiprocessing
 
@@ -2286,6 +2287,16 @@ class _TestContainers(BaseTestCase):
         self.assertIsInstance(outer[0], list)  # Not a ListProxy
         self.assertEqual(outer[-1][-1]['feed'], 3)
 
+    def test_nested_queue(self):
+        a = self.list() # Test queue inside list
+        a.append(self.Queue())
+        a[0].put(123)
+        self.assertEqual(a[0].get(), 123)
+        b = self.dict() # Test queue inside dict
+        b[0] = self.Queue()
+        b[0].put(456)
+        self.assertEqual(b[0].get(), 456)
+
     def test_namespace(self):
         n = self.Namespace()
         n.name = 'Bob'
@@ -2657,6 +2668,7 @@ class _TestPool(BaseTestCase):
         self.pool.map(identity, objs)
 
         del objs
+        gc.collect()  # For PyPy or other GCs.
         time.sleep(DELTA)  # let threaded cleanup code run
         self.assertEqual(set(wr() for wr in refs), {None})
         # With a process pool, copies of the objects are returned, check
@@ -3779,7 +3791,6 @@ class _TestSharedMemory(BaseTestCase):
         pickled_sms = pickle.dumps(sms)
         sms2 = pickle.loads(pickled_sms)
         self.assertEqual(sms.name, sms2.name)
-        self.assertEqual(sms.size, sms2.size)
         self.assertEqual(bytes(sms.buf[0:6]), bytes(sms2.buf[0:6]), b'pickle')
 
         # Modify contents of shared memory segment through memoryview.
@@ -4167,6 +4178,13 @@ class _TestSharedMemory(BaseTestCase):
                                      " a process was abruptly terminated.")
 
             if os.name == 'posix':
+                # Without this line it was raising warnings like:
+                #   UserWarning: resource_tracker:
+                #   There appear to be 1 leaked shared_memory
+                #   objects to clean up at shutdown
+                # See: https://bugs.python.org/issue45209
+                resource_tracker.unregister(f"/{name}", "shared_memory")
+
                 # A warning was emitted by the subprocess' own
                 # resource_tracker (on Windows, shared memory segments
                 # are released automatically by the OS).
@@ -4188,6 +4206,7 @@ class _TestFinalize(BaseTestCase):
         util._finalizer_registry.clear()
 
     def tearDown(self):
+        gc.collect()  # For PyPy or other GCs.
         self.assertFalse(util._finalizer_registry)
         util._finalizer_registry.update(self.registry_backup)
 
@@ -4199,12 +4218,14 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
+        gc.collect()  # For PyPy or other GCs.
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))
         close_b()       # triggers callback for b
         close_b()       # does nothing because callback has already been called
         del b           # does nothing because callback has already been called
+        gc.collect()  # For PyPy or other GCs.
 
         c = Foo()
         util.Finalize(c, conn.send, args=('c',))

@@ -125,11 +125,11 @@ class RegressionTests(unittest.TestCase):
         con = sqlite.connect(":memory:",detect_types=sqlite.PARSE_DECLTYPES)
         con.execute("create table foo(bar timestamp)")
         con.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
-        con.execute(SELECT)
+        con.execute(SELECT).close()
         con.execute("drop table foo")
         con.execute("create table foo(bar integer)")
         con.execute("insert into foo(bar) values (5)")
-        con.execute(SELECT)
+        con.execute(SELECT).close()
 
     def test_bind_mutating_list(self):
         # Issue41662: Crash when mutate a list of parameters during iteration.
@@ -409,6 +409,10 @@ class RegressionTests(unittest.TestCase):
             self.con.execute("select 1")  # trigger seg fault
             method(None)
 
+    def test_return_empty_bytestring(self):
+        cur = self.con.execute("select X''")
+        val = cur.fetchone()[0]
+        self.assertEqual(val, b'')
 
 
 def suite():

@@ -337,6 +337,7 @@ class socket(_socket.socket):
             buffer = io.BufferedWriter(raw, buffering)
         if binary:
             return buffer
+        encoding = io.text_encoding(encoding)
         text = io.TextIOWrapper(buffer, encoding, errors, newline)
         text.mode = mode
         return text
@@ -781,8 +782,9 @@ def getfqdn(name=''):
     An empty argument is interpreted as meaning the local host.
 
     First the hostname returned by gethostbyaddr() is checked, then
-    possibly existing aliases. In case no FQDN is available, hostname
-    from gethostname() is returned.
+    possibly existing aliases. In case no FQDN is available and `name`
+    was given, it is returned unchanged. If `name` was empty or '0.0.0.0',
+    hostname from gethostname() is returned.
     """
     name = name.strip()
     if not name or name == '0.0.0.0':

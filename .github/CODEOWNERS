@@ -91,6 +91,10 @@ Parser/asdl.py                @isidentical
 Parser/asdl_c.py              @isidentical
 Lib/ast.py                    @isidentical
 
+# Mock
+/Lib/unittest/mock.py         @cjw296
+/Lib/unittest/test/testmock/* @cjw296
+
 # SQLite 3
 **/*sqlite*                   @berkerpeksag
 
@@ -124,7 +128,7 @@ Lib/ast.py                    @isidentical
 
 **/*idlelib*                  @terryjreedy
 
-**/*typing*                   @gvanrossum @ilevkivskyi
+**/*typing*                   @gvanrossum @Fidget-Spinner
 
 **/*asyncore                  @giampaolo
 **/*asynchat                  @giampaolo

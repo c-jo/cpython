@@ -344,7 +344,7 @@ class TestTimeZone(unittest.TestCase):
         with self.assertRaises(TypeError): timezone(ZERO) < timezone(ZERO)
         self.assertIn(timezone(ZERO), {timezone(ZERO)})
         self.assertTrue(timezone(ZERO) != None)
-        self.assertFalse(timezone(ZERO) ==  None)
+        self.assertFalse(timezone(ZERO) == None)
 
         tz = timezone(ZERO)
         self.assertTrue(tz == ALWAYS_EQ)
@@ -2609,6 +2609,7 @@ class TestDateTime(TestDate):
 
         with self.assertRaises(ValueError): strptime("-2400", "%z")
         with self.assertRaises(ValueError): strptime("-000", "%z")
+        with self.assertRaises(ValueError): strptime("z", "%z")
 
     def test_strptime_single_digit(self):
         # bpo-34903: Check that single digit dates and times are allowed.

@@ -894,6 +894,29 @@ class TraceTestCase(unittest.TestCase):
              (4, 'line'),
              (4, 'return')])
 
+    def test_nested_ifs_with_and(self):
+
+        def func():
+            if A:
+                if B:
+                    if C:
+                        if D:
+                            return False
+                else:
+                    return False
+            elif E and F:
+                return True
+
+        A = B = True
+        C = False
+
+        self.run_and_compare(func,
+            [(0, 'call'),
+             (1, 'line'),
+             (2, 'line'),
+             (3, 'line'),
+             (3, 'return')])
+
     def test_nested_try_if(self):
 
         def func():
@@ -936,10 +959,11 @@ class TraceTestCase(unittest.TestCase):
              (-4, 'line'),
              (-4, 'return'),
              (2, 'line'),
+             (1, 'line'),
              (-3, 'call'),
              (-2, 'line'),
              (-2, 'return'),
-             (2, 'return')])
+             (1, 'return')])
 
     def test_if_false_in_try_except(self):
 
@@ -974,6 +998,145 @@ class TraceTestCase(unittest.TestCase):
              (3, 'line'),
              (3, 'return'),
              (1, 'return')])
+
+    def test_try_in_try(self):
+        def func():
+            try:
+                try:
+                    pass
+                except Exception as ex:
+                    pass
+            except Exception:
+                pass
+
+        self.run_and_compare(func,
+            [(0, 'call'),
+             (1, 'line'),
+             (2, 'line'),
+             (3, 'line'),
+             (3, 'return')])
+
+    def test_if_in_if_in_if(self):
+        def func(a=0, p=1, z=1):
+            if p:
+                if a:
+                    if z:
+                        pass
+                    else:
+                        pass
+            else:
+                pass
+
+        self.run_and_compare(func,
+            [(0, 'call'),
+             (1, 'line'),
+             (2, 'line'),
+             (2, 'return')])
+
+    def test_early_exit_with(self):
+
+        class C:
+            def __enter__(self):
+                return self
+            def __exit__(*args):
+                pass
+
+        def func_break():
+            for i in (1,2):
+                with C():
+                    break
+            pass
+
+        def func_return():
+            with C():
+                return
+
+        self.run_and_compare(func_break,
+            [(0, 'call'),
+             (1, 'line'),
+             (2, 'line'),
+             (-5, 'call'),
+             (-4, 'line'),
+             (-4, 'return'),
+             (3, 'line'),
+             (2, 'line'),
+             (-3, 'call'),
+             (-2, 'line'),
+             (-2, 'return'),
+             (4, 'line'),
+             (4, 'return')])
+
+        self.run_and_compare(func_return,
+            [(0, 'call'),
+             (1, 'line'),
+             (-11, 'call'),
+             (-10, 'line'),
+             (-10, 'return'),
+             (2, 'line'),
+             (1, 'line'),
+             (-9, 'call'),
+             (-8, 'line'),
+             (-8, 'return'),
+             (1, 'return')])
+
+    def test_flow_converges_on_same_line(self):
+
+        def foo(x):
+            if x:
+                try:
+                    1/(x - 1)
+                except ZeroDivisionError:
+                    pass
+            return x
+
+        def func():
+            for i in range(2):
+                foo(i)
+
+        self.run_and_compare(func,
+            [(0, 'call'),
+             (1, 'line'),
+             (2, 'line'),
+             (-8, 'call'),
+             (-7, 'line'),
+             (-2, 'line'),
+             (-2, 'return'),
+             (1, 'line'),
+             (2, 'line'),
+             (-8, 'call'),
+             (-7, 'line'),
+             (-6, 'line'),
+             (-5, 'line'),
+             (-5, 'exception'),
+             (-4, 'line'),
+             (-3, 'line'),
+             (-2, 'line'),
+             (-2, 'return'),
+             (1, 'line'),
+             (1, 'return')])
+
+    def test_no_tracing_of_named_except_cleanup(self):
+
+        def func():
+            x = 0
+            try:
+                1/x
+            except ZeroDivisionError as error:
+                if x:
+                    raise
+            return "done"
+
+        self.run_and_compare(func,
+        [(0, 'call'),
+            (1, 'line'),
+            (2, 'line'),
+            (3, 'line'),
+            (3, 'exception'),
+            (4, 'line'),
+            (5, 'line'),
+            (7, 'line'),
+            (7, 'return')])
+
 
 class SkipLineEventsTraceTestCase(TraceTestCase):
     """Repeat the trace tests, but with per-line events skipped"""
@@ -1646,6 +1809,7 @@ class JumpTestCase(unittest.TestCase):
         output.append(1)
         async for i in asynciter([1, 2]):
             output.append(3)
+        pass
 
     @jump_test(3, 2, [2, 2], (ValueError, 'into'))
     def test_no_jump_backwards_into_for_block(output):

@@ -36,6 +36,10 @@ from unittest.util import safe_repr
 from functools import wraps, partial
 
 
+class InvalidSpecError(Exception):
+    """Indicates that an invalid value was used as a mock spec."""
+
+
 _builtins = {name for name in dir(builtins) if not name.startswith('_')}
 
 FILTER_DIR = True
@@ -653,10 +657,17 @@ class NonCallableMock(Base):
             self._mock_children[name]  = result
 
         elif isinstance(result, _SpecState):
-            result = create_autospec(
-                result.spec, result.spec_set, result.instance,
-                result.parent, result.name
-            )
+            try:
+                result = create_autospec(
+                    result.spec, result.spec_set, result.instance,
+                    result.parent, result.name
+                )
+            except InvalidSpecError:
+                target_name = self.__dict__['_mock_name'] or self
+                raise InvalidSpecError(
+                    f'Cannot autospec attr {name!r} from target '
+                    f'{target_name!r} as it has already been mocked out. '
+                    f'[target={self!r}, attr={result.spec!r}]')
             self._mock_children[name]  = result
 
         return result
@@ -993,6 +1004,11 @@ class NonCallableMock(Base):
         if _new_name in self.__dict__['_spec_asyncs']:
             return AsyncMock(**kw)
 
+        if self._mock_sealed:
+            attribute = f".{kw['name']}" if "name" in kw else "()"
+            mock_name = self._extract_mock_name() + attribute
+            raise AttributeError(mock_name)
+
         _type = type(self)
         if issubclass(_type, MagicMock) and _new_name in _async_method_magics:
             # Any asynchronous magic becomes an AsyncMock
@@ -1011,12 +1027,6 @@ class NonCallableMock(Base):
                 klass = Mock
         else:
             klass = _type.__mro__[1]
-
-        if self._mock_sealed:
-            attribute = "." + kw["name"] if "name" in kw else "()"
-            mock_name = self._extract_mock_name() + attribute
-            raise AttributeError(mock_name)
-
         return klass(**kw)
 
 
@@ -1273,6 +1283,14 @@ class _patch(object):
                 )
         if not unsafe:
             _check_spec_arg_typos(kwargs)
+        if _is_instance_mock(spec):
+            raise InvalidSpecError(
+                f'Cannot spec attr {attribute!r} as the spec '
+                f'has already been mocked out. [spec={spec!r}]')
+        if _is_instance_mock(spec_set):
+            raise InvalidSpecError(
+                f'Cannot spec attr {attribute!r} as the spec_set '
+                f'target has already been mocked out. [spec_set={spec_set!r}]')
 
         self.getter = getter
         self.attribute = attribute
@@ -1499,6 +1517,18 @@ class _patch(object):
             spec_set = bool(spec_set)
             if autospec is True:
                 autospec = original
+
+            if _is_instance_mock(self.target):
+                raise InvalidSpecError(
+                    f'Cannot autospec attr {self.attribute!r} as the patch '
+                    f'target has already been mocked out. '
+                    f'[target={self.target!r}, attr={autospec!r}]')
+            if _is_instance_mock(autospec):
+                target_name = getattr(self.target, '__name__', self.target)
+                raise InvalidSpecError(
+                    f'Cannot autospec attr {self.attribute!r} from target '
+                    f'{target_name!r} as it has already been mocked out. '
+                    f'[target={self.target!r}, attr={autospec!r}]')
 
             new = create_autospec(autospec, spec_set=spec_set,
                                   _name=self.attribute, **kwargs)
@@ -2613,6 +2643,9 @@ def create_autospec(spec, spec_set=False, instance=False, _parent=None,
         spec = type(spec)
 
     is_type = isinstance(spec, type)
+    if _is_instance_mock(spec):
+        raise InvalidSpecError(f'Cannot autospec a Mock object. '
+                               f'[object={spec!r}]')
     is_async_func = _is_async_func(spec)
     _kwargs = {'spec': spec}
     if spec_set:
@@ -2892,6 +2925,8 @@ def seal(mock):
         except AttributeError:
             continue
         if not isinstance(m, NonCallableMock):
+            continue
+        if isinstance(m._mock_children.get(attr), _SpecState):
             continue
         if m._mock_new_parent is mock:
             seal(m)

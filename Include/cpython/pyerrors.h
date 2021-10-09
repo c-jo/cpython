@@ -20,6 +20,8 @@ typedef struct {
     PyObject *filename;
     PyObject *lineno;
     PyObject *offset;
+    PyObject *end_lineno;
+    PyObject *end_offset;
     PyObject *text;
     PyObject *print_file_and_line;
 } PySyntaxErrorObject;
@@ -62,6 +64,17 @@ typedef struct {
     PyObject *value;
 } PyStopIterationObject;
 
+typedef struct {
+    PyException_HEAD
+    PyObject *name;
+} PyNameErrorObject;
+
+typedef struct {
+    PyException_HEAD
+    PyObject *obj;
+    PyObject *name;
+} PyAttributeErrorObject;
+
 #ifdef RISCOS
 typedef struct {
     PyException_HEAD
@@ -85,10 +98,6 @@ PyAPI_FUNC(void) _PyErr_GetExcInfo(PyThreadState *, PyObject **, PyObject **, Py
 /* Context manipulation (PEP 3134) */
 
 PyAPI_FUNC(void) _PyErr_ChainExceptions(PyObject *, PyObject *, PyObject *);
-
-/* */
-
-#define PyExceptionClass_Name(x)  (((PyTypeObject*)(x))->tp_name)
 
 /* Convenience functions */
 
@@ -148,6 +157,13 @@ PyAPI_FUNC(void) PyErr_SyntaxLocationObject(
     PyObject *filename,
     int lineno,
     int col_offset);
+
+PyAPI_FUNC(void) PyErr_RangedSyntaxLocationObject(
+    PyObject *filename,
+    int lineno,
+    int col_offset,
+    int end_lineno,
+    int end_col_offset);
 
 PyAPI_FUNC(PyObject *) PyErr_ProgramTextObject(
     PyObject *filename,

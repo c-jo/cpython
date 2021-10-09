@@ -57,6 +57,8 @@ Glossary
 
       See :term:`variable annotation`, :term:`function annotation`, :pep:`484`
       and :pep:`526`, which describe this functionality.
+      Also see :ref:`annotations-howto`
+      for best practices on working with annotations.
 
    argument
       A value passed to a :term:`function` (or :term:`method`) when calling the
@@ -455,14 +457,17 @@ Glossary
 
       See :term:`variable annotation` and :pep:`484`,
       which describe this functionality.
+      Also see :ref:`annotations-howto`
+      for best practices on working with annotations.
 
    __future__
-      A pseudo-module which programmers can use to enable new language features
-      which are not compatible with the current interpreter.
-
-      By importing the :mod:`__future__` module and evaluating its variables,
-      you can see when a new feature was first added to the language and when it
-      becomes the default::
+      A :ref:`future statement <future>`, ``from __future__ import <feature>``,
+      directs the compiler to compile the current module using syntax or
+      semantics that will become standard in a future release of Python.
+      The :mod:`__future__` module documents the possible values of
+      *feature*.  By importing this module and evaluating its variables,
+      you can see when a new feature was first added to the language and
+      when it will (or did) become the default::
 
          >>> import __future__
          >>> __future__.division
@@ -708,7 +713,7 @@ Glossary
       On Unix, it is the encoding of the LC_CTYPE locale. It can be set with
       ``locale.setlocale(locale.LC_CTYPE, new_locale)``.
 
-      On Windows, it is is the ANSI code page (ex: ``cp1252``).
+      On Windows, it is the ANSI code page (ex: ``cp1252``).
 
       ``locale.getpreferredencoding(False)`` can be used to get the locale
       encoding.
@@ -1211,6 +1216,8 @@ Glossary
 
       See :term:`function annotation`, :pep:`484`
       and :pep:`526`, which describe this functionality.
+      Also see :ref:`annotations-howto`
+      for best practices on working with annotations.
 
    virtual environment
       A cooperatively isolated runtime environment that allows Python users

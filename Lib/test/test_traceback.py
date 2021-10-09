@@ -4,6 +4,7 @@ from collections import namedtuple
 from io import StringIO
 import linecache
 import sys
+import inspect
 import unittest
 import re
 from test import support
@@ -38,6 +39,9 @@ class TracebackCases(unittest.TestCase):
     def syntax_error_with_caret_2(self):
         compile("1 +\n", "?", "exec")
 
+    def syntax_error_with_caret_range(self):
+        compile("f(x, y for y in range(30), z)", "?", "exec")
+
     def syntax_error_bad_indentation(self):
         compile("def spam():\n  print(1)\n print(2)", "?", "exec")
 
@@ -54,18 +58,28 @@ class TracebackCases(unittest.TestCase):
         self.assertTrue(err[1].strip() == "return x!")
         self.assertIn("^", err[2]) # third line has caret
         self.assertEqual(err[1].find("!"), err[2].find("^")) # in the right place
+        self.assertEqual(err[2].count("^"), 1)
 
         err = self.get_exception_format(self.syntax_error_with_caret_2,
                                         SyntaxError)
         self.assertIn("^", err[2]) # third line has caret
         self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
         self.assertEqual(err[1].find("+") + 1, err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), 1)
 
         err = self.get_exception_format(self.syntax_error_with_caret_non_ascii,
                                         SyntaxError)
         self.assertIn("^", err[2]) # third line has caret
         self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
         self.assertEqual(err[1].find("+") + 1, err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), 1)
+
+        err = self.get_exception_format(self.syntax_error_with_caret_range,
+                                        SyntaxError)
+        self.assertIn("^", err[2]) # third line has caret
+        self.assertEqual(err[2].count('\n'), 1)   # and no additional newline
+        self.assertEqual(err[1].find("y"), err[2].find("^"))  # in the right place
+        self.assertEqual(err[2].count("^"), len("y for y in range(30)"))
 
     def test_nocaret(self):
         exc = SyntaxError("error", ("x.py", 23, None, "bad syntax"))
@@ -231,6 +245,44 @@ class TracebackCases(unittest.TestCase):
     def test_format_exception_only_exc(self):
         output = traceback.format_exception_only(Exception("projector"))
         self.assertEqual(output, ["Exception: projector\n"])
+
+    def test_exception_is_None(self):
+        NONE_EXC_STRING = 'NoneType: None\n'
+        excfile = StringIO()
+        traceback.print_exception(None, file=excfile)
+        self.assertEqual(excfile.getvalue(), NONE_EXC_STRING)
+
+        excfile = StringIO()
+        traceback.print_exception(None, None, None, file=excfile)
+        self.assertEqual(excfile.getvalue(), NONE_EXC_STRING)
+
+        excfile = StringIO()
+        traceback.print_exc(None, file=excfile)
+        self.assertEqual(excfile.getvalue(), NONE_EXC_STRING)
+
+        self.assertEqual(traceback.format_exc(None), NONE_EXC_STRING)
+        self.assertEqual(traceback.format_exception(None), [NONE_EXC_STRING])
+        self.assertEqual(
+            traceback.format_exception(None, None, None), [NONE_EXC_STRING])
+        self.assertEqual(
+            traceback.format_exception_only(None), [NONE_EXC_STRING])
+        self.assertEqual(
+            traceback.format_exception_only(None, None), [NONE_EXC_STRING])
+
+    def test_signatures(self):
+        self.assertEqual(
+            str(inspect.signature(traceback.print_exception)),
+            ('(exc, /, value=<implicit>, tb=<implicit>, '
+             'limit=None, file=None, chain=True)'))
+
+        self.assertEqual(
+            str(inspect.signature(traceback.format_exception)),
+            ('(exc, /, value=<implicit>, tb=<implicit>, limit=None, '
+             'chain=True)'))
+
+        self.assertEqual(
+            str(inspect.signature(traceback.format_exception_only)),
+            '(exc, /, value=<implicit>)')
 
 
 class TracebackFormatTests(unittest.TestCase):
@@ -742,6 +794,19 @@ class BaseExceptionReportingTests:
                 exp = "\n".join(expected)
                 self.assertEqual(exp, err)
 
+    def test_format_exception_only_qualname(self):
+        class A:
+            class B:
+                class X(Exception):
+                    def __str__(self):
+                        return "I am X"
+                    pass
+        err = self.get_report(A.B.X())
+        str_value = 'I am X'
+        str_name = '.'.join([A.B.X.__module__, A.B.X.__qualname__])
+        exp = "%s: %s\n" % (str_name, str_value)
+        self.assertEqual(exp, err)
+
 
 class PyExcReportingTests(BaseExceptionReportingTests, unittest.TestCase):
     #
@@ -961,6 +1026,10 @@ class TestFrame(unittest.TestCase):
         self.assertEqual(
             '"""Test cases for traceback module"""',
             f.line)
+
+    def test_no_line(self):
+        f = traceback.FrameSummary("f", None, "dummy")
+        self.assertEqual(f.line, None)
 
     def test_explicit_line(self):
         f = traceback.FrameSummary("f", 1, "dummy", line="line")

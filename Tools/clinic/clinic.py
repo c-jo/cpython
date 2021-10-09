@@ -1632,7 +1632,7 @@ class BlockPrinter:
         dsl_name = block.dsl_name
         write = self.f.write
 
-        assert not ((dsl_name == None) ^ (output == None)), "you must specify dsl_name and output together, dsl_name " + repr(dsl_name)
+        assert not ((dsl_name is None) ^ (output is None)), "you must specify dsl_name and output together, dsl_name " + repr(dsl_name)
 
         if not dsl_name:
             write(input)
@@ -2159,7 +2159,6 @@ __matmul__
 __mod__
 __mul__
 __neg__
-__new__
 __next__
 __or__
 __pos__
@@ -2932,7 +2931,7 @@ class int_converter(CConverter):
             self.format_unit = 'C'
         elif accept != {int}:
             fail("int_converter: illegal 'accept' argument " + repr(accept))
-        if type != None:
+        if type is not None:
             self.type = type
 
     def parse_arg(self, argname, displayname):
@@ -4227,6 +4226,9 @@ class DSLParser:
         module, cls = self.clinic._module_and_class(fields)
 
         fields = full_name.split('.')
+        if fields[-1] in unsupported_special_methods:
+            fail(f"{fields[-1]} is a special method and cannot be converted to Argument Clinic!  (Yet.)")
+
         if fields[-1] == '__new__':
             if (self.kind != CLASS_METHOD) or (not cls):
                 fail("__new__ must be a class method!")
@@ -4237,8 +4239,6 @@ class DSLParser:
             self.kind = METHOD_INIT
             if not return_converter:
                 return_converter = init_return_converter()
-        elif fields[-1] in unsupported_special_methods:
-            fail(fields[-1] + " is a special method and cannot be converted to Argument Clinic!  (Yet.)")
 
         if not return_converter:
             return_converter = CReturnConverter()
