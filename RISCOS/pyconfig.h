@@ -16,6 +16,12 @@
    support for AIX C++ shared extension modules. */
 /* #undef AIX_GENUINE_CPLUSPLUS */
 
+/* The normal alignment of `long', in bytes. */
+#define ALIGNOF_LONG 4
+
+/* The normal alignment of `size_t', in bytes. */
+#define ALIGNOF_SIZE_T 4
+
 /* Alternative SOABI used in debug build to load C extensions built in release
    mode */
 /* #undef ALT_SOABI */
@@ -613,7 +619,7 @@
 /* Define to 1 if you have the <libintl.h> header file. */
 /* #undef HAVE_LIBINTL_H */
 
-/* Define if you have the readline library (-lreadline). */
+/* Define to build the readline module. */
 /* #undef HAVE_LIBREADLINE */
 
 /* Define to 1 if you have the `resolv' library (-lresolv). */
@@ -744,6 +750,10 @@
 
 /* Define to 1 if you have the `nice' function. */
 #define HAVE_NICE 1
+
+/* Define if the internal form of wchar_t in non-Unicode locales is not
+   Unicode. */
+/* #undef HAVE_NON_UNICODE_WCHAR_T_REPRESENTATION */
 
 /* Define to 1 if you have the `openat' function. */
 /* #undef HAVE_OPENAT */
@@ -1565,6 +1575,9 @@
    linker (dyld) instead of the old-style (NextStep) dynamic linker (rld).
    Dyld is necessary to support frameworks. */
 /* #undef WITH_DYLD */
+
+/* Define to build the readline module against Editline. */
+/* #undef WITH_EDITLINE */
 
 /* Define to 1 if libintl is needed for locale functions. */
 /* #undef WITH_LIBINTL */

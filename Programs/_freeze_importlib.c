@@ -11,6 +11,14 @@
 #ifndef MS_WINDOWS
 #include <unistd.h>
 #endif
+#ifdef RISCOS
+#include <unixlib/local.h>
+#pragma GCC visibility push(default)
+int __riscosify_control =  __RISCOSIFY_NO_PROCESS |
+                           __RISCOSIFY_NO_SUFFIX |
+                           __RISCOSIFY_NO_REVERSE_SUFFIX;
+#pragma GCC visibility pop
+#endif
 
 /* To avoid a circular dependency on frozen.o, we create our own structure
    of frozen modules instead, left deliberately blank so as to avoid
@@ -56,11 +64,17 @@ main(int argc, char *argv[])
         fprintf(stderr, "cannot open '%s' for reading\n", inpath);
         goto error;
     }
+#ifdef RISCOS
+    fseek(infile, 0, SEEK_END);
+    text_size = ftell(infile);
+    fseek(infile, 0, SEEK_SET);
+#else
     if (_Py_fstat_noraise(fileno(infile), &stat)) {
         fprintf(stderr, "cannot fstat '%s'\n", inpath);
         goto error;
     }
     text_size = (size_t)stat.st_size;
+#endif
     text = (char *) malloc(text_size + 1);
     if (text == NULL) {
         fprintf(stderr, "could not allocate %ld bytes\n", (long) text_size);

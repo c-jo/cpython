@@ -168,7 +168,7 @@ get_obj_type(const char *pathname)
                        17, pathname,
                        &obj_type))
     {
-        return -1;
+        obj_type= -1;
     }
     return obj_type;
 }
@@ -219,12 +219,12 @@ ismodule(const char *directory, const char *module)
     // add /py and try that?
     strcat(buffer, "/py");
     if (isfile(buffer))
-            return 1;
+        return 1;
 
     // try the /pyc?
     strcat(buffer, "c");
     if (isfile(buffer))
-            return 1;
+        return 1;
 
     return 0;
 }
@@ -287,7 +287,6 @@ search_for_prefix(PyCalculatePath *calculate, _PyPathConfig *pathconfig,
 
     /* If PYTHONHOME is set, we believe it unconditionally */
     if (pathconfig->home) {
-        printf("got PYTHONHOME\n");
         /* Path: <home> / <lib_python> */
         if (safe_strcpy(prefix, Py_EncodeLocale(pathconfig->home, NULL), prefix_len) < 0) {
             return PATHLEN_ERR();

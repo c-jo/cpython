@@ -179,7 +179,9 @@ if _MS_WINDOWS:
             return False
         root = _os._path_splitroot(path)[0].replace('/', '\\')
         return len(root) > 1 and (root.startswith('\\\\') or root.endswith('\\'))
-
+elif _RISCOS:
+    def _path_isabs(path):
+        return any(c in path for c in '$&')
 else:
     def _path_isabs(path):
         """Replacement for os.path.isabs."""
@@ -191,7 +193,7 @@ def _write_atomic(path, data, mode=0o666):
     Be prepared to handle a FileExistsError if concurrent writing of the
     temporary file is attempted."""
     # id() is used to generate a pseudo-random filename.
-    if sys.platform == 'riscos':
+    if _RISCOS:
         path_tmp = '{}-{}'.format(path, id(path))
     else:
         path_tmp = '{}.{}'.format(path, id(path))
@@ -1553,8 +1555,8 @@ class FileFinder:
             loaders.extend((suffix, loader) for suffix in suffixes)
         self._loaders = loaders
         # Base (directory) path
-        if sys.platform == 'riscos':
-            self.path = path or ''
+        if _RISCOS:
+            self.path = path or '@'
         else:
             self.path = path or '.'
         if not _path_isabs(self.path):
@@ -1613,7 +1615,7 @@ class FileFinder:
             cache_module = tail_module
 
         is_dir = cache_module in cache
-        _bootstrap._verbose_message('cache_module {} in cache {}', cache_module, is_dir)
+        _bootstrap._verbose_message('cache_module {} in cache {} {}', cache_module, cache, is_dir)
 
         if sys.platform == 'riscos':
             equiv_suffix = None # Suffix version of the filetype

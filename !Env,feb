@@ -11,5 +11,6 @@ Set Python3$Dir <Obey$Dir>
 |Set PythonSite$Dir <Obey$Dir>.PythonSite
 |Set PythonUser$Dir <Obey$Dir>.PythonUser
 
-Filer_Run          SDFS::Chipmunk.$.Develop.!GCC
-Repeat  Filer_Boot SDFS::Chipmunk.$.Development -applications
+Filer_Run         SDFS::Chipmunk.$.Develop.!GCC
+Repeat Filer_Boot SDFS::Chipmunk.$.Development.Library -applications
+Repeat Filer_Boot SDFS::Chipmunk.$.Apps.Library -applications

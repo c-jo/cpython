@@ -517,10 +517,6 @@ def _init_riscos(vars):
     _init_posix(vars)
 
     # set basic install directories
-    #vars['LIBDEST'] = get_path('stdlib')
-    #vars['BINLIBDEST'] = get_path('platstdlib')
-    #vars['INCLUDEPY'] = get_path('include')
-    vars['EXT_SUFFIX'] = ''
     vars['EXE'] = ''
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
     #vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))

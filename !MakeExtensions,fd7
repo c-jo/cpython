@@ -1,6 +1,6 @@
 Dir <Obey$Dir>
 WimpSlot -min 96M
 Make -f RISCOS/Makefile sharedmods
-|pybuilddir.txt
+|Make -f RISCOS/Makefile pybuilddir.txt
 |Make -f RISCOS/Makefile Modules/_math.o
 |Run @.python310 -E setup/py build

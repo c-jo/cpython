@@ -1,11 +1,16 @@
 Dir <Obey$Dir>
 
 WimpSlot -min 26M
-|Make -f RISCOS/Makefile Programs/_freeze_importlib
+Echo Building...
+Make -f RISCOS/Makefile Programs/_freeze_importlib
 
-_freeze_importlib importlib._bootstrap_external Lib/importlib/_bootstrap_external.py importlib_external/h
+Echo Freezing...
+Programs._freeze_importlib importlib._bootstrap_external Lib.importlib._bootstrap_external/py Python.h.importlib_external
 
-_freeze_importlib importlib._bootstrap Lib/importlib/_bootstrap.py importlib/h
+Programs._freeze_importlib importlib._bootstrap Lib.importlib._bootstrap/py Python.h.importlib
+
+Info Python.h.importlib_external
+Info Python.h.importlib
 
 |Copy Python.importlib/h/new Python.h.importlib ~CFD
 |Copy Python.importlib_external/h/new Python.h.importlib_external ~CFD
