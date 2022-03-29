@@ -1,5 +1,5 @@
 Dir <Obey$Dir>
-WimpSlot -min 96M
+WimpSlot -min 256M
 Make -f RISCOS/Makefile sharedmods
 |Make -f RISCOS/Makefile pybuilddir.txt
 |Make -f RISCOS/Makefile Modules/_math.o

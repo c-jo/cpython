@@ -13,7 +13,7 @@ VERSION=	3.10
 srcdir=		@
 
 # Add  -mfpu=vfp -mfloat-abi=softfp for VFP
-CC=		gcc
+CC=		gcc -mfpu=vfp -mfloat-abi=hard
 CXX=		g++
 
 #ifneq ($(GCCSDK_INSTALL_CROSSBIN),"")

@@ -1075,6 +1075,10 @@ def gen_preprocess_options(macros, include_dirs):
                 pp_opts.append("-D%s=%s" % macro)
 
     for dir in include_dirs:
+        if sys.platform == 'riscos':
+           dir = dir.replace('.','/')
+           if '::' in dir:
+               dir = '/'+dir
         pp_opts.append("-I%s" % dir)
     return pp_opts
 

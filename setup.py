@@ -59,7 +59,9 @@ TEST_EXTENSIONS = (sysconfig.get_config_var('TEST_MODULES') == 'yes')
 
 # This global variable is used to hold the list of modules to be disabled.
 DISABLED_MODULE_LIST = []
-ONLY_BUILD_MODULE_LIST = None
+ONLY_BUILD_MODULE_LIST = \
+    "_hashlib _lzma _ssl _uuid _bz2 _ctypes _sqlite3 zlib".split()
+
 
 # --list-module-names option used by Tools/scripts/generate_module_names.py
 LIST_MODULE_NAMES = False
@@ -2506,8 +2508,8 @@ class PyBuildExt(build_ext):
             'openssl/ssl.h', self.inc_dirs, openssl_includes
         )
         if ssl_incs is None and sys.platform == 'riscos':
-            if os.path.exists('LibSSL:openssl.h.ssl'):
-                ssl_incs = 'LibSSL:'
+            if os.path.exists('LibSSL11:openssl.h.ssl'):
+                ssl_incs = 'LibSSL11:'
         if ssl_incs is None:
             self.missing.extend(['_ssl', '_hashlib'])
             return None, None

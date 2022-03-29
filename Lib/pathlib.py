@@ -269,7 +269,6 @@ class _PosixFlavour(_Flavour):
         bpath = bytes(path)
         return 'file://' + urlquote_from_bytes(bpath)
 
-<<<<<<< HEAD
     def gethomedir(self, username):
         if not username:
             try:
@@ -344,8 +343,6 @@ class _RISCOSFlavour(_Flavour):
     def gethomedir(self, username):
         # TODO: handle select-like home directory?
         raise RuntimeError("Can't determine home directory")
-=======
->>>>>>> upstream/3.10
 
 _windows_flavour = _WindowsFlavour()
 _posix_flavour = _PosixFlavour()
@@ -384,8 +381,7 @@ class _NormalAccessor(_Accessor):
 
     replace = os.replace
 
-<<<<<<< HEAD
-    if nt:
+    if os.name == 'nt':
         if supports_symlinks:
             symlink = os.symlink
         else:
@@ -395,10 +391,8 @@ class _NormalAccessor(_Accessor):
         def symlink(a, b, target_is_directory):
             raise NotImplementedError("symlink() not available on this system")
 
-=======
     if hasattr(os, "symlink"):
         symlink = os.symlink
->>>>>>> upstream/3.10
     else:
         def symlink(self, src, dst, target_is_directory=False):
             raise NotImplementedError("os.symlink() not available on this system")
@@ -1053,7 +1047,6 @@ class Path(PurePath):
 
     def __new__(cls, *args, **kwargs):
         if cls is Path:
-<<<<<<< HEAD
             if os.name == 'riscos':
                 cls = RISCOSPath
             elif os.name == 'nt':
@@ -1061,10 +1054,7 @@ class Path(PurePath):
             else:
                 cls = PosixPath
         self = cls._from_parts(args, init=False)
-=======
-            cls = WindowsPath if os.name == 'nt' else PosixPath
         self = cls._from_parts(args)
->>>>>>> upstream/3.10
         if not self._flavour.is_supported:
             raise NotImplementedError("cannot instantiate %r on your system"
                                       % (cls.__name__,))

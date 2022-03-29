@@ -1,6 +1,6 @@
 Dir <Obey$Dir>
 Run <Obey$Dir>.!Env
 
-WimpSlot -min 24M
+WimpSlot -min 64M
 
 Make -f RISCOS/Makefile

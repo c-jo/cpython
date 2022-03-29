@@ -119,6 +119,14 @@ class UnixCCompiler(CCompiler):
             compiler_so = _osx_support.compiler_fixup(compiler_so,
                                                     cc_args + extra_postargs)
         try:
+            if sys.platform == 'riscos':
+                def unixify(path):
+                    path = path.translate(str.maketrans('./', '/.')).split('/')
+                    ext = path[-2]
+                    file = path[-1]
+                    return '/'.join(path[:-2])+'/{}.{}'.format(file, ext)
+                src = unixify(src)
+                obj = unixify(obj)
             self.spawn(compiler_so + cc_args + [src, '-o', obj] +
                        extra_postargs)
         except DistutilsExecError as msg:

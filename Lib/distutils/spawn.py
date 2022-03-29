@@ -76,7 +76,10 @@ def spawn(cmd, search_path=1, verbose=0, dry_run=0):
                        MACOSX_DEPLOYMENT_TARGET=cur_target)
 
     try:
-        proc = subprocess.Popen(cmd, env=env)
+        if sys.platform == 'riscos':
+            proc = subprocess.Popen(cmd, env=env, wimpslot=64*1024)
+        else:
+            proc = subprocess.Popen(cmd, env=env)
         proc.wait()
         exitcode = proc.returncode
     except OSError as exc:
