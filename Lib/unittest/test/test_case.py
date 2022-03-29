@@ -611,6 +611,8 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
                  'Tests shortDescription() for a method with a longer '
                  'docstring.')
 
+    @unittest.skipIf(sys.flags.optimize >= 2,
+                     "Docstrings are omitted with -O2 and above")
     def testShortDescriptionWhitespaceTrimming(self):
         """
             Tests shortDescription() whitespace is trimmed, so that the first
@@ -705,6 +707,10 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
             # this used to cause a UnicodeDecodeError constructing the failure msg
             with self.assertRaises(self.failureException):
                 self.assertDictContainsSubset({'foo': one}, {'foo': '\uFFFD'})
+
+        with self.assertWarns(DeprecationWarning) as warninfo:
+            self.assertDictContainsSubset({}, {})
+        self.assertEqual(warninfo.warnings[0].filename, __file__)
 
     def testAssertEqual(self):
         equal_pairs = [

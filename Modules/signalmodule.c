@@ -58,6 +58,8 @@ module signal
 [clinic start generated code]*/
 /*[clinic end generated code: output=da39a3ee5e6b4b0d input=b0301a3bde5fe9d3]*/
 
+#ifdef HAVE_SETSIG_T
+
 /*[python input]
 
 class sigset_t_converter(CConverter):
@@ -66,6 +68,7 @@ class sigset_t_converter(CConverter):
 
 [python start generated code]*/
 /*[python end generated code: output=da39a3ee5e6b4b0d input=b5689d14466b6823]*/
+#endif
 
 /*
    NOTES ON THE INTERACTION BETWEEN SIGNALS AND THREADS
@@ -170,6 +173,17 @@ get_signal_state(PyObject *module)
     return (_signal_module_state *)state;
 }
 
+
+static inline int
+compare_handler(PyObject *func, PyObject *dfl_ign_handler)
+{
+    assert(PyLong_CheckExact(dfl_ign_handler));
+    if (!PyLong_CheckExact(func)) {
+        return 0;
+    }
+    // Assume that comparison of two PyLong objects will never fail.
+    return PyObject_RichCompareBool(func, dfl_ign_handler, Py_EQ) == 1;
+}
 
 #ifdef HAVE_GETITIMER
 /* auxiliary functions for setitimer */
@@ -522,20 +536,17 @@ signal_signal_impl(PyObject *module, int signalnum, PyObject *handler)
                          "signal number out of range");
         return NULL;
     }
-    if (handler == modstate->ignore_handler) {
+    if (PyCallable_Check(handler)) {
+        func = signal_handler;
+    } else if (compare_handler(handler, modstate->ignore_handler)) {
         func = SIG_IGN;
-    }
-    else if (handler == modstate->default_handler) {
+    } else if (compare_handler(handler, modstate->default_handler)) {
         func = SIG_DFL;
-    }
-    else if (!PyCallable_Check(handler)) {
+    } else {
         _PyErr_SetString(tstate, PyExc_TypeError,
                          "signal handler must be signal.SIG_IGN, "
                          "signal.SIG_DFL, or a callable object");
         return NULL;
-    }
-    else {
-        func = signal_handler;
     }
 
     /* Check for pending signals before changing signal handler */
@@ -930,6 +941,7 @@ signal_getitimer_impl(PyObject *module, int which)
 #endif // HAVE_GETITIMER
 
 
+#ifdef HAVE_SIGSET_T
 #if defined(PYPTHREAD_SIGMASK) || defined(HAVE_SIGPENDING)
 static PyObject*
 sigset_to_set(sigset_t mask)
@@ -1061,9 +1073,9 @@ signal_sigwait_impl(PyObject *module, sigset_t sigset)
 }
 
 #endif   /* #ifdef HAVE_SIGWAIT */
+#endif   /* #ifdef HAVE_SIGSET_T */
 
-
-#if defined(HAVE_SIGFILLSET) || defined(MS_WINDOWS)
+#if (defined(HAVE_SIGFILLSET) && defined(HAVE_SIGSET_T)) || defined(MS_WINDOWS)
 
 /*[clinic input]
 signal.valid_signals
@@ -1101,7 +1113,8 @@ signal_valid_signals_impl(PyObject *module)
 #endif
 }
 
-#endif   /* #if defined(HAVE_SIGFILLSET) || defined(MS_WINDOWS) */
+#endif   /* #if (defined(HAVE_SIGFILLSET) && defined(HAVE_SIGSET_T)) || defined(MS_WINDOWS) */
+
 
 
 #if defined(HAVE_SIGWAITINFO) || defined(HAVE_SIGTIMEDWAIT)
@@ -1166,6 +1179,7 @@ fill_siginfo(siginfo_t *si)
 }
 #endif
 
+#ifdef HAVE_SIGSET_T
 #ifdef HAVE_SIGWAITINFO
 
 /*[clinic input]
@@ -1268,6 +1282,7 @@ signal_sigtimedwait_impl(PyObject *module, sigset_t sigset,
 }
 
 #endif   /* #ifdef HAVE_SIGTIMEDWAIT */
+#endif   /* #ifdef HAVE_SIGSET_T */
 
 
 #if defined(HAVE_PTHREAD_KILL)
@@ -1594,7 +1609,7 @@ signal_get_set_handlers(signal_state_t *state, PyObject *mod_dict)
         Py_XDECREF(old_func);
     }
 
-    // Instal Python SIGINT handler which raises KeyboardInterrupt
+    // Install Python SIGINT handler which raises KeyboardInterrupt
     PyObject* sigint_func = get_handler(SIGINT);
     if (sigint_func == state->default_handler) {
         PyObject *int_handler = PyMapping_GetItemString(mod_dict,
@@ -1729,8 +1744,8 @@ _PySignal_Fini(void)
         set_handler(signum, NULL);
         if (func != NULL
             && func != Py_None
-            && func != state->default_handler
-            && func != state->ignore_handler)
+            && !compare_handler(func, state->default_handler)
+            && !compare_handler(func, state->ignore_handler))
         {
             PyOS_setsig(signum, SIG_DFL);
         }
@@ -1805,8 +1820,9 @@ _PyErr_CheckSignalsTstate(PyThreadState *tstate)
          * (see bpo-43406).
          */
         PyObject *func = get_handler(i);
-        if (func == NULL || func == Py_None || func == state->ignore_handler ||
-            func == state->default_handler) {
+        if (func == NULL || func == Py_None ||
+            compare_handler(func, state->ignore_handler) ||
+            compare_handler(func, state->default_handler)) {
             /* No Python signal handler due to aforementioned race condition.
              * We can't call raise() as it would break the assumption
              * that PyErr_SetInterrupt() only *simulates* an incoming
@@ -1866,7 +1882,8 @@ PyErr_SetInterruptEx(int signum)
 
     signal_state_t *state = &signal_global_state;
     PyObject *func = get_handler(signum);
-    if (func != state->ignore_handler && func != state->default_handler) {
+    if (!compare_handler(func, state->ignore_handler)
+            && !compare_handler(func, state->default_handler)) {
         trip_signal(signum);
     }
     return 0;

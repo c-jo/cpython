@@ -212,7 +212,10 @@ library/socket,,:can,"return (can_id, can_dlc, data[:can_dlc])"
 library/socket,,:len,fds.frombytes(cmsg_data[:len(cmsg_data) - (len(cmsg_data) % fds.itemsize)])
 library/sqlite3,,:year,"cur.execute(""select * from lang where first_appeared=:year"", {""year"": 1972})"
 library/sqlite3,,:memory,
-library/sqlite3,,:path,"db = sqlite3.connect('file:path/to/database?mode=ro', uri=True)"
+library/sqlite3,,:template,"con = sqlite3.connect(""file:template.db?mode=ro"", uri=True)"
+library/sqlite3,,:nosuchdb,"con = sqlite3.connect(""file:nosuchdb.db?mode=rw"", uri=True)"
+library/sqlite3,,:mem1,"con1 = sqlite3.connect(""file:mem1?mode=memory&cache=shared"", uri=True)"
+library/sqlite3,,:mem1,"con2 = sqlite3.connect(""file:mem1?mode=memory&cache=shared"", uri=True)"
 library/ssl,,:My,"Organizational Unit Name (eg, section) []:My Group"
 library/ssl,,:My,"Organization Name (eg, company) [Internet Widgits Pty Ltd]:My Organization, Inc."
 library/ssl,,:myserver,"Common Name (eg, YOUR name) []:myserver.mygroup.myorganization.com"
@@ -271,6 +274,7 @@ license,,:zooko,mailto:zooko@zooko.com
 reference/expressions,,:index,x[index:index]
 reference/lexical_analysis,,`,$       ?       `
 reference/lexical_analysis,,:fileencoding,# vim:fileencoding=<encoding-name>
+reference/datamodel,,`,    """Return the result of the expression `obj[x]`"""
 tutorial/datastructures,,:value,It is also possible to delete a key:value
 tutorial/datastructures,,:value,key:value pairs within the braces adds initial key:value pairs
 tutorial/stdlib2,,:config,"logging.warning('Warning:config file %s not found', 'server.conf')"
@@ -376,7 +380,8 @@ library/importlib.metadata,,:main,"EntryPoint(name='wheel', value='wheel.cli:mai
 library/importlib.metadata,,`,loading the metadata for packages for the indicated ``context``.
 library/re,,`,"`"
 using/configure,84,:db2,=db1:db2:...
-library/typing,1011,`,# Type of ``val`` is narrowed to ``str``
-library/typing,1011,`,"# Else, type of ``val`` is narrowed to ``float``."
-library/typing,1011,`,# Type of ``val`` is narrowed to ``List[str]``.
-library/typing,1011,`,# Type of ``val`` remains as ``List[object]``.
+library/typing,,`,# Type of ``val`` is narrowed to ``str``
+library/typing,,`,"# Else, type of ``val`` is narrowed to ``float``."
+library/typing,,`,# Type of ``val`` is narrowed to ``List[str]``.
+library/typing,,`,# Type of ``val`` remains as ``List[object]``.
+library/typing,,`,    # will always be an instance of whatever `cls` is

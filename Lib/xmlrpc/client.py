@@ -50,6 +50,7 @@
 # 2003-10-31 mvl Add multicall support
 # 2004-08-20 mvl Bump minimum supported Python version to 2.1
 # 2014-12-02 ch/doko  Add workaround for gzip bomb vulnerability
+# 2022-29-03 cmj Handle riscos platform.
 #
 # Copyright (c) 1999-2002 by Secret Labs AB.
 # Copyright (c) 1999-2002 by Fredrik Lundh.
@@ -266,18 +267,23 @@ boolean = Boolean = bool
 if sys.platform == 'riscos':
     def _iso8601_format(value):
         return value.strftime("%Y%m%dT%H:%M:%S")
+_day0 = datetime(1, 1, 1)
+def _try(fmt):
+    try:
+        return _day0.strftime(fmt) == '0001'
+    except ValueError:
+        return False
+if _try('%Y'):      # Mac OS X
+    def _iso8601_format(value):
+        return value.strftime("%Y%m%dT%H:%M:%S")
+elif _try('%4Y'):   # Linux
+    def _iso8601_format(value):
+        return value.strftime("%4Y%m%dT%H:%M:%S")
 else:
-    _day0 = datetime(1, 1, 1)
-    if _day0.strftime('%Y') == '0001':      # Mac OS X
-        def _iso8601_format(value):
-            return value.strftime("%Y%m%dT%H:%M:%S")
-    elif _day0.strftime('%4Y') == '0001':   # Linux
-        def _iso8601_format(value):
-            return value.strftime("%4Y%m%dT%H:%M:%S")
-    else:
-        def _iso8601_format(value):
-            return value.strftime("%Y%m%dT%H:%M:%S").zfill(17)
-    del _day0
+    def _iso8601_format(value):
+        return value.strftime("%Y%m%dT%H:%M:%S").zfill(17)
+del _day0
+del _try
 
 def _strftime(value):
     if isinstance(value, datetime):

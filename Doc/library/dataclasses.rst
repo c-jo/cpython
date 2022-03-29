@@ -319,12 +319,15 @@ Module contents
    Raises :exc:`TypeError` if not passed a dataclass or instance of one.
    Does not return pseudo-fields which are ``ClassVar`` or ``InitVar``.
 
-.. function:: asdict(instance, *, dict_factory=dict)
+.. function:: asdict(obj, *, dict_factory=dict)
 
-   Converts the dataclass ``instance`` to a dict (by using the
+   Converts the dataclass ``obj`` to a dict (by using the
    factory function ``dict_factory``).  Each dataclass is converted
    to a dict of its fields, as ``name: value`` pairs.  dataclasses, dicts,
-   lists, and tuples are recursed into.  For example::
+   lists, and tuples are recursed into.  Other objects are copied with
+   :func:`copy.deepcopy`.
+
+   Example of using :func:`asdict` on nested dataclasses::
 
      @dataclass
      class Point:
@@ -341,21 +344,32 @@ Module contents
      c = C([Point(0, 0), Point(10, 4)])
      assert asdict(c) == {'mylist': [{'x': 0, 'y': 0}, {'x': 10, 'y': 4}]}
 
-   Raises :exc:`TypeError` if ``instance`` is not a dataclass instance.
+   To create a shallow copy, the following workaround may be used::
 
-.. function:: astuple(instance, *, tuple_factory=tuple)
+     dict((field.name, getattr(obj, field.name)) for field in fields(obj))
 
-   Converts the dataclass ``instance`` to a tuple (by using the
+   :func:`asdict` raises :exc:`TypeError` if ``obj`` is not a dataclass
+   instance.
+
+.. function:: astuple(obj, *, tuple_factory=tuple)
+
+   Converts the dataclass ``obj`` to a tuple (by using the
    factory function ``tuple_factory``).  Each dataclass is converted
    to a tuple of its field values.  dataclasses, dicts, lists, and
-   tuples are recursed into.
+   tuples are recursed into. Other objects are copied with
+   :func:`copy.deepcopy`.
 
    Continuing from the previous example::
 
      assert astuple(p) == (10, 20)
      assert astuple(c) == ([(0, 0), (10, 4)],)
 
-   Raises :exc:`TypeError` if ``instance`` is not a dataclass instance.
+   To create a shallow copy, the following workaround may be used::
+
+     tuple(getattr(obj, field.name) for field in dataclasses.fields(obj))
+
+   :func:`astuple` raises :exc:`TypeError` if ``obj`` is not a dataclass
+   instance.
 
 .. function:: make_dataclass(cls_name, fields, *, bases=(), namespace=None, init=True, repr=True, eq=True, order=False, unsafe_hash=False, frozen=False, match_args=True, kw_only=False, slots=False)
 
@@ -392,10 +406,10 @@ Module contents
          def add_one(self):
              return self.x + 1
 
-.. function:: replace(instance, /, **changes)
+.. function:: replace(obj, /, **changes)
 
-   Creates a new object of the same type as ``instance``, replacing
-   fields with values from ``changes``.  If ``instance`` is not a Data
+   Creates a new object of the same type as ``obj``, replacing
+   fields with values from ``changes``.  If ``obj`` is not a Data
    Class, raises :exc:`TypeError`.  If values in ``changes`` do not
    specify fields, raises :exc:`TypeError`.
 
@@ -420,7 +434,7 @@ Module contents
    ``replace()`` (or similarly named) method which handles instance
    copying.
 
-.. function:: is_dataclass(class_or_instance)
+.. function:: is_dataclass(obj)
 
    Return ``True`` if its parameter is a dataclass or an instance of one,
    otherwise return ``False``.
@@ -460,6 +474,8 @@ Module contents
 
    In a single dataclass, it is an error to specify more than one
    field whose type is :const:`KW_ONLY`.
+
+   .. versionadded:: 3.10
 
 .. exception:: FrozenInstanceError
 

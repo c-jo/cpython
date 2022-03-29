@@ -836,7 +836,7 @@ static int running_on_valgrind = -1;
 
 /*
  * Alignment of addresses returned to the user. 8-bytes alignment works
- * on most current architectures (with 32-bit or 64-bit address busses).
+ * on most current architectures (with 32-bit or 64-bit address buses).
  * The alignment value is also used for grouping small requests in size
  * classes spaced ALIGNMENT bytes apart.
  *
@@ -1328,7 +1328,7 @@ _Py_GetAllocatedBlocks(void)
 
 #define MAP_TOP_BITS INTERIOR_BITS
 #define MAP_TOP_LENGTH (1 << MAP_TOP_BITS)
-#define MAP_TOP_MASK (MAP_BOT_LENGTH - 1)
+#define MAP_TOP_MASK (MAP_TOP_LENGTH - 1)
 
 #define MAP_MID_BITS INTERIOR_BITS
 #define MAP_MID_LENGTH (1 << MAP_MID_BITS)
@@ -3035,7 +3035,7 @@ _PyObject_DebugMallocStats(FILE *out)
 
     fputc('\n', out);
 
-    /* Account for what all of those arena bytes are being used for. */ 
+    /* Account for what all of those arena bytes are being used for. */
     total = printone(out, "# bytes in allocated blocks", allocated_bytes);
     total += printone(out, "# bytes in available blocks", available_bytes);
 

@@ -43,8 +43,9 @@ Py_GetBuildInfo(void)
     const char *gitid = "riscos-1";
 #else
     const char *gitid = _Py_gitidentifier();
-    if (!(*gitid))
-        gitid = "default";
+    if (!(*gitid)) {
+        gitid = "main";
+    }
 #endif
     PyOS_snprintf(buildinfo, sizeof(buildinfo),
                   "%s%s%s, %.20s, %.9s", gitid, sep, revision,

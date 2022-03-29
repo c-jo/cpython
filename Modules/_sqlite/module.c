@@ -105,12 +105,12 @@ _sqlite3.complete_statement as pysqlite_complete_statement
 
     statement: str
 
-Checks if a string contains a complete SQL statement. Non-standard.
+Checks if a string contains a complete SQL statement.
 [clinic start generated code]*/
 
 static PyObject *
 pysqlite_complete_statement_impl(PyObject *module, const char *statement)
-/*[clinic end generated code: output=e55f1ff1952df558 input=f6b24996b31c5c33]*/
+/*[clinic end generated code: output=e55f1ff1952df558 input=ac45d257375bb828]*/
 {
     if (sqlite3_complete(statement)) {
         return Py_NewRef(Py_True);
@@ -126,12 +126,15 @@ _sqlite3.enable_shared_cache as pysqlite_enable_shared_cache
 
 Enable or disable shared cache mode for the calling thread.
 
-Experimental/Non-standard.
+This method is deprecated and will be removed in Python 3.12.
+Shared cache is strongly discouraged by the SQLite 3 documentation.
+If shared cache must be used, open the database in URI mode using
+the cache=shared query parameter.
 [clinic start generated code]*/
 
 static PyObject *
 pysqlite_enable_shared_cache_impl(PyObject *module, int do_enable)
-/*[clinic end generated code: output=259c74eedee1516b input=8400e41bc58b6b24]*/
+/*[clinic end generated code: output=259c74eedee1516b input=26e40d5971d3487d]*/
 {
     int rc;
 
@@ -152,13 +155,13 @@ _sqlite3.register_adapter as pysqlite_register_adapter
     caster: object
     /
 
-Registers an adapter with pysqlite's adapter registry. Non-standard.
+Registers an adapter with sqlite3's adapter registry.
 [clinic start generated code]*/
 
 static PyObject *
 pysqlite_register_adapter_impl(PyObject *module, PyTypeObject *type,
                                PyObject *caster)
-/*[clinic end generated code: output=a287e8db18e8af23 input=839dad90e2492725]*/
+/*[clinic end generated code: output=a287e8db18e8af23 input=b4bd87afcadc535d]*/
 {
     int rc;
 
@@ -183,13 +186,13 @@ _sqlite3.register_converter as pysqlite_register_converter
     converter as callable: object
     /
 
-Registers a converter with pysqlite. Non-standard.
+Registers a converter with sqlite3.
 [clinic start generated code]*/
 
 static PyObject *
 pysqlite_register_converter_impl(PyObject *module, PyObject *orig_name,
                                  PyObject *callable)
-/*[clinic end generated code: output=a2f2bfeed7230062 input=e074cf7f4890544f]*/
+/*[clinic end generated code: output=a2f2bfeed7230062 input=90f645419425d6c4]*/
 {
     PyObject* name = NULL;
     PyObject* retval = NULL;
@@ -237,13 +240,13 @@ _sqlite3.adapt as pysqlite_adapt
     alt: object = NULL
     /
 
-Adapt given object to given protocol. Non-standard.
+Adapt given object to given protocol.
 [clinic start generated code]*/
 
 static PyObject *
 pysqlite_adapt_impl(PyObject *module, PyObject *obj, PyObject *proto,
                     PyObject *alt)
-/*[clinic end generated code: output=0c3927c5fcd23dd9 input=a58ab77fb5ae22dd]*/
+/*[clinic end generated code: output=0c3927c5fcd23dd9 input=46ca9564710ba48a]*/
 {
     return pysqlite_microprotocols_adapt(obj, proto, alt);
 }
@@ -273,51 +276,58 @@ static PyMethodDef module_methods[] = {
     {NULL, NULL}
 };
 
-static int add_integer_constants(PyObject *module) {
-    int ret = 0;
+static int
+add_integer_constants(PyObject *module) {
+#define ADD_INT(ival)                                           \
+    do {                                                        \
+        if (PyModule_AddIntConstant(module, #ival, ival) < 0) { \
+            return -1;                                          \
+        }                                                       \
+    } while (0);                                                \
 
-    ret += PyModule_AddIntMacro(module, PARSE_DECLTYPES);
-    ret += PyModule_AddIntMacro(module, PARSE_COLNAMES);
-    ret += PyModule_AddIntMacro(module, SQLITE_OK);
-    ret += PyModule_AddIntMacro(module, SQLITE_DENY);
-    ret += PyModule_AddIntMacro(module, SQLITE_IGNORE);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_INDEX);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_TABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_TEMP_INDEX);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_TEMP_TABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_TEMP_TRIGGER);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_TEMP_VIEW);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_TRIGGER);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_VIEW);
-    ret += PyModule_AddIntMacro(module, SQLITE_DELETE);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_INDEX);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_TABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_TEMP_INDEX);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_TEMP_TABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_TEMP_TRIGGER);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_TEMP_VIEW);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_TRIGGER);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_VIEW);
-    ret += PyModule_AddIntMacro(module, SQLITE_INSERT);
-    ret += PyModule_AddIntMacro(module, SQLITE_PRAGMA);
-    ret += PyModule_AddIntMacro(module, SQLITE_READ);
-    ret += PyModule_AddIntMacro(module, SQLITE_SELECT);
-    ret += PyModule_AddIntMacro(module, SQLITE_TRANSACTION);
-    ret += PyModule_AddIntMacro(module, SQLITE_UPDATE);
-    ret += PyModule_AddIntMacro(module, SQLITE_ATTACH);
-    ret += PyModule_AddIntMacro(module, SQLITE_DETACH);
-    ret += PyModule_AddIntMacro(module, SQLITE_ALTER_TABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_REINDEX);
-    ret += PyModule_AddIntMacro(module, SQLITE_ANALYZE);
-    ret += PyModule_AddIntMacro(module, SQLITE_CREATE_VTABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_DROP_VTABLE);
-    ret += PyModule_AddIntMacro(module, SQLITE_FUNCTION);
-    ret += PyModule_AddIntMacro(module, SQLITE_SAVEPOINT);
+    ADD_INT(PARSE_DECLTYPES);
+    ADD_INT(PARSE_COLNAMES);
+    ADD_INT(SQLITE_OK);
+    ADD_INT(SQLITE_DENY);
+    ADD_INT(SQLITE_IGNORE);
+    ADD_INT(SQLITE_CREATE_INDEX);
+    ADD_INT(SQLITE_CREATE_TABLE);
+    ADD_INT(SQLITE_CREATE_TEMP_INDEX);
+    ADD_INT(SQLITE_CREATE_TEMP_TABLE);
+    ADD_INT(SQLITE_CREATE_TEMP_TRIGGER);
+    ADD_INT(SQLITE_CREATE_TEMP_VIEW);
+    ADD_INT(SQLITE_CREATE_TRIGGER);
+    ADD_INT(SQLITE_CREATE_VIEW);
+    ADD_INT(SQLITE_DELETE);
+    ADD_INT(SQLITE_DROP_INDEX);
+    ADD_INT(SQLITE_DROP_TABLE);
+    ADD_INT(SQLITE_DROP_TEMP_INDEX);
+    ADD_INT(SQLITE_DROP_TEMP_TABLE);
+    ADD_INT(SQLITE_DROP_TEMP_TRIGGER);
+    ADD_INT(SQLITE_DROP_TEMP_VIEW);
+    ADD_INT(SQLITE_DROP_TRIGGER);
+    ADD_INT(SQLITE_DROP_VIEW);
+    ADD_INT(SQLITE_INSERT);
+    ADD_INT(SQLITE_PRAGMA);
+    ADD_INT(SQLITE_READ);
+    ADD_INT(SQLITE_SELECT);
+    ADD_INT(SQLITE_TRANSACTION);
+    ADD_INT(SQLITE_UPDATE);
+    ADD_INT(SQLITE_ATTACH);
+    ADD_INT(SQLITE_DETACH);
+    ADD_INT(SQLITE_ALTER_TABLE);
+    ADD_INT(SQLITE_REINDEX);
+    ADD_INT(SQLITE_ANALYZE);
+    ADD_INT(SQLITE_CREATE_VTABLE);
+    ADD_INT(SQLITE_DROP_VTABLE);
+    ADD_INT(SQLITE_FUNCTION);
+    ADD_INT(SQLITE_SAVEPOINT);
 #if SQLITE_VERSION_NUMBER >= 3008003
-    ret += PyModule_AddIntMacro(module, SQLITE_RECURSIVE);
+    ADD_INT(SQLITE_RECURSIVE);
 #endif
-    ret += PyModule_AddIntMacro(module, SQLITE_DONE);
-    return ret;
+    ADD_INT(SQLITE_DONE);
+#undef ADD_INT
+    return 0;
 }
 
 static struct PyModuleDef _sqlite3module = {

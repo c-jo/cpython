@@ -34,15 +34,18 @@ class or one of its subclasses, and not from :exc:`BaseException`.  More
 information on defining exceptions is available in the Python Tutorial under
 :ref:`tut-userexceptions`.
 
-When raising (or re-raising) an exception in an :keyword:`except` or
-:keyword:`finally` clause
-:attr:`__context__` is automatically set to the last exception caught; if the
-new exception is not handled the traceback that is eventually displayed will
-include the originating exception(s) and the final exception.
 
-When raising a new exception (rather than using a bare ``raise`` to re-raise
-the exception currently being handled), the implicit exception context can be
-supplemented with an explicit cause by using :keyword:`from<raise>` with
+Exception context
+-----------------
+
+When raising a new exception while another exception
+is already being handled, the new exception's
+:attr:`__context__` attribute is automatically set to the handled
+exception.  An exception may be handled when an :keyword:`except` or
+:keyword:`finally` clause, or a :keyword:`with` statement, is used.
+
+This implicit exception context can be
+supplemented with an explicit cause by using :keyword:`!from` with
 :keyword:`raise`::
 
    raise new_exc from original_exc
@@ -65,6 +68,25 @@ is :const:`None` and :attr:`__suppress_context__` is false.
 In either case, the exception itself is always shown after any chained
 exceptions so that the final line of the traceback always shows the last
 exception that was raised.
+
+
+Inheriting from built-in exceptions
+-----------------------------------
+
+User code can create subclasses that inherit from an exception type.
+It's recommended to only subclass one exception type at a time to avoid
+any possible conflicts between how the bases handle the ``args``
+attribute, as well as due to possible memory layout incompatibilities.
+
+.. impl-detail::
+
+   Most built-in exceptions are implemented in C for efficiency, see:
+   :source:`Objects/exceptions.c`.  Some have custom memory layouts
+   which makes it impossible to create a subclass that inherits from
+   multiple exception types. The memory layout of a type is an implementation
+   detail and might change between Python versions, leading to new
+   conflicts in the future.  Therefore, it's recommended to avoid
+   subclassing multiple exception types altogether.
 
 
 Base classes

@@ -23,7 +23,7 @@ enum interactive_underflow_t {
     /* Normal mode of operation: return a new token when asked in interactie mode */
     IUNDERFLOW_NORMAL,
     /* Forcefully return ENDMARKER when asked for a new token in interactive mode. This
-     * can be used to prevent the tokenizer to promt the user for new tokens */
+     * can be used to prevent the tokenizer to prompt the user for new tokens */
     IUNDERFLOW_STOP,
 };
 
@@ -71,7 +71,7 @@ struct tok_state {
     PyObject *decoding_readline; /* open(...).readline */
     PyObject *decoding_buffer;
     const char* enc;        /* Encoding for the current str. */
-    char* str;
+    char* str;          /* Source string being tokenized (if tokenizing from a string)*/
     char* input;       /* Tokenizer's newline translated copy of the string. */
 
     int type_comments;      /* Whether to look for type comments */
@@ -83,7 +83,7 @@ struct tok_state {
     int async_def_nl;     /* =1 if the outermost 'async def' had at least one
                              NEWLINE token after it. */
     /* How to proceed when asked for a new token in interactive mode */
-    enum interactive_underflow_t interactive_underflow; 
+    enum interactive_underflow_t interactive_underflow;
 };
 
 extern struct tok_state *PyTokenizer_FromString(const char *, int);
