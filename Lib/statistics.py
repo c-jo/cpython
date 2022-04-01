@@ -331,7 +331,6 @@ def mean(data):
     return _convert(total / n, T)
 
 
-
 def fmean(data):
     """Convert data to floats and compute the arithmetic mean.
 

@@ -19,7 +19,6 @@ from test.support import import_helper
 
 from decimal import Decimal
 from fractions import Fraction
-from test import support
 
 
 # Module to be tested.

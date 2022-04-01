@@ -49,8 +49,7 @@ class QueueBasicTests(_QueueTestBase):
             # resume q.get coroutine to finish generator
             q.put_nowait(0)
 
-        with self.assertWarns(DeprecationWarning):
-            loop.run_until_complete(add_getter())
+        loop.run_until_complete(add_getter())
 
         async def add_putter():
             q = asyncio.Queue(maxsize=1)

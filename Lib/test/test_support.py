@@ -440,7 +440,7 @@ class TestSupport(unittest.TestCase):
 
         self.assertRaises(AssertionError, support.check__all__, self, unittest)
 
-    @unittest.skipUnless(os.name != 'riscos' and hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG'),
+    @unittest.skipUnless(hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG'),
                          'need os.waitpid() and os.WNOHANG')
     def test_reap_children(self):
         # Make sure that there is no other pending child process

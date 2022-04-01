@@ -32,9 +32,8 @@ def main(regrtest_args):
     args.extend(test.support.args_from_interpreter_flags())
 
     args.extend(['-m', 'test',    # Run the test suite
-                 #'-r',            # Randomize test order
-                 #'-w',            # Re-run failed tests in verbose mode
-                 '-v',            # Verbose mode
+                 '-r',            # Randomize test order
+                 '-w',            # Re-run failed tests in verbose mode
                  ])
     if sys.platform == 'win32':
         args.append('-n')         # Silence alerts under Windows
@@ -47,6 +46,7 @@ def main(regrtest_args):
         else:
             args.extend(['-u', 'all,-largefile,-audio,-gui'])
     args.extend(regrtest_args)
+    print(' '.join(args))
     if sys.platform == 'win32':
         from subprocess import call
         sys.exit(call(args))

@@ -114,8 +114,8 @@ class build(Command):
         # 'build_temp' -- temporary directory for compiler turds,
         # "build/temp.<plat>"
         if self.build_temp is None:
-             self.build_temp = os.path.join(self.build_base,
-                                            'temp' + plat_specifier)
+            self.build_temp = os.path.join(self.build_base,
+                                           'temp' + plat_specifier)
         if self.build_scripts is None:
             if os.name == 'riscos': # No dot
                 self.build_scripts = os.path.join(self.build_base,

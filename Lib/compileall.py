@@ -39,7 +39,7 @@ def _walk_dir(dir, maxlevels, quiet=0):
             continue
         fullname = os.path.join(dir, name)
         if not os.path.isdir(fullname):
-            yield fullname, ddir
+            yield fullname
         elif (maxlevels > 0 and name != os.curdir and name != os.pardir and
               os.path.isdir(fullname) and not os.path.islink(fullname)):
             yield from _walk_dir(fullname, maxlevels=maxlevels - 1,
@@ -121,11 +121,6 @@ def compile_dir(dir, maxlevels=None, ddir=None, force=False,
                                 hardlink_dupes=hardlink_dupes):
                 success = False
     return success
-
-def _compile_file_tuple(file_and_dfile, **kwargs):
-    """Needs to be toplevel for ProcessPoolExecutor."""
-    file, dfile = file_and_dfile
-    return compile_file(file, dfile, **kwargs)
 
 def compile_file(fullname, ddir=None, force=False, rx=None, quiet=0,
                  legacy=False, optimize=-1,

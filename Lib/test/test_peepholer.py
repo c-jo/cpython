@@ -4,7 +4,6 @@ import unittest
 from test.support.bytecode_helper import BytecodeTestCase
 
 
-
 def count_instr_recursively(f, opname):
     count = 0
     for instr in dis.get_instructions(f):

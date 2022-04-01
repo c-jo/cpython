@@ -45,7 +45,6 @@ try:
 except:
     fcntl = None
 
-
 if support.PGO:
     raise unittest.SkipTest("test is not helpful for PGO")
 

@@ -263,26 +263,11 @@ class _PosixFlavour(_Flavour):
     def is_reserved(self, parts):
         return False
 
-    def make_uri(self, ):
+    def make_uri(self, path):
         # We represent the path using the local filesystem encoding,
         # for portability to other applications.
         bpath = bytes(path)
         return 'file://' + urlquote_from_bytes(bpath)
-
-    def gethomedir(self, username):
-        if not username:
-            try:
-                return os.environ['HOME']
-            except KeyError:
-                import pwd
-                return pwd.getpwuid(os.getuid()).pw_dir
-        else:
-            import pwd
-            try:
-                return pwd.getpwnam(username).pw_dir
-            except KeyError:
-                raise RuntimeError("Can't determine home directory "
-                                   "for %r" % username)
 
 class _RISCOSFlavour(_Flavour):
     # RISC OS paths have a fair number of idosyncracies - just handle
@@ -340,10 +325,6 @@ class _RISCOSFlavour(_Flavour):
         return 'file:///%s' % (
                 urlquote_from_bytes(rest.encode('latin-1')))
 
-    def gethomedir(self, username):
-        # TODO: handle select-like home directory?
-        raise RuntimeError("Can't determine home directory")
-
 _windows_flavour = _WindowsFlavour()
 _posix_flavour = _PosixFlavour()
 _riscos_flavour = _RISCOSFlavour()
@@ -381,13 +362,8 @@ class _NormalAccessor(_Accessor):
 
     replace = os.replace
 
-    if os.name == 'nt':
-        if supports_symlinks:
-            symlink = os.symlink
-        else:
-            def symlink(a, b, target_is_directory):
-                raise NotImplementedError("symlink() not available on this system")
-    elif os.name == 'riscos':
+
+    if os.name == 'riscos':
         def symlink(a, b, target_is_directory):
             raise NotImplementedError("symlink() not available on this system")
 
@@ -1053,7 +1029,6 @@ class Path(PurePath):
                 cls = WindowsPath
             else:
                 cls = PosixPath
-        self = cls._from_parts(args, init=False)
         self = cls._from_parts(args)
         if not self._flavour.is_supported:
             raise NotImplementedError("cannot instantiate %r on your system"

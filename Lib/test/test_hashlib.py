@@ -8,7 +8,6 @@
 
 import array
 from binascii import unhexlify
-import functools
 import hashlib
 import importlib
 import itertools
@@ -57,11 +56,6 @@ except ImportError:
 
     def get_fips_mode():
         return 0
-
-try:
-    from _hashlib import HASH
-except ImportError:
-    HASH = None
 
 try:
     import _blake2

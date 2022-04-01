@@ -126,18 +126,15 @@ def run_python_until_end(*args, **env_vars):
 
     env.update(env_vars)
     cmd_line.extend(args)
-    print("run_python_until_end",cmd_line)
     proc = subprocess.Popen(cmd_line, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          env=env, cwd=cwd)
-    print("proc=",proc)
     with proc:
         try:
             out, err = proc.communicate()
         finally:
             proc.kill()
             subprocess._cleanup()
-    print("rc=",rc)
     rc = proc.returncode
     return _PythonRunResult(rc, out, err), cmd_line
 

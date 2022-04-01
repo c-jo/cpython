@@ -29,8 +29,6 @@ program.
 
 See also :ref:`Initialization, Finalization, and Threads <initialization>`.
 
-See also :ref:`Initialization, Finalization, and Threads <initialization>`.
-
 .. seealso::
    :pep:`587` "Python Initialization Configuration".
 
@@ -474,12 +472,6 @@ PyConfig
       Set the list of wide strings *list* to *length* and *items*.
 
       :ref:`Preinitialize Python <c-preinit>` if needed.
-
-   .. c:function:: PyStatus PyConfig_SetWideStringList(PyConfig *config, PyWideStringList *list, Py_ssize_t length, wchar_t **items)
-
-      Set the list of wide strings *list* to *length* and *items*.
-
-      Preinitialize Python if needed.
 
    .. c:function:: PyStatus PyConfig_Read(PyConfig *config)
 
@@ -1167,9 +1159,6 @@ PyConfig
       :c:member:`~PyConfig.write_bytecode`.
 
       Default: ``1``.
-
-      :data:`sys.dont_write_bytecode` is initialized to the inverted value of
-      :c:member:`~PyConfig.write_bytecode`.
 
    .. c:member:: PyWideStringList xoptions
 

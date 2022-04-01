@@ -68,7 +68,6 @@ IN VALID=value
 """
 
 
-
 class PlatformTest(unittest.TestCase):
     def clear_caches(self):
         platform._platform_cache.clear()

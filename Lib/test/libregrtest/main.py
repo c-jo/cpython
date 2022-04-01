@@ -28,12 +28,6 @@ from test.support import os_helper
 EXIT_TIMEOUT = 120.0
 
 
-# bpo-38203: Maximum delay in seconds to exit Python (call Py_Finalize()).
-# Used to protect against threading._shutdown() hang.
-# Must be smaller than buildbot "1200 seconds without output" limit.
-EXIT_TIMEOUT = 120.0
-
-
 class Regrtest:
     """Execute a test suite.
 

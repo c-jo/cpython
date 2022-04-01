@@ -23,11 +23,6 @@ try:
 except ImportError:
     unicode_legacy_string = None
 
-try:
-    import _hashlib
-except ImportError:
-    _hashlib = None
-
 __all__ = [
     # globals
     "PIPE_MAX_SIZE", "verbose", "max_memuse", "use_resources", "failfast",
@@ -1222,7 +1217,7 @@ def reap_children():
     global environment_altered
 
     # Need os.waitpid(-1, os.WNOHANG): Windows is not supported
-    if os.name == 'riscos' or not (hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG')):
+    if not (hasattr(os, 'waitpid') and hasattr(os, 'WNOHANG')):
         return
 
     # Reap all our dead child processes so we don't leave zombies around.
@@ -1858,41 +1853,6 @@ class _NEVER_EQ:
         return 1
 
 NEVER_EQ = _NEVER_EQ()
-
-@functools.total_ordering
-class _LARGEST:
-    """
-    Object that is greater than anything (except itself).
-    """
-    def __eq__(self, other):
-        return isinstance(other, _LARGEST)
-    def __lt__(self, other):
-        return False
-
-LARGEST = _LARGEST()
-
-@functools.total_ordering
-class _SMALLEST:
-    """
-    Object that is less than anything (except itself).
-    """
-    def __eq__(self, other):
-        return isinstance(other, _SMALLEST)
-    def __gt__(self, other):
-        return False
-
-SMALLEST = _SMALLEST()
-
-class _ALWAYS_EQ:
-    """
-    Object that is equal to anything.
-    """
-    def __eq__(self, other):
-        return True
-    def __ne__(self, other):
-        return False
-
-ALWAYS_EQ = _ALWAYS_EQ()
 
 @functools.total_ordering
 class _LARGEST:

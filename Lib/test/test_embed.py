@@ -49,21 +49,6 @@ def remove_python_envvars():
     return env
 
 
-def debug_build(program):
-    program = os.path.basename(program)
-    name = os.path.splitext(program)[0]
-    return name.casefold().endswith("_d".casefold())
-
-
-def remove_python_envvars():
-    env = dict(os.environ)
-    # Remove PYTHON* environment variables to get deterministic environment
-    for key in list(env):
-        if key.startswith('PYTHON'):
-            del env[key]
-    return env
-
-
 class EmbeddingTestsMixin:
     def setUp(self):
         here = os.path.abspath(__file__)

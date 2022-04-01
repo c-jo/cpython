@@ -8,7 +8,7 @@ import msilib.schema
 
 
 def init_database():
-    path = TESTFN + (FS_NONASCII or '') + '.msi'
+    path = TESTFN + '.msi'
     db = msilib.init_database(
         path,
         msilib.schema,

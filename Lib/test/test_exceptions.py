@@ -327,7 +327,7 @@ class ExceptionTests(unittest.TestCase):
                 exc, err, tb = sys.exc_info()
                 co = tb.tb_frame.f_code
                 self.assertEqual(co.co_name, "test_capi1")
-                self.assertTrue(co.co_filename.endswith('test_exceptions'+os.extsep+'py'))
+                self.assertTrue(co.co_filename.endswith('test_exceptions.py'))
             else:
                 self.fail("Expected exception")
 
@@ -339,7 +339,7 @@ class ExceptionTests(unittest.TestCase):
                 exc, err, tb = sys.exc_info()
                 co = tb.tb_frame.f_code
                 self.assertEqual(co.co_name, "__init__")
-                self.assertTrue(co.co_filename.endswith('test_exceptions'+os.extsep+'py'))
+                self.assertTrue(co.co_filename.endswith('test_exceptions.py'))
                 co2 = tb.tb_frame.f_back.f_code
                 self.assertEqual(co2.co_name, "test_capi2")
             else:
@@ -1515,7 +1515,7 @@ class ExceptionTests(unittest.TestCase):
                     with captured_stderr() as stderr:
                         sys.__excepthook__(*sys.exc_info())
                 report = stderr.getvalue()
-                self.assertIn("test_exceptions"+os.extsep+"py", report)
+                self.assertIn("test_exceptions.py", report)
                 self.assertIn("raise exc", report)
                 self.assertIn(exc_type.__name__, report)
                 if exc_type is BrokenStrException:

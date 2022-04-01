@@ -4,9 +4,8 @@
 * This module is automatically imported during initialization. *
 ****************************************************************
 
-This will append site-specific paths to the module search path.
-
-On Unix (including Mac OSX), it starts with sys.prefix and
+This will append site-specific paths to the module search path.  On
+Unix (including Mac OSX), it starts with sys.prefix and
 sys.exec_prefix (if different) and appends
 lib/python<version>/site-packages.
 

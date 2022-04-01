@@ -173,7 +173,7 @@ Quick Reference
 
    .. code-block:: none
 
-      X - type slot is inherited via PyType_Ready if defined with a NULL value
+      X - type slot is inherited via *PyType_Ready* if defined with a *NULL* value
       % - the slots of the sub-struct are inherited individually
       G - inherited, but only in combination with other slots; see the slot's description
       ? - it's complicated; see the slot's description

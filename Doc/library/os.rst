@@ -525,8 +525,6 @@ process and user.
    .. versionchanged:: 3.9
       The function is now always available.
 
-   .. audit-event:: os.putenv key,value os.putenv
-
 
 .. function:: setegid(egid)
 

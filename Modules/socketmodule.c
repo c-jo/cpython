@@ -991,7 +991,7 @@ init_sockobject(PySocketSockObject *s,
     {
         s->sock_timeout = defaulttimeout;
         if (defaulttimeout >= 0) {
-          if (internal_setblocking(s, 0) == -1) {
+            if (internal_setblocking(s, 0) == -1) {
                 return -1;
             }
         }
@@ -2667,6 +2667,7 @@ sock_accept_impl(PySocketSockObject *s, void *data)
     struct sock_accept *ctx = data;
     struct sockaddr *addr = SAS2SA(ctx->addrbuf);
     socklen_t *paddrlen = ctx->addrlen;
+
 
 #ifdef HAVE_SOCKADDR_ALG
     /* AF_ALG does not support accept() with addr and raises
@@ -5292,7 +5293,7 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwds)
         else
 #endif
         {
-          fd = socket(family, type, proto);
+            fd = socket(family, type, proto);
         }
         Py_END_ALLOW_THREADS
 
@@ -5312,7 +5313,9 @@ sock_initobj(PyObject *self, PyObject *args, PyObject *kwds)
         SOCKETCLOSE(fd);
         return -1;
     }
+
     return 0;
+
 }
 
 

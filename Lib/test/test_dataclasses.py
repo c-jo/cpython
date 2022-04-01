@@ -3144,17 +3144,6 @@ class TestStringAnnotations(unittest.TestCase):
             {'foo': dataclass_textanno.Foo,
              'return': type(None)})
 
-    def test_text_annotations(self):
-        from test import dataclass_textanno
-
-        self.assertEqual(
-            get_type_hints(dataclass_textanno.Bar),
-            {'foo': dataclass_textanno.Foo})
-        self.assertEqual(
-            get_type_hints(dataclass_textanno.Bar.__init__),
-            {'foo': dataclass_textanno.Foo,
-             'return': type(None)})
-
 
 class TestMakeDataclass(unittest.TestCase):
     def test_simple(self):
@@ -3329,13 +3318,6 @@ class TestReplace(unittest.TestCase):
 
         c = C(1, 2)
         c1 = replace(c, x=3)
-        self.assertEqual(c1.x, 3)
-        self.assertEqual(c1.y, 2)
-
-        self.assertRaises(TypeError, replace)
-        self.assertRaises(TypeError, replace, c, c)
-        with self.assertWarns(DeprecationWarning):
-            c1 = replace(obj=c, x=3)
         self.assertEqual(c1.x, 3)
         self.assertEqual(c1.y, 2)
 
