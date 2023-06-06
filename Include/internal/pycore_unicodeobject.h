@@ -12,7 +12,6 @@ extern "C" {
 #include "pycore_ucnhash.h"       // _PyUnicode_Name_CAPI
 
 void _PyUnicode_ExactDealloc(PyObject *op);
-Py_ssize_t _PyUnicode_InternedSize(void);
 
 /* runtime lifecycle */
 
@@ -60,7 +59,6 @@ struct _Py_unicode_state {
     struct _Py_unicode_ids ids;
 };
 
-extern void _PyUnicode_InternInPlace(PyInterpreterState *interp, PyObject **p);
 extern void _PyUnicode_ClearInterned(PyInterpreterState *interp);
 
 

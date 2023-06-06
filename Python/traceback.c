@@ -11,7 +11,7 @@
 #include "pycore_interp.h"        // PyInterpreterState.gc
 #include "pycore_parser.h"        // _PyParser_ASTFromString
 #include "pycore_pyarena.h"       // _PyArena_Free()
-#include "pycore_pyerrors.h"      // _PyErr_GetRaisedException()
+#include "pycore_pyerrors.h"      // _PyErr_Fetch()
 #include "pycore_pystate.h"       // _PyThreadState_GET()
 #include "pycore_traceback.h"     // EXCEPTION_TB_HEADER
 
@@ -242,18 +242,15 @@ _PyTraceBack_FromFrame(PyObject *tb_next, PyFrameObject *frame)
 int
 PyTraceBack_Here(PyFrameObject *frame)
 {
-    PyObject *exc = PyErr_GetRaisedException();
-    assert(PyExceptionInstance_Check(exc));
-    PyObject *tb = PyException_GetTraceback(exc);
-    PyObject *newtb = _PyTraceBack_FromFrame(tb, frame);
-    Py_XDECREF(tb);
+    PyObject *exc, *val, *tb, *newtb;
+    PyErr_Fetch(&exc, &val, &tb);
+    newtb = _PyTraceBack_FromFrame(tb, frame);
     if (newtb == NULL) {
-        _PyErr_ChainExceptions1(exc);
+        _PyErr_ChainExceptions(exc, val, tb);
         return -1;
     }
-    PyException_SetTraceback(exc, newtb);
-    Py_XDECREF(newtb);
-    PyErr_SetRaisedException(exc);
+    PyErr_Restore(exc, val, newtb);
+    Py_XDECREF(tb);
     return 0;
 }
 
@@ -263,12 +260,13 @@ void _PyTraceback_Add(const char *funcname, const char *filename, int lineno)
     PyObject *globals;
     PyCodeObject *code;
     PyFrameObject *frame;
+    PyObject *exc, *val, *tb;
     PyThreadState *tstate = _PyThreadState_GET();
 
     /* Save and clear the current exception. Python functions must not be
        called with an exception set. Calling Python functions happens when
        the codec of the filesystem encoding is implemented in pure Python. */
-    PyObject *exc = _PyErr_GetRaisedException(tstate);
+    _PyErr_Fetch(tstate, &exc, &val, &tb);
 
     globals = PyDict_New();
     if (!globals)
@@ -285,13 +283,13 @@ void _PyTraceback_Add(const char *funcname, const char *filename, int lineno)
         goto error;
     frame->f_lineno = lineno;
 
-    _PyErr_SetRaisedException(tstate, exc);
+    _PyErr_Restore(tstate, exc, val, tb);
     PyTraceBack_Here(frame);
     Py_DECREF(frame);
     return;
 
 error:
-    _PyErr_ChainExceptions1(exc);
+    _PyErr_ChainExceptions(exc, val, tb);
 }
 
 static PyObject *
@@ -675,12 +673,16 @@ extract_anchors_from_line(PyObject *filename, PyObject *line,
 
     PyCompilerFlags flags = _PyCompilerFlags_INIT;
 
+    _PyASTOptimizeState state;
+    state.optimize = _Py_GetConfig()->optimization_level;
+    state.ff_features = 0;
+
     mod_ty module = _PyParser_ASTFromString(segment_str, filename, Py_file_input,
                                             &flags, arena);
     if (!module) {
         goto done;
     }
-    if (!_PyAST_Optimize(module, arena, _Py_GetConfig()->optimization_level, 0)) {
+    if (!_PyAST_Optimize(module, arena, &state)) {
         goto done;
     }
 
@@ -1176,7 +1178,7 @@ dump_frame(int fd, _PyInterpreterFrame *frame)
         PUTS(fd, "???");
     }
 
-    int lineno = PyUnstable_InterpreterFrame_GetLine(frame);
+    int lineno = _PyInterpreterFrame_GetLine(frame);
     PUTS(fd, ", line ");
     if (lineno >= 0) {
         _Py_DumpDecimal(fd, (size_t)lineno);

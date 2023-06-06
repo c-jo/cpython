@@ -1,6 +1,7 @@
 # Test the internal _wmi module on Windows
 # This is used by the platform module, and potentially others
 
+import sys
 import unittest
 from test.support import import_helper, requires_resource
 

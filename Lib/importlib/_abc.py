@@ -1,6 +1,7 @@
 """Subset of importlib.abc used to reduce importlib.util imports."""
 from . import _bootstrap
 import abc
+import warnings
 
 
 class Loader(metaclass=abc.ABCMeta):

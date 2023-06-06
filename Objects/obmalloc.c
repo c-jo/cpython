@@ -8,6 +8,7 @@
 #include <stdlib.h>               // malloc()
 #include <stdbool.h>
 
+
 #undef  uint
 #define uint pymem_uint
 
@@ -725,51 +726,20 @@ PyObject_Free(void *ptr)
 static int running_on_valgrind = -1;
 #endif
 
-typedef struct _obmalloc_state OMState;
 
-static inline int
-has_own_state(PyInterpreterState *interp)
-{
-    return (_Py_IsMainInterpreter(interp) ||
-            !(interp->feature_flags & Py_RTFLAGS_USE_MAIN_OBMALLOC) ||
-            _Py_IsMainInterpreterFinalizing(interp));
-}
-
-static inline OMState *
-get_state(void)
-{
-    PyInterpreterState *interp = _PyInterpreterState_GET();
-    if (!has_own_state(interp)) {
-        interp = _PyInterpreterState_Main();
-    }
-    return &interp->obmalloc;
-}
-
-// These macros all rely on a local "state" variable.
-#define usedpools (state->pools.used)
-#define allarenas (state->mgmt.arenas)
-#define maxarenas (state->mgmt.maxarenas)
-#define unused_arena_objects (state->mgmt.unused_arena_objects)
-#define usable_arenas (state->mgmt.usable_arenas)
-#define nfp2lasta (state->mgmt.nfp2lasta)
-#define narenas_currently_allocated (state->mgmt.narenas_currently_allocated)
-#define ntimes_arena_allocated (state->mgmt.ntimes_arena_allocated)
-#define narenas_highwater (state->mgmt.narenas_highwater)
-#define raw_allocated_blocks (state->mgmt.raw_allocated_blocks)
+#define allarenas (_PyRuntime.obmalloc.mgmt.arenas)
+#define maxarenas (_PyRuntime.obmalloc.mgmt.maxarenas)
+#define unused_arena_objects (_PyRuntime.obmalloc.mgmt.unused_arena_objects)
+#define usable_arenas (_PyRuntime.obmalloc.mgmt.usable_arenas)
+#define nfp2lasta (_PyRuntime.obmalloc.mgmt.nfp2lasta)
+#define narenas_currently_allocated (_PyRuntime.obmalloc.mgmt.narenas_currently_allocated)
+#define ntimes_arena_allocated (_PyRuntime.obmalloc.mgmt.ntimes_arena_allocated)
+#define narenas_highwater (_PyRuntime.obmalloc.mgmt.narenas_highwater)
+#define raw_allocated_blocks (_PyRuntime.obmalloc.mgmt.raw_allocated_blocks)
 
 Py_ssize_t
-_PyInterpreterState_GetAllocatedBlocks(PyInterpreterState *interp)
+_Py_GetAllocatedBlocks(void)
 {
-#ifdef Py_DEBUG
-    assert(has_own_state(interp));
-#else
-    if (!has_own_state(interp)) {
-        _Py_FatalErrorFunc(__func__,
-                           "the interpreter doesn't have its own allocator");
-    }
-#endif
-    OMState *state = &interp->obmalloc;
-
     Py_ssize_t n = raw_allocated_blocks;
     /* add up allocated blocks for used pools */
     for (uint i = 0; i < maxarenas; ++i) {
@@ -790,100 +760,20 @@ _PyInterpreterState_GetAllocatedBlocks(PyInterpreterState *interp)
     return n;
 }
 
-void
-_PyInterpreterState_FinalizeAllocatedBlocks(PyInterpreterState *interp)
-{
-    if (has_own_state(interp)) {
-        Py_ssize_t leaked = _PyInterpreterState_GetAllocatedBlocks(interp);
-        assert(has_own_state(interp) || leaked == 0);
-        interp->runtime->obmalloc.interpreter_leaks += leaked;
-    }
-}
-
-static Py_ssize_t get_num_global_allocated_blocks(_PyRuntimeState *);
-
-/* We preserve the number of blockss leaked during runtime finalization,
-   so they can be reported if the runtime is initialized again. */
-// XXX We don't lose any information by dropping this,
-// so we should consider doing so.
-static Py_ssize_t last_final_leaks = 0;
-
-void
-_Py_FinalizeAllocatedBlocks(_PyRuntimeState *runtime)
-{
-    last_final_leaks = get_num_global_allocated_blocks(runtime);
-    runtime->obmalloc.interpreter_leaks = 0;
-}
-
-static Py_ssize_t
-get_num_global_allocated_blocks(_PyRuntimeState *runtime)
-{
-    Py_ssize_t total = 0;
-    if (_PyRuntimeState_GetFinalizing(runtime) != NULL) {
-        PyInterpreterState *interp = _PyInterpreterState_Main();
-        if (interp == NULL) {
-            /* We are at the very end of runtime finalization.
-               We can't rely on finalizing->interp since that thread
-               state is probably already freed, so we don't worry
-               about it. */
-            assert(PyInterpreterState_Head() == NULL);
-        }
-        else {
-            assert(interp != NULL);
-            /* It is probably the last interpreter but not necessarily. */
-            assert(PyInterpreterState_Next(interp) == NULL);
-            total += _PyInterpreterState_GetAllocatedBlocks(interp);
-        }
-    }
-    else {
-        HEAD_LOCK(runtime);
-        PyInterpreterState *interp = PyInterpreterState_Head();
-        assert(interp != NULL);
-#ifdef Py_DEBUG
-        int got_main = 0;
-#endif
-        for (; interp != NULL; interp = PyInterpreterState_Next(interp)) {
-#ifdef Py_DEBUG
-            if (_Py_IsMainInterpreter(interp)) {
-                assert(!got_main);
-                got_main = 1;
-                assert(has_own_state(interp));
-            }
-#endif
-            if (has_own_state(interp)) {
-                total += _PyInterpreterState_GetAllocatedBlocks(interp);
-            }
-        }
-        HEAD_UNLOCK(runtime);
-#ifdef Py_DEBUG
-        assert(got_main);
-#endif
-    }
-    total += runtime->obmalloc.interpreter_leaks;
-    total += last_final_leaks;
-    return total;
-}
-
-Py_ssize_t
-_Py_GetGlobalAllocatedBlocks(void)
-{
-    return get_num_global_allocated_blocks(&_PyRuntime);
-}
-
 #if WITH_PYMALLOC_RADIX_TREE
 /*==========================================================================*/
 /* radix tree for tracking arena usage. */
 
-#define arena_map_root (state->usage.arena_map_root)
+#define arena_map_root (_PyRuntime.obmalloc.usage.arena_map_root)
 #ifdef USE_INTERIOR_NODES
-#define arena_map_mid_count (state->usage.arena_map_mid_count)
-#define arena_map_bot_count (state->usage.arena_map_bot_count)
+#define arena_map_mid_count (_PyRuntime.obmalloc.usage.arena_map_mid_count)
+#define arena_map_bot_count (_PyRuntime.obmalloc.usage.arena_map_bot_count)
 #endif
 
 /* Return a pointer to a bottom tree node, return NULL if it doesn't exist or
  * it cannot be created */
-static inline Py_ALWAYS_INLINE arena_map_bot_t *
-arena_map_get(OMState *state, pymem_block *p, int create)
+static Py_ALWAYS_INLINE arena_map_bot_t *
+arena_map_get(pymem_block *p, int create)
 {
 #ifdef USE_INTERIOR_NODES
     /* sanity check that IGNORE_BITS is correct */
@@ -944,12 +834,11 @@ arena_map_get(OMState *state, pymem_block *p, int create)
 
 /* mark or unmark addresses covered by arena */
 static int
-arena_map_mark_used(OMState *state, uintptr_t arena_base, int is_used)
+arena_map_mark_used(uintptr_t arena_base, int is_used)
 {
     /* sanity check that IGNORE_BITS is correct */
     assert(HIGH_BITS(arena_base) == HIGH_BITS(&arena_map_root));
-    arena_map_bot_t *n_hi = arena_map_get(
-            state, (pymem_block *)arena_base, is_used);
+    arena_map_bot_t *n_hi = arena_map_get((pymem_block *)arena_base, is_used);
     if (n_hi == NULL) {
         assert(is_used); /* otherwise node should already exist */
         return 0; /* failed to allocate space for node */
@@ -974,8 +863,7 @@ arena_map_mark_used(OMState *state, uintptr_t arena_base, int is_used)
          * must overflow to 0.  However, that would mean arena_base was
          * "ideal" and we should not be in this case. */
         assert(arena_base < arena_base_next);
-        arena_map_bot_t *n_lo = arena_map_get(
-                state, (pymem_block *)arena_base_next, is_used);
+        arena_map_bot_t *n_lo = arena_map_get((pymem_block *)arena_base_next, is_used);
         if (n_lo == NULL) {
             assert(is_used); /* otherwise should already exist */
             n_hi->arenas[i3].tail_hi = 0;
@@ -990,9 +878,9 @@ arena_map_mark_used(OMState *state, uintptr_t arena_base, int is_used)
 /* Return true if 'p' is a pointer inside an obmalloc arena.
  * _PyObject_Free() calls this so it needs to be very fast. */
 static int
-arena_map_is_used(OMState *state, pymem_block *p)
+arena_map_is_used(pymem_block *p)
 {
-    arena_map_bot_t *n = arena_map_get(state, p, 0);
+    arena_map_bot_t *n = arena_map_get(p, 0);
     if (n == NULL) {
         return 0;
     }
@@ -1015,7 +903,7 @@ arena_map_is_used(OMState *state, pymem_block *p)
  * `usable_arenas` to the return value.
  */
 static struct arena_object*
-new_arena(OMState *state)
+new_arena(void)
 {
     struct arena_object* arenaobj;
     uint excess;        /* number of bytes above pool alignment */
@@ -1081,7 +969,7 @@ new_arena(OMState *state)
     address = _PyObject_Arena.alloc(_PyObject_Arena.ctx, ARENA_SIZE);
 #if WITH_PYMALLOC_RADIX_TREE
     if (address != NULL) {
-        if (!arena_map_mark_used(state, (uintptr_t)address, 1)) {
+        if (!arena_map_mark_used((uintptr_t)address, 1)) {
             /* marking arena in radix tree failed, abort */
             _PyObject_Arena.free(_PyObject_Arena.ctx, address, ARENA_SIZE);
             address = NULL;
@@ -1124,9 +1012,9 @@ new_arena(OMState *state)
    pymalloc.  When the radix tree is used, 'poolp' is unused.
  */
 static bool
-address_in_range(OMState *state, void *p, poolp Py_UNUSED(pool))
+address_in_range(void *p, poolp Py_UNUSED(pool))
 {
-    return arena_map_is_used(state, p);
+    return arena_map_is_used(p);
 }
 #else
 /*
@@ -1207,7 +1095,7 @@ extremely desirable that it be this fast.
 static bool _Py_NO_SANITIZE_ADDRESS
             _Py_NO_SANITIZE_THREAD
             _Py_NO_SANITIZE_MEMORY
-address_in_range(OMState *state, void *p, poolp pool)
+address_in_range(void *p, poolp pool)
 {
     // Since address_in_range may be reading from memory which was not allocated
     // by Python, it is important that pool->arenaindex is read only once, as
@@ -1223,6 +1111,8 @@ address_in_range(OMState *state, void *p, poolp pool)
 #endif /* !WITH_PYMALLOC_RADIX_TREE */
 
 /*==========================================================================*/
+
+#define usedpools (_PyRuntime.obmalloc.pools.used)
 
 // Called when freelist is exhausted.  Extend the freelist if there is
 // space for a block.  Otherwise, remove this pool from usedpools.
@@ -1249,7 +1139,7 @@ pymalloc_pool_extend(poolp pool, uint size)
  * This function takes new pool and allocate a block from it.
  */
 static void*
-allocate_from_new_pool(OMState *state, uint size)
+allocate_from_new_pool(uint size)
 {
     /* There isn't a pool of the right size class immediately
      * available:  use a free pool.
@@ -1261,7 +1151,7 @@ allocate_from_new_pool(OMState *state, uint size)
             return NULL;
         }
 #endif
-        usable_arenas = new_arena(state);
+        usable_arenas = new_arena();
         if (usable_arenas == NULL) {
             return NULL;
         }
@@ -1385,7 +1275,7 @@ allocate_from_new_pool(OMState *state, uint size)
    or when the max memory limit has been reached.
 */
 static inline void*
-pymalloc_alloc(OMState *state, void *Py_UNUSED(ctx), size_t nbytes)
+pymalloc_alloc(void *Py_UNUSED(ctx), size_t nbytes)
 {
 #ifdef WITH_VALGRIND
     if (UNLIKELY(running_on_valgrind == -1)) {
@@ -1425,7 +1315,7 @@ pymalloc_alloc(OMState *state, void *Py_UNUSED(ctx), size_t nbytes)
         /* There isn't a pool of the right size class immediately
          * available:  use a free pool.
          */
-        bp = allocate_from_new_pool(state, size);
+        bp = allocate_from_new_pool(size);
     }
 
     return (void *)bp;
@@ -1435,8 +1325,7 @@ pymalloc_alloc(OMState *state, void *Py_UNUSED(ctx), size_t nbytes)
 void *
 _PyObject_Malloc(void *ctx, size_t nbytes)
 {
-    OMState *state = get_state();
-    void* ptr = pymalloc_alloc(state, ctx, nbytes);
+    void* ptr = pymalloc_alloc(ctx, nbytes);
     if (LIKELY(ptr != NULL)) {
         return ptr;
     }
@@ -1455,8 +1344,7 @@ _PyObject_Calloc(void *ctx, size_t nelem, size_t elsize)
     assert(elsize == 0 || nelem <= (size_t)PY_SSIZE_T_MAX / elsize);
     size_t nbytes = nelem * elsize;
 
-    OMState *state = get_state();
-    void* ptr = pymalloc_alloc(state, ctx, nbytes);
+    void* ptr = pymalloc_alloc(ctx, nbytes);
     if (LIKELY(ptr != NULL)) {
         memset(ptr, 0, nbytes);
         return ptr;
@@ -1471,7 +1359,7 @@ _PyObject_Calloc(void *ctx, size_t nelem, size_t elsize)
 
 
 static void
-insert_to_usedpool(OMState *state, poolp pool)
+insert_to_usedpool(poolp pool)
 {
     assert(pool->ref.count > 0);            /* else the pool is empty */
 
@@ -1487,7 +1375,7 @@ insert_to_usedpool(OMState *state, poolp pool)
 }
 
 static void
-insert_to_freepool(OMState *state, poolp pool)
+insert_to_freepool(poolp pool)
 {
     poolp next = pool->nextpool;
     poolp prev = pool->prevpool;
@@ -1570,7 +1458,7 @@ insert_to_freepool(OMState *state, poolp pool)
 
 #if WITH_PYMALLOC_RADIX_TREE
         /* mark arena region as not under control of obmalloc */
-        arena_map_mark_used(state, ao->address, 0);
+        arena_map_mark_used(ao->address, 0);
 #endif
 
         /* Free the entire arena. */
@@ -1657,7 +1545,7 @@ insert_to_freepool(OMState *state, poolp pool)
    Return 1 if it was freed.
    Return 0 if the block was not allocated by pymalloc_alloc(). */
 static inline int
-pymalloc_free(OMState *state, void *Py_UNUSED(ctx), void *p)
+pymalloc_free(void *Py_UNUSED(ctx), void *p)
 {
     assert(p != NULL);
 
@@ -1668,7 +1556,7 @@ pymalloc_free(OMState *state, void *Py_UNUSED(ctx), void *p)
 #endif
 
     poolp pool = POOL_ADDR(p);
-    if (UNLIKELY(!address_in_range(state, p, pool))) {
+    if (UNLIKELY(!address_in_range(p, pool))) {
         return 0;
     }
     /* We allocated this address. */
@@ -1692,7 +1580,7 @@ pymalloc_free(OMState *state, void *Py_UNUSED(ctx), void *p)
          * targets optimal filling when several pools contain
          * blocks of the same size class.
          */
-        insert_to_usedpool(state, pool);
+        insert_to_usedpool(pool);
         return 1;
     }
 
@@ -1709,7 +1597,7 @@ pymalloc_free(OMState *state, void *Py_UNUSED(ctx), void *p)
      * previously freed pools will be allocated later
      * (being not referenced, they are perhaps paged out).
      */
-    insert_to_freepool(state, pool);
+    insert_to_freepool(pool);
     return 1;
 }
 
@@ -1722,8 +1610,7 @@ _PyObject_Free(void *ctx, void *p)
         return;
     }
 
-    OMState *state = get_state();
-    if (UNLIKELY(!pymalloc_free(state, ctx, p))) {
+    if (UNLIKELY(!pymalloc_free(ctx, p))) {
         /* pymalloc didn't allocate this address */
         PyMem_RawFree(p);
         raw_allocated_blocks--;
@@ -1741,8 +1628,7 @@ _PyObject_Free(void *ctx, void *p)
 
    Return 0 if pymalloc didn't allocated p. */
 static int
-pymalloc_realloc(OMState *state, void *ctx,
-                 void **newptr_p, void *p, size_t nbytes)
+pymalloc_realloc(void *ctx, void **newptr_p, void *p, size_t nbytes)
 {
     void *bp;
     poolp pool;
@@ -1758,7 +1644,7 @@ pymalloc_realloc(OMState *state, void *ctx,
 #endif
 
     pool = POOL_ADDR(p);
-    if (!address_in_range(state, p, pool)) {
+    if (!address_in_range(p, pool)) {
         /* pymalloc is not managing this block.
 
            If nbytes <= SMALL_REQUEST_THRESHOLD, it's tempting to try to take
@@ -1811,8 +1697,7 @@ _PyObject_Realloc(void *ctx, void *ptr, size_t nbytes)
         return _PyObject_Malloc(ctx, nbytes);
     }
 
-    OMState *state = get_state();
-    if (pymalloc_realloc(state, ctx, &ptr2, ptr, nbytes)) {
+    if (pymalloc_realloc(ctx, &ptr2, ptr, nbytes)) {
         return ptr2;
     }
 
@@ -1826,27 +1711,9 @@ _PyObject_Realloc(void *ctx, void *ptr, size_t nbytes)
  * only be used by extensions that are compiled with pymalloc enabled. */
 
 Py_ssize_t
-_PyInterpreterState_GetAllocatedBlocks(PyInterpreterState *Py_UNUSED(interp))
+_Py_GetAllocatedBlocks(void)
 {
     return 0;
-}
-
-Py_ssize_t
-_Py_GetGlobalAllocatedBlocks(void)
-{
-    return 0;
-}
-
-void
-_PyInterpreterState_FinalizeAllocatedBlocks(PyInterpreterState *Py_UNUSED(interp))
-{
-    return;
-}
-
-void
-_Py_FinalizeAllocatedBlocks(_PyRuntimeState *Py_UNUSED(runtime))
-{
-    return;
 }
 
 #endif /* WITH_PYMALLOC */
@@ -2423,7 +2290,6 @@ _PyObject_DebugMallocStats(FILE *out)
     if (!_PyMem_PymallocEnabled()) {
         return 0;
     }
-    OMState *state = get_state();
 
     uint i;
     const uint numclasses = SMALL_REQUEST_THRESHOLD >> ALIGNMENT_SHIFT;

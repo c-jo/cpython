@@ -309,7 +309,7 @@ class CommandSequence(Command):
         s = self.__class__.__name__
         strs = []
         for cmd in self.cmds:
-            strs.append(f"    {cmd!r}")
+            strs.append("    %r" % (cmd,))
         return s + "(\n" + ",\n".join(strs) + "\n)"
 
     def __len__(self):

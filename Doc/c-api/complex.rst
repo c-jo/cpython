@@ -5,7 +5,7 @@
 Complex Number Objects
 ----------------------
 
-.. index:: pair: object; complex number
+.. index:: object: complex number
 
 Python's complex number objects are implemented as two distinct types when
 viewed from the C API:  one is the Python object exposed to Python programs, and

@@ -149,7 +149,7 @@ done.  This can be done using the :c:func:`PyErr_Fetch` and
 
 .. index::
    single: string; object representation
-   pair: built-in function; repr
+   builtin: repr
 
 Object Presentation
 -------------------
@@ -337,7 +337,7 @@ Here is an example::
        }
 
        PyErr_Format(PyExc_AttributeError,
-                    "'%.100s' object has no attribute '%.400s'",
+                    "'%.50s' object has no attribute '%.400s'",
                     tp->tp_name, name);
        return NULL;
    }

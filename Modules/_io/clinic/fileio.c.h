@@ -18,19 +18,15 @@ PyDoc_STRVAR(_io_FileIO_close__doc__,
 "called more than once without error.");
 
 #define _IO_FILEIO_CLOSE_METHODDEF    \
-    {"close", _PyCFunction_CAST(_io_FileIO_close), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _io_FileIO_close__doc__},
+    {"close", (PyCFunction)_io_FileIO_close, METH_NOARGS, _io_FileIO_close__doc__},
 
 static PyObject *
-_io_FileIO_close_impl(fileio *self, PyTypeObject *cls);
+_io_FileIO_close_impl(fileio *self);
 
 static PyObject *
-_io_FileIO_close(fileio *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_io_FileIO_close(fileio *self, PyObject *Py_UNUSED(ignored))
 {
-    if (nargs) {
-        PyErr_SetString(PyExc_TypeError, "close() takes no arguments");
-        return NULL;
-    }
-    return _io_FileIO_close_impl(self, cls);
+    return _io_FileIO_close_impl(self);
 }
 
 PyDoc_STRVAR(_io_FileIO___init____doc__,
@@ -215,45 +211,27 @@ PyDoc_STRVAR(_io_FileIO_readinto__doc__,
 "Same as RawIOBase.readinto().");
 
 #define _IO_FILEIO_READINTO_METHODDEF    \
-    {"readinto", _PyCFunction_CAST(_io_FileIO_readinto), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _io_FileIO_readinto__doc__},
+    {"readinto", (PyCFunction)_io_FileIO_readinto, METH_O, _io_FileIO_readinto__doc__},
 
 static PyObject *
-_io_FileIO_readinto_impl(fileio *self, PyTypeObject *cls, Py_buffer *buffer);
+_io_FileIO_readinto_impl(fileio *self, Py_buffer *buffer);
 
 static PyObject *
-_io_FileIO_readinto(fileio *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_io_FileIO_readinto(fileio *self, PyObject *arg)
 {
     PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-    #  define KWTUPLE (PyObject *)&_Py_SINGLETON(tuple_empty)
-    #else
-    #  define KWTUPLE NULL
-    #endif
-
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "readinto",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[1];
     Py_buffer buffer = {NULL, NULL};
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &buffer, PyBUF_WRITABLE) < 0) {
+    if (PyObject_GetBuffer(arg, &buffer, PyBUF_WRITABLE) < 0) {
         PyErr_Clear();
-        _PyArg_BadArgument("readinto", "argument 1", "read-write bytes-like object", args[0]);
+        _PyArg_BadArgument("readinto", "argument", "read-write bytes-like object", arg);
         goto exit;
     }
     if (!PyBuffer_IsContiguous(&buffer, 'C')) {
-        _PyArg_BadArgument("readinto", "argument 1", "contiguous buffer", args[0]);
+        _PyArg_BadArgument("readinto", "argument", "contiguous buffer", arg);
         goto exit;
     }
-    return_value = _io_FileIO_readinto_impl(self, cls, &buffer);
+    return_value = _io_FileIO_readinto_impl(self, &buffer);
 
 exit:
     /* Cleanup for buffer */
@@ -296,43 +274,28 @@ PyDoc_STRVAR(_io_FileIO_read__doc__,
 "Return an empty bytes object at EOF.");
 
 #define _IO_FILEIO_READ_METHODDEF    \
-    {"read", _PyCFunction_CAST(_io_FileIO_read), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _io_FileIO_read__doc__},
+    {"read", _PyCFunction_CAST(_io_FileIO_read), METH_FASTCALL, _io_FileIO_read__doc__},
 
 static PyObject *
-_io_FileIO_read_impl(fileio *self, PyTypeObject *cls, Py_ssize_t size);
+_io_FileIO_read_impl(fileio *self, Py_ssize_t size);
 
 static PyObject *
-_io_FileIO_read(fileio *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_io_FileIO_read(fileio *self, PyObject *const *args, Py_ssize_t nargs)
 {
     PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-    #  define KWTUPLE (PyObject *)&_Py_SINGLETON(tuple_empty)
-    #else
-    #  define KWTUPLE NULL
-    #endif
-
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "read",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[1];
     Py_ssize_t size = -1;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 0, 1, 0, argsbuf);
-    if (!args) {
+    if (!_PyArg_CheckPositional("read", nargs, 0, 1)) {
         goto exit;
     }
     if (nargs < 1) {
-        goto skip_optional_posonly;
+        goto skip_optional;
     }
     if (!_Py_convert_optional_to_ssize_t(args[0], &size)) {
         goto exit;
     }
-skip_optional_posonly:
-    return_value = _io_FileIO_read_impl(self, cls, size);
+skip_optional:
+    return_value = _io_FileIO_read_impl(self, size);
 
 exit:
     return return_value;
@@ -349,43 +312,25 @@ PyDoc_STRVAR(_io_FileIO_write__doc__,
 "returns None if the write would block.");
 
 #define _IO_FILEIO_WRITE_METHODDEF    \
-    {"write", _PyCFunction_CAST(_io_FileIO_write), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _io_FileIO_write__doc__},
+    {"write", (PyCFunction)_io_FileIO_write, METH_O, _io_FileIO_write__doc__},
 
 static PyObject *
-_io_FileIO_write_impl(fileio *self, PyTypeObject *cls, Py_buffer *b);
+_io_FileIO_write_impl(fileio *self, Py_buffer *b);
 
 static PyObject *
-_io_FileIO_write(fileio *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_io_FileIO_write(fileio *self, PyObject *arg)
 {
     PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-    #  define KWTUPLE (PyObject *)&_Py_SINGLETON(tuple_empty)
-    #else
-    #  define KWTUPLE NULL
-    #endif
-
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "write",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[1];
     Py_buffer b = {NULL, NULL};
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &b, PyBUF_SIMPLE) != 0) {
+    if (PyObject_GetBuffer(arg, &b, PyBUF_SIMPLE) != 0) {
         goto exit;
     }
     if (!PyBuffer_IsContiguous(&b, 'C')) {
-        _PyArg_BadArgument("write", "argument 1", "contiguous buffer", args[0]);
+        _PyArg_BadArgument("write", "argument", "contiguous buffer", arg);
         goto exit;
     }
-    return_value = _io_FileIO_write_impl(self, cls, &b);
+    return_value = _io_FileIO_write_impl(self, &b);
 
 exit:
     /* Cleanup for b */
@@ -473,41 +418,26 @@ PyDoc_STRVAR(_io_FileIO_truncate__doc__,
 "The current file position is changed to the value of size.");
 
 #define _IO_FILEIO_TRUNCATE_METHODDEF    \
-    {"truncate", _PyCFunction_CAST(_io_FileIO_truncate), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _io_FileIO_truncate__doc__},
+    {"truncate", _PyCFunction_CAST(_io_FileIO_truncate), METH_FASTCALL, _io_FileIO_truncate__doc__},
 
 static PyObject *
-_io_FileIO_truncate_impl(fileio *self, PyTypeObject *cls, PyObject *posobj);
+_io_FileIO_truncate_impl(fileio *self, PyObject *posobj);
 
 static PyObject *
-_io_FileIO_truncate(fileio *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_io_FileIO_truncate(fileio *self, PyObject *const *args, Py_ssize_t nargs)
 {
     PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-    #  define KWTUPLE (PyObject *)&_Py_SINGLETON(tuple_empty)
-    #else
-    #  define KWTUPLE NULL
-    #endif
-
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "truncate",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[1];
     PyObject *posobj = Py_None;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 0, 1, 0, argsbuf);
-    if (!args) {
+    if (!_PyArg_CheckPositional("truncate", nargs, 0, 1)) {
         goto exit;
     }
     if (nargs < 1) {
-        goto skip_optional_posonly;
+        goto skip_optional;
     }
     posobj = args[0];
-skip_optional_posonly:
-    return_value = _io_FileIO_truncate_impl(self, cls, posobj);
+skip_optional:
+    return_value = _io_FileIO_truncate_impl(self, posobj);
 
 exit:
     return return_value;
@@ -536,4 +466,4 @@ _io_FileIO_isatty(fileio *self, PyObject *Py_UNUSED(ignored))
 #ifndef _IO_FILEIO_TRUNCATE_METHODDEF
     #define _IO_FILEIO_TRUNCATE_METHODDEF
 #endif /* !defined(_IO_FILEIO_TRUNCATE_METHODDEF) */
-/*[clinic end generated code: output=bef47b31b644996a input=a9049054013a1b77]*/
+/*[clinic end generated code: output=27f883807a6c29ae input=a9049054013a1b77]*/

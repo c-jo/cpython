@@ -286,7 +286,6 @@ xxsubtype_exec(PyObject* m)
 
 static struct PyModuleDef_Slot xxsubtype_slots[] = {
     {Py_mod_exec, xxsubtype_exec},
-    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
     {0, NULL},
 };
 

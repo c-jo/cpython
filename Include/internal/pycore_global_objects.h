@@ -23,6 +23,15 @@ extern "C" {
 // Only immutable objects should be considered runtime-global.
 // All others must be per-interpreter.
 
+#define _Py_CACHED_OBJECT(NAME) \
+    _PyRuntime.cached_objects.NAME
+
+struct _Py_cached_objects {
+    PyObject *str_replace_inf;
+
+    PyObject *interned_strings;
+};
+
 #define _Py_GLOBAL_OBJECT(NAME) \
     _PyRuntime.static_objects.NAME
 #define _Py_SINGLETON(NAME) \
@@ -58,23 +67,11 @@ struct _Py_static_objects {
     (interp)->cached_objects.NAME
 
 struct _Py_interp_cached_objects {
-    PyObject *interned_strings;
-
-    /* AST */
-    PyObject *str_replace_inf;
-
+    int _not_set;
     /* object.__reduce__ */
     PyObject *objreduce;
     PyObject *type_slots_pname;
     pytype_slotdef *type_slots_ptrs[MAX_EQUIV];
-
-    /* TypeVar and related types */
-    PyTypeObject *generic_type;
-    PyTypeObject *typevar_type;
-    PyTypeObject *typevartuple_type;
-    PyTypeObject *paramspec_type;
-    PyTypeObject *paramspecargs_type;
-    PyTypeObject *paramspeckwargs_type;
 };
 
 #define _Py_INTERP_STATIC_OBJECT(interp, NAME) \
@@ -88,7 +85,6 @@ struct _Py_interp_static_objects {
         // hamt_empty is here instead of global because of its weakreflist.
         _PyGC_Head_UNUSED _hamt_empty_gc_not_used;
         PyHamtObject hamt_empty;
-        PyBaseExceptionObject last_resort_memory_error;
     } singletons;
 };
 

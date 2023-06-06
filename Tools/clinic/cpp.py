@@ -1,13 +1,7 @@
 import re
 import sys
-from collections.abc import Callable
-from typing import NoReturn
 
-
-TokenAndCondition = tuple[str, str]
-TokenStack = list[TokenAndCondition]
-
-def negate(condition: str) -> str:
+def negate(condition):
     """
     Returns a CPP conditional that is the opposite of the conditional passed in.
     """
@@ -28,18 +22,17 @@ class Monitor:
     Anyway this implementation seems to work well enough for the CPython sources.
     """
 
-    is_a_simple_defined: Callable[[str], re.Match[str] | None]
     is_a_simple_defined = re.compile(r'^defined\s*\(\s*[A-Za-z0-9_]+\s*\)$').match
 
-    def __init__(self, filename: str | None = None, *, verbose: bool = False) -> None:
-        self.stack: TokenStack = []
+    def __init__(self, filename=None, *, verbose=False):
+        self.stack = []
         self.in_comment = False
-        self.continuation: str | None = None
+        self.continuation = None
         self.line_number = 0
         self.filename = filename
         self.verbose = verbose
 
-    def __repr__(self) -> str:
+    def __repr__(self):
         return ''.join((
             '<Monitor ',
             str(id(self)),
@@ -47,16 +40,16 @@ class Monitor:
             " condition=", repr(self.condition()),
             ">"))
 
-    def status(self) -> str:
+    def status(self):
         return str(self.line_number).rjust(4) + ": " + self.condition()
 
-    def condition(self) -> str:
+    def condition(self):
         """
         Returns the current preprocessor state, as a single #if condition.
         """
         return " && ".join(condition for token, condition in self.stack)
 
-    def fail(self, *a: object) -> NoReturn:
+    def fail(self, *a):
         if self.filename:
             filename = " " + self.filename
         else:
@@ -65,19 +58,19 @@ class Monitor:
         print("   ", ' '.join(str(x) for x in a))
         sys.exit(-1)
 
-    def close(self) -> None:
+    def close(self):
         if self.stack:
             self.fail("Ended file while still in a preprocessor conditional block!")
 
-    def write(self, s: str) -> None:
+    def write(self, s):
         for line in s.split("\n"):
             self.writeline(line)
 
-    def writeline(self, line: str) -> None:
+    def writeline(self, line):
         self.line_number += 1
         line = line.strip()
 
-        def pop_stack() -> TokenAndCondition:
+        def pop_stack():
             if not self.stack:
                 self.fail("#" + token + " without matching #if / #ifdef / #ifndef!")
             return self.stack.pop()
@@ -185,7 +178,7 @@ class Monitor:
 
 if __name__ == '__main__':
     for filename in sys.argv[1:]:
-        with open(filename) as f:
+        with open(filename, "rt") as f:
             cpp = Monitor(filename, verbose=True)
             print()
             print(filename)

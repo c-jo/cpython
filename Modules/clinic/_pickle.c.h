@@ -38,42 +38,7 @@ PyDoc_STRVAR(_pickle_Pickler_dump__doc__,
 "Write a pickled representation of the given object to the open file.");
 
 #define _PICKLE_PICKLER_DUMP_METHODDEF    \
-    {"dump", _PyCFunction_CAST(_pickle_Pickler_dump), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _pickle_Pickler_dump__doc__},
-
-static PyObject *
-_pickle_Pickler_dump_impl(PicklerObject *self, PyTypeObject *cls,
-                          PyObject *obj);
-
-static PyObject *
-_pickle_Pickler_dump(PicklerObject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
-{
-    PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-    #  define KWTUPLE (PyObject *)&_Py_SINGLETON(tuple_empty)
-    #else
-    #  define KWTUPLE NULL
-    #endif
-
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "dump",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[1];
-    PyObject *obj;
-
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 1, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    obj = args[0];
-    return_value = _pickle_Pickler_dump_impl(self, cls, obj);
-
-exit:
-    return return_value;
-}
+    {"dump", (PyCFunction)_pickle_Pickler_dump, METH_O, _pickle_Pickler_dump__doc__},
 
 PyDoc_STRVAR(_pickle_Pickler___sizeof____doc__,
 "__sizeof__($self, /)\n"
@@ -277,19 +242,15 @@ PyDoc_STRVAR(_pickle_Unpickler_load__doc__,
 "specified therein.");
 
 #define _PICKLE_UNPICKLER_LOAD_METHODDEF    \
-    {"load", _PyCFunction_CAST(_pickle_Unpickler_load), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _pickle_Unpickler_load__doc__},
+    {"load", (PyCFunction)_pickle_Unpickler_load, METH_NOARGS, _pickle_Unpickler_load__doc__},
 
 static PyObject *
-_pickle_Unpickler_load_impl(UnpicklerObject *self, PyTypeObject *cls);
+_pickle_Unpickler_load_impl(UnpicklerObject *self);
 
 static PyObject *
-_pickle_Unpickler_load(UnpicklerObject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_pickle_Unpickler_load(UnpicklerObject *self, PyObject *Py_UNUSED(ignored))
 {
-    if (nargs) {
-        PyErr_SetString(PyExc_TypeError, "load() takes no arguments");
-        return NULL;
-    }
-    return _pickle_Unpickler_load_impl(self, cls);
+    return _pickle_Unpickler_load_impl(self);
 }
 
 PyDoc_STRVAR(_pickle_Unpickler_find_class__doc__,
@@ -306,41 +267,26 @@ PyDoc_STRVAR(_pickle_Unpickler_find_class__doc__,
 "needed.  Both arguments passed are str objects.");
 
 #define _PICKLE_UNPICKLER_FIND_CLASS_METHODDEF    \
-    {"find_class", _PyCFunction_CAST(_pickle_Unpickler_find_class), METH_METHOD|METH_FASTCALL|METH_KEYWORDS, _pickle_Unpickler_find_class__doc__},
+    {"find_class", _PyCFunction_CAST(_pickle_Unpickler_find_class), METH_FASTCALL, _pickle_Unpickler_find_class__doc__},
 
 static PyObject *
-_pickle_Unpickler_find_class_impl(UnpicklerObject *self, PyTypeObject *cls,
+_pickle_Unpickler_find_class_impl(UnpicklerObject *self,
                                   PyObject *module_name,
                                   PyObject *global_name);
 
 static PyObject *
-_pickle_Unpickler_find_class(UnpicklerObject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+_pickle_Unpickler_find_class(UnpicklerObject *self, PyObject *const *args, Py_ssize_t nargs)
 {
     PyObject *return_value = NULL;
-    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
-    #  define KWTUPLE (PyObject *)&_Py_SINGLETON(tuple_empty)
-    #else
-    #  define KWTUPLE NULL
-    #endif
-
-    static const char * const _keywords[] = {"", "", NULL};
-    static _PyArg_Parser _parser = {
-        .keywords = _keywords,
-        .fname = "find_class",
-        .kwtuple = KWTUPLE,
-    };
-    #undef KWTUPLE
-    PyObject *argsbuf[2];
     PyObject *module_name;
     PyObject *global_name;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 2, 2, 0, argsbuf);
-    if (!args) {
+    if (!_PyArg_CheckPositional("find_class", nargs, 2, 2)) {
         goto exit;
     }
     module_name = args[0];
     global_name = args[1];
-    return_value = _pickle_Unpickler_find_class_impl(self, cls, module_name, global_name);
+    return_value = _pickle_Unpickler_find_class_impl(self, module_name, global_name);
 
 exit:
     return return_value;
@@ -1034,4 +980,4 @@ skip_optional_kwonly:
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=a0e04b85e7bae626 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=730dc26938561313 input=a9049054013a1b77]*/

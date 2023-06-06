@@ -48,7 +48,7 @@ an event loop:
    running event loop.
 
    If there is no running event loop set, the function will return
-   the result of the ``get_event_loop_policy().get_event_loop()`` call.
+   the result of calling ``get_event_loop_policy().get_event_loop()``.
 
    Because this function has rather complex behavior (especially
    when custom event loop policies are in use), using the
@@ -59,9 +59,11 @@ an event loop:
    instead of using these lower level functions to manually create and close an
    event loop.
 
-   .. deprecated:: 3.12
-      Deprecation warning is emitted if there is no current event loop.
-      In some future Python release this will become an error.
+   .. note::
+      In Python versions 3.10.0--3.10.8 and 3.11.0 this function
+      (and other functions which used it implicitly) emitted a
+      :exc:`DeprecationWarning` if there was no running event loop, even if
+      the current loop was set.
 
 .. function:: set_event_loop(loop)
 
@@ -186,24 +188,19 @@ Running and stopping the loop
 .. coroutinemethod:: loop.shutdown_default_executor(timeout=None)
 
    Schedule the closure of the default executor and wait for it to join all of
-   the threads in the :class:`~concurrent.futures.ThreadPoolExecutor`.
-   Once this method has been called,
-   using the default executor with :meth:`loop.run_in_executor`
-   will raise a :exc:`RuntimeError`.
+   the threads in the :class:`ThreadPoolExecutor`. After calling this method, a
+   :exc:`RuntimeError` will be raised if :meth:`loop.run_in_executor` is called
+   while using the default executor.
 
-   The *timeout* parameter specifies the amount of time
-   (in :class:`float` seconds) the executor will be given to finish joining.
-   With the default, ``None``,
-   the executor is allowed an unlimited amount of time.
+   The *timeout* parameter specifies the amount of time the executor will
+   be given to finish joining. The default value is ``None``, which means the
+   executor will be given an unlimited amount of time.
 
-   If the *timeout* is reached, a :exc:`RuntimeWarning` is emitted
-   and the default executor is terminated
-   without waiting for its threads to finish joining.
+   If the timeout duration is reached, a warning is emitted and executor is
+   terminated without waiting for its threads to finish joining.
 
-   .. note::
-
-      Do not call this method when using :func:`asyncio.run`,
-      as the latter handles default executor shutdown automatically.
+   Note that there is no need to call this function when
+   :func:`asyncio.run` is used.
 
    .. versionadded:: 3.9
 
@@ -218,23 +215,22 @@ Scheduling callbacks
    Schedule the *callback* :term:`callback` to be called with
    *args* arguments at the next iteration of the event loop.
 
-   Return an instance of :class:`asyncio.Handle`,
-   which can be used later to cancel the callback.
-
    Callbacks are called in the order in which they are registered.
    Each callback will be called exactly once.
 
-   The optional keyword-only *context* argument specifies a
+   An optional keyword-only *context* argument allows specifying a
    custom :class:`contextvars.Context` for the *callback* to run in.
-   Callbacks use the current context when no *context* is provided.
+   The current context is used when no *context* is provided.
 
-   Unlike :meth:`call_soon_threadsafe`, this method is not thread-safe.
+   An instance of :class:`asyncio.Handle` is returned, which can be
+   used later to cancel the callback.
+
+   This method is not thread-safe.
 
 .. method:: loop.call_soon_threadsafe(callback, *args, context=None)
 
-   A thread-safe variant of :meth:`call_soon`. When scheduling callbacks from
-   another thread, this function *must* be used, since :meth:`call_soon` is not
-   thread-safe.
+   A thread-safe variant of :meth:`call_soon`.  Must be used to
+   schedule callbacks *from another thread*.
 
    Raises :exc:`RuntimeError` if called on a loop that's been closed.
    This can happen on a secondary thread when the main application is
@@ -524,12 +520,12 @@ Opening network connections
       When a server's IPv4 path and protocol are working, but the server's
       IPv6 path and protocol are not working, a dual-stack client
       application experiences significant connection delay compared to an
-      IPv4-only client.  This is undesirable because it causes the
-      dual-stack client to have a worse user experience.  This document
+      IPv4-only client.  This is undesirable because it causes the dual-
+      stack client to have a worse user experience.  This document
       specifies requirements for algorithms that reduce this user-visible
       delay and provides an algorithm.
 
-      For more information: https://datatracker.ietf.org/doc/html/rfc6555
+      For more information: https://tools.ietf.org/html/rfc6555
 
    .. versionchanged:: 3.11
 
@@ -1438,7 +1434,9 @@ async/await code consider using the high-level
 
    * *stdin* can be any of these:
 
-     * a file-like object
+     * a file-like object representing a pipe to be connected to the
+       subprocess's standard input stream using
+       :meth:`~loop.connect_write_pipe`
      * the :const:`subprocess.PIPE` constant (default) which will create a new
        pipe and connect it,
      * the value ``None`` which will make the subprocess inherit the file
@@ -1448,7 +1446,9 @@ async/await code consider using the high-level
 
    * *stdout* can be any of these:
 
-     * a file-like object
+     * a file-like object representing a pipe to be connected to the
+       subprocess's standard output stream using
+       :meth:`~loop.connect_write_pipe`
      * the :const:`subprocess.PIPE` constant (default) which will create a new
        pipe and connect it,
      * the value ``None`` which will make the subprocess inherit the file
@@ -1458,7 +1458,9 @@ async/await code consider using the high-level
 
    * *stderr* can be any of these:
 
-     * a file-like object
+     * a file-like object representing a pipe to be connected to the
+       subprocess's standard error stream using
+       :meth:`~loop.connect_write_pipe`
      * the :const:`subprocess.PIPE` constant (default) which will create a new
        pipe and connect it,
      * the value ``None`` which will make the subprocess inherit the file
@@ -1476,11 +1478,6 @@ async/await code consider using the high-level
      The ``asyncio`` subprocess API does not support decoding the streams
      as text. :func:`bytes.decode` can be used to convert the bytes returned
      from the stream to text.
-
-   If a file-like object passed as *stdin*, *stdout* or *stderr* represents a
-   pipe, then the other side of this pipe should be registered with
-   :meth:`~loop.connect_write_pipe` or :meth:`~loop.connect_read_pipe` for use
-   with the event loop.
 
    See the constructor of the :class:`subprocess.Popen` class
    for documentation on other arguments.
@@ -1570,7 +1567,7 @@ Server objects are created by :meth:`loop.create_server`,
 :meth:`loop.create_unix_server`, :func:`start_server`,
 and :func:`start_unix_server` functions.
 
-Do not instantiate the :class:`Server` class directly.
+Do not instantiate the class directly.
 
 .. class:: Server
 
@@ -1661,8 +1658,7 @@ Do not instantiate the :class:`Server` class directly.
 
    .. attribute:: sockets
 
-      List of socket-like objects, ``asyncio.trsock.TransportSocket``, which
-      the server is listening on.
+      List of :class:`socket.socket` objects the server is listening on.
 
       .. versionchanged:: 3.7
          Prior to Python 3.7 ``Server.sockets`` used to return an

@@ -5,7 +5,7 @@
 The ``None`` Object
 -------------------
 
-.. index:: pair: object; None
+.. index:: object: None
 
 Note that the :c:type:`PyTypeObject` for ``None`` is not directly exposed in the
 Python/C API.  Since ``None`` is a singleton, testing for object identity (using

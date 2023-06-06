@@ -41,7 +41,7 @@ Importing Modules
 
 .. c:function:: PyObject* PyImport_ImportModuleEx(const char *name, PyObject *globals, PyObject *locals, PyObject *fromlist)
 
-   .. index:: pair: built-in function; __import__
+   .. index:: builtin: __import__
 
    Import a module.  This is best described by referring to the built-in Python
    function :func:`__import__`.
@@ -120,7 +120,7 @@ Importing Modules
 
 .. c:function:: PyObject* PyImport_ExecCodeModule(const char *name, PyObject *co)
 
-   .. index:: pair: built-in function; compile
+   .. index:: builtin: compile
 
    Given a module name (possibly of the form ``package.module``) and a code object
    read from a Python bytecode file or obtained from the built-in function
@@ -186,10 +186,8 @@ Importing Modules
 
    .. versionadded:: 3.2
    .. versionchanged:: 3.3
-      Uses :func:`!imp.source_from_cache()` in calculating the source path if
+      Uses :func:`imp.source_from_cache()` in calculating the source path if
       only the bytecode path is provided.
-   .. versionchanged:: 3.12
-      No longer uses the removed :mod:`!imp` module.
 
 
 .. c:function:: long PyImport_GetMagicNumber()

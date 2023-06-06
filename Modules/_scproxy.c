@@ -206,11 +206,6 @@ get_proxies(PyObject* Py_UNUSED(mod), PyObject *Py_UNUSED(ignored))
         kSCPropNetProxiesGopherProxy,
         kSCPropNetProxiesGopherPort);
     if (r == -1) goto error;
-    r = set_proxy(result, "socks", proxyDict,
-        kSCPropNetProxiesSOCKSEnable,
-        kSCPropNetProxiesSOCKSProxy,
-        kSCPropNetProxiesSOCKSPort);
-    if (r == -1) goto error;
 
     CFRelease(proxyDict);
     return result;
@@ -237,7 +232,6 @@ static PyMethodDef mod_methods[] = {
 };
 
 static PyModuleDef_Slot _scproxy_slots[] = {
-    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
     {0, NULL}
 };
 

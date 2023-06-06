@@ -41,6 +41,7 @@ NL = '\n'
 NeedMoreData = object()
 
 
+
 class BufferedSubFile(object):
     """A file-ish object that can have new data loaded into it.
 
@@ -131,6 +132,7 @@ class BufferedSubFile(object):
         return line
 
 
+
 class FeedParser:
     """A feed-style parser of email."""
 
@@ -264,7 +266,7 @@ class FeedParser:
                         yield NeedMoreData
                         continue
                     break
-                self._pop_message()
+                msg = self._pop_message()
                 # We need to pop the EOF matcher in order to tell if we're at
                 # the end of the current file, not the end of the last block
                 # of message headers.

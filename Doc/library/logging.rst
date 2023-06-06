@@ -813,9 +813,8 @@ wire).
    :type lineno: int
 
    :param msg: The event description message,
-      which can be a %-format string with placeholders for variable data,
-      or an arbitrary object (see :ref:`arbitrary-object-messages`).
-   :type msg: typing.Any
+      which can be a %-format string with placeholders for variable data.
+   :type msg: str
 
    :param args: Variable data to merge into the *msg* argument
       to obtain the event description.

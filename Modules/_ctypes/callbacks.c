@@ -28,11 +28,23 @@
 
 /**************************************************************/
 
+static void
+CThunkObject_dealloc(PyObject *myself)
+{
+    CThunkObject *self = (CThunkObject *)myself;
+    PyObject_GC_UnTrack(self);
+    Py_XDECREF(self->converters);
+    Py_XDECREF(self->callable);
+    Py_XDECREF(self->restype);
+    if (self->pcl_write)
+        Py_ffi_closure_free(self->pcl_write);
+    PyObject_GC_Del(self);
+}
+
 static int
 CThunkObject_traverse(PyObject *myself, visitproc visit, void *arg)
 {
     CThunkObject *self = (CThunkObject *)myself;
-    Py_VISIT(Py_TYPE(self));
     Py_VISIT(self->converters);
     Py_VISIT(self->callable);
     Py_VISIT(self->restype);
@@ -49,35 +61,36 @@ CThunkObject_clear(PyObject *myself)
     return 0;
 }
 
-static void
-CThunkObject_dealloc(PyObject *myself)
-{
-    CThunkObject *self = (CThunkObject *)myself;
-    PyTypeObject *tp = Py_TYPE(myself);
-    PyObject_GC_UnTrack(self);
-    (void)CThunkObject_clear(myself);
-    if (self->pcl_write) {
-        Py_ffi_closure_free(self->pcl_write);
-    }
-    PyObject_GC_Del(self);
-    Py_DECREF(tp);
-}
-
-static PyType_Slot cthunk_slots[] = {
-    {Py_tp_doc, (void *)PyDoc_STR("CThunkObject")},
-    {Py_tp_dealloc, CThunkObject_dealloc},
-    {Py_tp_traverse, CThunkObject_traverse},
-    {Py_tp_clear, CThunkObject_clear},
-    {0, NULL},
-};
-
-PyType_Spec cthunk_spec = {
-    .name = "_ctypes.CThunkObject",
-    .basicsize = sizeof(CThunkObject),
-    .itemsize = sizeof(ffi_type),
-    .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
-              Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION),
-    .slots = cthunk_slots,
+PyTypeObject PyCThunk_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "_ctypes.CThunkObject",
+    sizeof(CThunkObject),                       /* tp_basicsize */
+    sizeof(ffi_type),                           /* tp_itemsize */
+    CThunkObject_dealloc,                       /* tp_dealloc */
+    0,                                          /* tp_vectorcall_offset */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_as_async */
+    0,                                          /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    0,                                          /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC,                            /* tp_flags */
+    PyDoc_STR("CThunkObject"),                  /* tp_doc */
+    CThunkObject_traverse,                      /* tp_traverse */
+    CThunkObject_clear,                         /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    0,                                          /* tp_methods */
+    0,                                          /* tp_members */
 };
 
 /**************************************************************/
@@ -262,14 +275,15 @@ static void _CallPythonObject(void *mem,
                                       "of ctypes callback function",
                                       callable);
         }
+        else if (keep == Py_None) {
+            /* Nothing to keep */
+            Py_DECREF(keep);
+        }
         else if (setfunc != _ctypes_get_fielddesc("O")->setfunc) {
-            if (keep == Py_None) {
-                /* Nothing to keep */
-                Py_DECREF(keep);
-            }
-            else if (PyErr_WarnEx(PyExc_RuntimeWarning,
-                                  "memory leak in callback function.",
-                                  1) == -1) {
+            if (-1 == PyErr_WarnEx(PyExc_RuntimeWarning,
+                                   "memory leak in callback function.",
+                                   1))
+            {
                 _PyErr_WriteUnraisableMsg("on converting result "
                                           "of ctypes callback function",
                                           callable);
@@ -307,8 +321,7 @@ static CThunkObject* CThunkObject_new(Py_ssize_t nargs)
     CThunkObject *p;
     Py_ssize_t i;
 
-    ctypes_state *st = GLOBAL_STATE();
-    p = PyObject_GC_NewVar(CThunkObject, st->PyCThunk_Type, nargs);
+    p = PyObject_GC_NewVar(CThunkObject, &PyCThunk_Type, nargs);
     if (p == NULL) {
         return NULL;
     }
@@ -345,10 +358,7 @@ CThunkObject *_ctypes_alloc_callback(PyObject *callable,
     if (p == NULL)
         return NULL;
 
-#ifdef Py_DEBUG
-    ctypes_state *st = GLOBAL_STATE();
-    assert(CThunk_CheckExact(st, (PyObject *)p));
-#endif
+    assert(CThunk_CheckExact((PyObject *)p));
 
     p->pcl_write = Py_ffi_closure_alloc(sizeof(ffi_closure), &p->pcl_exec);
     if (p->pcl_write == NULL) {

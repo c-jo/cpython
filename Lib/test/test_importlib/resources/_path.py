@@ -1,16 +1,12 @@
 import pathlib
 import functools
 
-from typing import Dict, Union
-
 
 ####
-# from jaraco.path 3.4.1
-
-FilesSpec = Dict[str, Union[str, bytes, 'FilesSpec']]  # type: ignore
+# from jaraco.path 3.4
 
 
-def build(spec: FilesSpec, prefix=pathlib.Path()):
+def build(spec, prefix=pathlib.Path()):
     """
     Build a set of files/directories, as described by the spec.
 
@@ -27,17 +23,15 @@ def build(spec: FilesSpec, prefix=pathlib.Path()):
     ...         "baz.py": "# Some code",
     ...     }
     ... }
-    >>> target = getfixture('tmp_path')
-    >>> build(spec, target)
-    >>> target.joinpath('foo/baz.py').read_text(encoding='utf-8')
-    '# Some code'
+    >>> tmpdir = getfixture('tmpdir')
+    >>> build(spec, tmpdir)
     """
     for name, contents in spec.items():
         create(contents, pathlib.Path(prefix) / name)
 
 
 @functools.singledispatch
-def create(content: Union[str, bytes, FilesSpec], path):
+def create(content, path):
     path.mkdir(exist_ok=True)
     build(content, prefix=path)  # type: ignore
 
@@ -49,7 +43,7 @@ def _(content: bytes, path):
 
 @create.register
 def _(content: str, path):
-    path.write_text(content, encoding='utf-8')
+    path.write_text(content)
 
 
 # end from jaraco.path

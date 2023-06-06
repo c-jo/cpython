@@ -208,8 +208,7 @@ class BasicTest(BaseTest):
     def test_upgrade_dependencies(self):
         builder = venv.EnvBuilder()
         bin_path = 'Scripts' if sys.platform == 'win32' else 'bin'
-        python_exe_realpath = os.path.realpath(sys._base_executable)
-        python_exe = os.path.split(python_exe_realpath)[1]
+        python_exe = os.path.split(sys.executable)[1]
         with tempfile.TemporaryDirectory() as fake_env_dir:
             expect_exe = os.path.normcase(
                 os.path.join(fake_env_dir, bin_path, python_exe)
@@ -228,6 +227,7 @@ class BasicTest(BaseTest):
                         'install',
                         '--upgrade',
                         'pip',
+                        'setuptools'
                     ]
                 )
 
@@ -552,8 +552,7 @@ class BasicTest(BaseTest):
         self.addCleanup(rmtree, non_installed_dir)
         bindir = os.path.join(non_installed_dir, self.bindir)
         os.mkdir(bindir)
-        python_exe_realpath = os.path.realpath(sys._base_executable)
-        shutil.copy2(python_exe_realpath, bindir)
+        shutil.copy2(sys.executable, bindir)
         libdir = os.path.join(non_installed_dir, platlibdir, self.lib[1])
         os.makedirs(libdir)
         landmark = os.path.join(libdir, "os.py")
@@ -597,41 +596,20 @@ class BasicTest(BaseTest):
         # libpython.so
         ld_library_path = sysconfig.get_config_var("LIBDIR")
         if not ld_library_path or sysconfig.is_python_build():
-            ld_library_path = os.path.abspath(os.path.dirname(python_exe_realpath))
+            ld_library_path = os.path.abspath(os.path.dirname(sys.executable))
         if sys.platform == 'darwin':
             ld_library_path_env = "DYLD_LIBRARY_PATH"
         else:
             ld_library_path_env = "LD_LIBRARY_PATH"
-        child_env = {
-                "PYTHONPATH": pythonpath,
-                ld_library_path_env: ld_library_path,
-        }
-        if asan_options := os.environ.get("ASAN_OPTIONS"):
-            # prevent https://github.com/python/cpython/issues/104839
-            child_env["ASAN_OPTIONS"] = asan_options
-        subprocess.check_call(cmd, env=child_env)
+        subprocess.check_call(cmd,
+                              env={"PYTHONPATH": pythonpath,
+                                   ld_library_path_env: ld_library_path})
         envpy = os.path.join(self.env_dir, self.bindir, self.exe)
         # Now check the venv created from the non-installed python has
         # correct zip path in pythonpath.
         cmd = [envpy, '-S', '-c', 'import sys; print(sys.path)']
         out, err = check_output(cmd)
         self.assertTrue(zip_landmark.encode() in out)
-
-    def test_activate_shell_script_has_no_dos_newlines(self):
-        """
-        Test that the `activate` shell script contains no CR LF.
-        This is relevant for Cygwin, as the Windows build might have
-        converted line endings accidentally.
-        """
-        venv_dir = pathlib.Path(self.env_dir)
-        rmtree(venv_dir)
-        [[scripts_dir], *_] = self.ENV_SUBDIRS
-        script_path = venv_dir / scripts_dir / "activate"
-        venv.create(venv_dir)
-        with open(script_path, 'rb') as script:
-            for i, line in enumerate(script, 1):
-                error_message = f"CR LF found in line {i}"
-                self.assertFalse(line.endswith(b'\r\n'), error_message)
 
 @requireVenvCreate
 class EnsurePipTest(BaseTest):
@@ -751,6 +729,7 @@ class EnsurePipTest(BaseTest):
         # future pip versions, this test can likely be relaxed further.
         out = out.decode("latin-1") # Force to text, prevent decoding errors
         self.assertIn("Successfully uninstalled pip", out)
+        self.assertIn("Successfully uninstalled setuptools", out)
         # Check pip is now gone from the virtual environment. This only
         # applies in the system_site_packages=False case, because in the
         # other case, pip may still be available in the system site-packages

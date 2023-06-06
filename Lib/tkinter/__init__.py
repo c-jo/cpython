@@ -2400,7 +2400,6 @@ class Tk(Misc, Wm):
         should when sys.stderr is None."""
         import traceback
         print("Exception in Tkinter callback", file=sys.stderr)
-        sys.last_exc = val
         sys.last_type = exc
         sys.last_value = val
         sys.last_traceback = tb
@@ -2817,7 +2816,7 @@ class Canvas(Widget, XView, YView):
 
     def coords(self, *args):
         """Return a list of coordinates for the item given in ARGS."""
-        args = _flatten(args)
+        # XXX Should use _flatten on args
         return [self.tk.getdouble(x) for x in
                            self.tk.splitlist(
                    self.tk.call((self._w, 'coords') + args))]
@@ -3430,7 +3429,8 @@ class Menu(Widget):
     def index(self, index):
         """Return the index of a menu item identified by INDEX."""
         i = self.tk.call(self._w, 'index', index)
-        return None if i in ('', 'none') else self.tk.getint(i)  # GH-103685.
+        if i == 'none': return None
+        return self.tk.getint(i)
 
     def invoke(self, index):
         """Invoke a menu item identified by INDEX and execute

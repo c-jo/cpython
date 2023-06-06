@@ -1,5 +1,4 @@
 import unittest
-import string
 import subprocess
 import sys
 import sysconfig
@@ -71,14 +70,9 @@ class TestPerfTrampoline(unittest.TestCase):
         perf_file = pathlib.Path(f"/tmp/perf-{process.pid}.map")
         self.assertTrue(perf_file.exists())
         perf_file_contents = perf_file.read_text()
-        perf_lines = perf_file_contents.splitlines();
-        expected_symbols = [f"py::foo:{script}", f"py::bar:{script}", f"py::baz:{script}"]
-        for expected_symbol in expected_symbols:
-            perf_line = next((line for line in perf_lines if expected_symbol in line), None)
-            self.assertIsNotNone(perf_line, f"Could not find {expected_symbol} in perf file")
-            perf_addr = perf_line.split(" ")[0]
-            self.assertFalse(perf_addr.startswith("0x"), "Address should not be prefixed with 0x")
-            self.assertTrue(set(perf_addr).issubset(string.hexdigits), "Address should contain only hex characters")
+        self.assertIn(f"py::foo:{script}", perf_file_contents)
+        self.assertIn(f"py::bar:{script}", perf_file_contents)
+        self.assertIn(f"py::baz:{script}", perf_file_contents)
 
     def test_trampoline_works_with_forks(self):
         code = """if 1:

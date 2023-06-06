@@ -9,8 +9,8 @@ Set Objects
 
 
 .. index::
-   pair: object; set
-   pair: object; frozenset
+   object: set
+   object: frozenset
 
 This section details the public API for :class:`set` and :class:`frozenset`
 objects.  Any functionality not listed below is best accessed using either
@@ -107,7 +107,7 @@ or :class:`frozenset` or instances of their subtypes.
 
 .. c:function:: Py_ssize_t PySet_Size(PyObject *anyset)
 
-   .. index:: pair: built-in function; len
+   .. index:: builtin: len
 
    Return the length of a :class:`set` or :class:`frozenset` object. Equivalent to
    ``len(anyset)``.  Raises a :exc:`PyExc_SystemError` if *anyset* is not a

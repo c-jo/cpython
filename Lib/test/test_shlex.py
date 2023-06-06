@@ -3,6 +3,7 @@ import itertools
 import shlex
 import string
 import unittest
+from unittest import mock
 
 
 # The original test data set was from shellwords, by Hartmut Goebel.

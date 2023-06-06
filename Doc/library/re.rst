@@ -271,8 +271,7 @@ The special characters are:
 
    * To match a literal ``']'`` inside a set, precede it with a backslash, or
      place it at the beginning of the set.  For example, both ``[()[\]{}]`` and
-     ``[]()[{}]`` will match a right bracket, as well as left bracket, braces,
-     and parentheses.
+     ``[]()[{}]`` will both match a parenthesis.
 
    .. .. index:: single: --; in regular expressions
    .. .. index:: single: &&; in regular expressions

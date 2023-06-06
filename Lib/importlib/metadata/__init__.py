@@ -12,9 +12,7 @@ import warnings
 import functools
 import itertools
 import posixpath
-import contextlib
 import collections
-import inspect
 
 from . import _adapters, _meta
 from ._collections import FreezableDefaultDict, Pair
@@ -26,7 +24,7 @@ from contextlib import suppress
 from importlib import import_module
 from importlib.abc import MetaPathFinder
 from itertools import starmap
-from typing import List, Mapping, Optional, cast
+from typing import List, Mapping, Optional
 
 
 __all__ = [
@@ -343,30 +341,11 @@ class FileHash:
         return f'<FileHash mode: {self.mode} value: {self.value}>'
 
 
-class DeprecatedNonAbstract:
-    def __new__(cls, *args, **kwargs):
-        all_names = {
-            name for subclass in inspect.getmro(cls) for name in vars(subclass)
-        }
-        abstract = {
-            name
-            for name in all_names
-            if getattr(getattr(cls, name), '__isabstractmethod__', False)
-        }
-        if abstract:
-            warnings.warn(
-                f"Unimplemented abstract methods {abstract}",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return super().__new__(cls)
-
-
-class Distribution(DeprecatedNonAbstract):
+class Distribution:
     """A Python distribution package."""
 
     @abc.abstractmethod
-    def read_text(self, filename) -> Optional[str]:
+    def read_text(self, filename):
         """Attempt to load metadata file given by the name.
 
         :param filename: The name of the file in the distribution info.
@@ -440,7 +419,7 @@ class Distribution(DeprecatedNonAbstract):
         The returned object will have keys that name the various bits of
         metadata.  See PEP 566 for details.
         """
-        opt_text = (
+        text = (
             self.read_text('METADATA')
             or self.read_text('PKG-INFO')
             # This last clause is here to support old egg-info files.  Its
@@ -448,7 +427,6 @@ class Distribution(DeprecatedNonAbstract):
             # (which points to the egg-info file) attribute unchanged.
             or self.read_text('')
         )
-        text = cast(str, opt_text)
         return _adapters.Message(email.message_from_string(text))
 
     @property
@@ -477,8 +455,8 @@ class Distribution(DeprecatedNonAbstract):
         :return: List of PackagePath for this distribution or None
 
         Result is `None` if the metadata file that enumerates files
-        (i.e. RECORD for dist-info, or installed-files.txt or
-        SOURCES.txt for egg-info) is missing.
+        (i.e. RECORD for dist-info or SOURCES.txt for egg-info) is
+        missing.
         Result may be empty if the metadata exists but is empty.
         """
 
@@ -491,19 +469,9 @@ class Distribution(DeprecatedNonAbstract):
 
         @pass_none
         def make_files(lines):
-            return starmap(make_file, csv.reader(lines))
+            return list(starmap(make_file, csv.reader(lines)))
 
-        @pass_none
-        def skip_missing_files(package_paths):
-            return list(filter(lambda path: path.locate().exists(), package_paths))
-
-        return skip_missing_files(
-            make_files(
-                self._read_files_distinfo()
-                or self._read_files_egginfo_installed()
-                or self._read_files_egginfo_sources()
-            )
-        )
+        return make_files(self._read_files_distinfo() or self._read_files_egginfo())
 
     def _read_files_distinfo(self):
         """
@@ -512,45 +480,10 @@ class Distribution(DeprecatedNonAbstract):
         text = self.read_text('RECORD')
         return text and text.splitlines()
 
-    def _read_files_egginfo_installed(self):
+    def _read_files_egginfo(self):
         """
-        Read installed-files.txt and return lines in a similar
-        CSV-parsable format as RECORD: each file must be placed
-        relative to the site-packages directory and must also be
-        quoted (since file names can contain literal commas).
-
-        This file is written when the package is installed by pip,
-        but it might not be written for other installation methods.
-        Assume the file is accurate if it exists.
-        """
-        text = self.read_text('installed-files.txt')
-        # Prepend the .egg-info/ subdir to the lines in this file.
-        # But this subdir is only available from PathDistribution's
-        # self._path.
-        subdir = getattr(self, '_path', None)
-        if not text or not subdir:
-            return
-
-        paths = (
-            (subdir / name)
-            .resolve()
-            .relative_to(self.locate_file('').resolve())
-            .as_posix()
-            for name in text.splitlines()
-        )
-        return map('"{}"'.format, paths)
-
-    def _read_files_egginfo_sources(self):
-        """
-        Read SOURCES.txt and return lines in a similar CSV-parsable
-        format as RECORD: each file name must be quoted (since it
-        might contain literal commas).
-
-        Note that SOURCES.txt is not a reliable source for what
-        files are installed by a package. This file is generated
-        for a source archive, and the files that are present
-        there (e.g. setup.py) may not correctly reflect the files
-        that are present after the package has been installed.
+        SOURCES.txt might contain literal commas, so wrap each line
+        in quotes.
         """
         text = self.read_text('SOURCES.txt')
         return text and map('"{}"'.format, text.splitlines())
@@ -953,13 +886,8 @@ def _top_level_declared(dist):
 
 
 def _top_level_inferred(dist):
-    opt_names = {
-        f.parts[0] if len(f.parts) > 1 else inspect.getmodulename(f)
+    return {
+        f.parts[0] if len(f.parts) > 1 else f.with_suffix('').name
         for f in always_iterable(dist.files)
+        if f.suffix == ".py"
     }
-
-    @pass_none
-    def importable_name(name):
-        return '.' not in name
-
-    return filter(importable_name, opt_names)

@@ -29,14 +29,17 @@ PyFrameObject *
 _PyFrame_MakeAndSetFrameObject(_PyInterpreterFrame *frame)
 {
     assert(frame->frame_obj == NULL);
-    PyObject *exc = PyErr_GetRaisedException();
+    PyObject *error_type, *error_value, *error_traceback;
+    PyErr_Fetch(&error_type, &error_value, &error_traceback);
 
     PyFrameObject *f = _PyFrame_New_NoTrack(frame->f_code);
     if (f == NULL) {
-        Py_XDECREF(exc);
+        Py_XDECREF(error_type);
+        Py_XDECREF(error_value);
+        Py_XDECREF(error_traceback);
         return NULL;
     }
-    PyErr_SetRaisedException(exc);
+    PyErr_Restore(error_type, error_value, error_traceback);
     if (frame->frame_obj) {
         // GH-97002: How did we get into this horrible situation? Most likely,
         // allocating f triggered a GC collection, which ran some code that
@@ -81,7 +84,6 @@ take_ownership(PyFrameObject *f, _PyInterpreterFrame *frame)
     assert(frame->owner != FRAME_OWNED_BY_FRAME_OBJECT);
     assert(frame->owner != FRAME_CLEARED);
     Py_ssize_t size = ((char*)&frame->localsplus[frame->stacktop]) - (char *)frame;
-    Py_INCREF(frame->f_code);
     memcpy((_PyInterpreterFrame *)f->_f_frame_data, frame, size);
     frame = (_PyInterpreterFrame *)f->_f_frame_data;
     f->f_frame = frame;
@@ -94,7 +96,10 @@ take_ownership(PyFrameObject *f, _PyInterpreterFrame *frame)
     }
     assert(!_PyFrame_IsIncomplete(frame));
     assert(f->f_back == NULL);
-    _PyInterpreterFrame *prev = _PyFrame_GetFirstComplete(frame->previous);
+    _PyInterpreterFrame *prev = frame->previous;
+    while (prev && _PyFrame_IsIncomplete(prev)) {
+        prev = prev->previous;
+    }
     frame->previous = NULL;
     if (prev) {
         assert(prev->owner != FRAME_OWNED_BY_CSTACK);
@@ -116,7 +121,7 @@ take_ownership(PyFrameObject *f, _PyInterpreterFrame *frame)
 }
 
 void
-_PyFrame_ClearExceptCode(_PyInterpreterFrame *frame)
+_PyFrame_Clear(_PyInterpreterFrame *frame)
 {
     /* It is the responsibility of the owning generator/coroutine
      * to have cleared the enclosing generator, if any. */
@@ -142,26 +147,11 @@ _PyFrame_ClearExceptCode(_PyInterpreterFrame *frame)
     Py_XDECREF(frame->frame_obj);
     Py_XDECREF(frame->f_locals);
     Py_DECREF(frame->f_funcobj);
-}
-
-/* Unstable API functions */
-
-PyObject *
-PyUnstable_InterpreterFrame_GetCode(struct _PyInterpreterFrame *frame)
-{
-    PyObject *code = (PyObject *)frame->f_code;
-    Py_INCREF(code);
-    return code;
+    Py_DECREF(frame->f_code);
 }
 
 int
-PyUnstable_InterpreterFrame_GetLasti(struct _PyInterpreterFrame *frame)
-{
-    return _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT);
-}
-
-int
-PyUnstable_InterpreterFrame_GetLine(_PyInterpreterFrame *frame)
+_PyInterpreterFrame_GetLine(_PyInterpreterFrame *frame)
 {
     int addr = _PyInterpreterFrame_LASTI(frame) * sizeof(_Py_CODEUNIT);
     return PyCode_Addr2Line(frame->f_code, addr);

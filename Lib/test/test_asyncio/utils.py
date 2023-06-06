@@ -577,7 +577,7 @@ class TestCase(unittest.TestCase):
 
         # Detect CPython bug #23353: ensure that yield/yield-from is not used
         # in an except block of a generator
-        self.assertIsNone(sys.exception())
+        self.assertEqual(sys.exc_info(), (None, None, None))
 
         self.doCleanups()
         threading_helper.threading_cleanup(*self._thread_cleanup)

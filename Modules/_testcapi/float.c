@@ -1,29 +1,18 @@
 #define PY_SSIZE_T_CLEAN
 
 #include "parts.h"
-#include "clinic/float.c.h"
 
 
-/*[clinic input]
-module _testcapi
-[clinic start generated code]*/
-/*[clinic end generated code: output=da39a3ee5e6b4b0d input=6361033e795369fc]*/
-
-/*[clinic input]
-_testcapi.float_pack
-
-    size: int
-    d: double
-    le: int
-    /
-
-Test PyFloat_Pack2(), PyFloat_Pack4() and PyFloat_Pack8()
-[clinic start generated code]*/
-
+// Test PyFloat_Pack2(), PyFloat_Pack4() and PyFloat_Pack8()
 static PyObject *
-_testcapi_float_pack_impl(PyObject *module, int size, double d, int le)
-/*[clinic end generated code: output=7899bd98f8b6cb04 input=52c9115121999c98]*/
+test_float_pack(PyObject *self, PyObject *args)
 {
+    int size;
+    double d;
+    int le;
+    if (!PyArg_ParseTuple(args, "idi", &size, &d, &le)) {
+        return NULL;
+    }
     switch (size)
     {
     case 2:
@@ -58,24 +47,19 @@ _testcapi_float_pack_impl(PyObject *module, int size, double d, int le)
 }
 
 
-/*[clinic input]
-_testcapi.float_unpack
-
-    data: str(accept={robuffer}, zeroes=True)
-    le: int
-    /
-
-Test PyFloat_Unpack2(), PyFloat_Unpack4() and PyFloat_Unpack8()
-[clinic start generated code]*/
-
+// Test PyFloat_Unpack2(), PyFloat_Unpack4() and PyFloat_Unpack8()
 static PyObject *
-_testcapi_float_unpack_impl(PyObject *module, const char *data,
-                            Py_ssize_t data_length, int le)
-/*[clinic end generated code: output=617059f889ddbfe4 input=c095e4bb75a696cd]*/
+test_float_unpack(PyObject *self, PyObject *args)
 {
     assert(!PyErr_Occurred());
+    const char *data;
+    Py_ssize_t size;
+    int le;
+    if (!PyArg_ParseTuple(args, "y#i", &data, &size, &le)) {
+        return NULL;
+    }
     double d;
-    switch (data_length)
+    switch (size)
     {
     case 2:
         d = PyFloat_Unpack2(data, le);
@@ -98,8 +82,8 @@ _testcapi_float_unpack_impl(PyObject *module, const char *data,
 }
 
 static PyMethodDef test_methods[] = {
-    _TESTCAPI_FLOAT_PACK_METHODDEF
-    _TESTCAPI_FLOAT_UNPACK_METHODDEF
+    {"float_pack", test_float_pack, METH_VARARGS, NULL},
+    {"float_unpack", test_float_unpack, METH_VARARGS, NULL},
     {NULL},
 };
 

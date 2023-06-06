@@ -849,23 +849,18 @@ local_clear(localobject *self)
     /* Remove all strong references to dummies from the thread states */
     if (self->key) {
         PyInterpreterState *interp = _PyInterpreterState_GET();
-        _PyRuntimeState *runtime = &_PyRuntime;
-        HEAD_LOCK(runtime);
         PyThreadState *tstate = PyInterpreterState_ThreadHead(interp);
-        HEAD_UNLOCK(runtime);
-        while (tstate) {
-            if (tstate->dict) {
-                PyObject *v = _PyDict_Pop(tstate->dict, self->key, Py_None);
-                if (v != NULL) {
-                    Py_DECREF(v);
-                }
-                else {
-                    PyErr_Clear();
-                }
+        for(; tstate; tstate = PyThreadState_Next(tstate)) {
+            if (tstate->dict == NULL) {
+                continue;
             }
-            HEAD_LOCK(runtime);
-            tstate = PyThreadState_Next(tstate);
-            HEAD_UNLOCK(runtime);
+            PyObject *v = _PyDict_Pop(tstate->dict, self->key, Py_None);
+            if (v != NULL) {
+                Py_DECREF(v);
+            }
+            else {
+                PyErr_Clear();
+            }
         }
     }
     return 0;
@@ -946,7 +941,7 @@ local_setattro(localobject *self, PyObject *name, PyObject *v)
     }
     if (r == 1) {
         PyErr_Format(PyExc_AttributeError,
-                     "'%.100s' object attribute '%U' is read-only",
+                     "'%.50s' object attribute '%U' is read-only",
                      Py_TYPE(self)->tp_name, name);
         return -1;
     }
@@ -1074,7 +1069,13 @@ thread_run(void *boot_raw)
     PyThreadState *tstate;
 
     tstate = boot->tstate;
-    _PyThreadState_Bind(tstate);
+    tstate->thread_id = PyThread_get_thread_ident();
+#ifdef PY_HAVE_THREAD_NATIVE_ID
+    tstate->native_thread_id = PyThread_get_thread_native_id();
+#else
+    tstate->native_thread_id = 0;
+#endif
+    _PyThreadState_SetCurrent(tstate);
     PyEval_AcquireThread(tstate);
     tstate->interp->threads.count++;
 
@@ -1155,18 +1156,13 @@ thread_PyThread_start_new_thread(PyObject *self, PyObject *fargs)
                         "thread is not supported for isolated subinterpreters");
         return NULL;
     }
-    if (interp->finalizing) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "can't create new thread at interpreter shutdown");
-        return NULL;
-    }
 
     struct bootstate *boot = PyMem_NEW(struct bootstate, 1);
     if (boot == NULL) {
         return PyErr_NoMemory();
     }
     boot->interp = _PyInterpreterState_GET();
-    boot->tstate = _PyThreadState_New(boot->interp);
+    boot->tstate = _PyThreadState_Prealloc(boot->interp);
     if (boot->tstate == NULL) {
         PyMem_Free(boot);
         if (!PyErr_Occurred()) {
@@ -1715,7 +1711,6 @@ The 'threading' module provides a more convenient interface.");
 
 static PyModuleDef_Slot thread_module_slots[] = {
     {Py_mod_exec, thread_module_exec},
-    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
     {0, NULL}
 };
 

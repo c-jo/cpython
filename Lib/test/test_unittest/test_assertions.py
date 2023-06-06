@@ -273,9 +273,9 @@ class TestLongMessage(unittest.TestCase):
 
     def testAssertMultiLineEqual(self):
         self.assertMessages('assertMultiLineEqual', ("", "foo"),
-                            [r"\+ foo\n$", "^oops$",
-                             r"\+ foo\n$",
-                             r"\+ foo\n : oops$"])
+                            [r"\+ foo$", "^oops$",
+                             r"\+ foo$",
+                             r"\+ foo : oops$"])
 
     def testAssertLess(self):
         self.assertMessages('assertLess', (2, 1),

@@ -6,6 +6,7 @@ import io
 from test import support
 import unittest
 
+import pyexpat
 import xml.dom.minidom
 
 from xml.dom.minidom import parse, Attr, Node, Document, parseString

@@ -11,8 +11,6 @@ from opcode import (
     _cache_format,
     _inline_cache_entries,
     _nb_ops,
-    _intrinsic_1_descs,
-    _intrinsic_2_descs,
     _specializations,
     _specialized_instructions,
 )
@@ -36,19 +34,11 @@ MAKE_FUNCTION = opmap['MAKE_FUNCTION']
 MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 
 LOAD_CONST = opmap['LOAD_CONST']
-RETURN_CONST = opmap['RETURN_CONST']
 LOAD_GLOBAL = opmap['LOAD_GLOBAL']
 BINARY_OP = opmap['BINARY_OP']
 JUMP_BACKWARD = opmap['JUMP_BACKWARD']
 FOR_ITER = opmap['FOR_ITER']
-SEND = opmap['SEND']
 LOAD_ATTR = opmap['LOAD_ATTR']
-LOAD_SUPER_ATTR = opmap['LOAD_SUPER_ATTR']
-CALL_INTRINSIC_1 = opmap['CALL_INTRINSIC_1']
-CALL_INTRINSIC_2 = opmap['CALL_INTRINSIC_2']
-LOAD_FAST_LOAD_FAST = opmap['LOAD_FAST_LOAD_FAST']
-STORE_FAST_LOAD_FAST = opmap['STORE_FAST_LOAD_FAST']
-STORE_FAST_STORE_FAST = opmap['STORE_FAST_STORE_FAST']
 
 CACHE = opmap["CACHE"]
 
@@ -72,10 +62,10 @@ def _try_compile(source, name):
        expect code objects
     """
     try:
-        return compile(source, name, 'eval')
+        c = compile(source, name, 'eval')
     except SyntaxError:
-        pass
-    return compile(source, name, 'exec')
+        c = compile(source, name, 'exec')
+    return c
 
 def dis(x=None, *, file=None, depth=None, show_caches=False, adaptive=False):
     """Disassemble classes, methods, functions, and other compiled objects.
@@ -126,10 +116,7 @@ def distb(tb=None, *, file=None, show_caches=False, adaptive=False):
     """Disassemble a traceback (default: last traceback)."""
     if tb is None:
         try:
-            if hasattr(sys, 'last_exc'):
-                tb = sys.last_exc.__traceback__
-            else:
-                tb = sys.last_traceback
+            tb = sys.last_traceback
         except AttributeError:
             raise RuntimeError("no last traceback to disassemble") from None
         while tb.tb_next: tb = tb.tb_next
@@ -376,8 +363,9 @@ def _get_const_value(op, arg, co_consts):
     assert op in hasconst
 
     argval = UNKNOWN
-    if co_consts is not None:
-        argval = co_consts[arg]
+    if op == LOAD_CONST:
+        if co_consts is not None:
+            argval = co_consts[arg]
     return argval
 
 def _get_const_info(op, arg, co_consts):
@@ -464,7 +452,6 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
         argrepr = ''
         positions = Positions(*next(co_positions, ()))
         deop = _deoptop(op)
-        caches = _inline_cache_entries[deop]
         if arg is not None:
             #  Set argval to the dereferenced value of the argument when
             #  available, and argrepr to the string representation of argval.
@@ -482,10 +469,6 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
                     argval, argrepr = _get_name_info(arg//2, get_name)
                     if (arg & 1) and argrepr:
                         argrepr = "NULL|self + " + argrepr
-                elif deop == LOAD_SUPER_ATTR:
-                    argval, argrepr = _get_name_info(arg//4, get_name)
-                    if (arg & 1) and argrepr:
-                        argrepr = "NULL|self + " + argrepr
                 else:
                     argval, argrepr = _get_name_info(arg, get_name)
             elif deop in hasjabs:
@@ -494,19 +477,13 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
             elif deop in hasjrel:
                 signed_arg = -arg if _is_backward_jump(deop) else arg
                 argval = offset + 2 + signed_arg*2
-                argval += 2 * caches
+                if deop == FOR_ITER:
+                    argval += 2
                 argrepr = "to " + repr(argval)
-            elif deop in (LOAD_FAST_LOAD_FAST, STORE_FAST_LOAD_FAST, STORE_FAST_STORE_FAST):
-                arg1 = arg >> 4
-                arg2 = arg & 15
-                val1, argrepr1 = _get_name_info(arg1, varname_from_oparg)
-                val2, argrepr2 = _get_name_info(arg2, varname_from_oparg)
-                argrepr = argrepr1 + ", " + argrepr2
-                argval = val1, val2
             elif deop in haslocal or deop in hasfree:
                 argval, argrepr = _get_name_info(arg, varname_from_oparg)
             elif deop in hascompare:
-                argval = cmp_op[arg>>4]
+                argval = cmp_op[arg]
                 argrepr = argval
             elif deop == FORMAT_VALUE:
                 argval, argrepr = FORMAT_VALUE_CONVERTERS[arg & 0x3]
@@ -520,10 +497,6 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
                                     if arg & (1<<i))
             elif deop == BINARY_OP:
                 _, argrepr = _nb_ops[arg]
-            elif deop == CALL_INTRINSIC_1:
-                argrepr = _intrinsic_1_descs[arg]
-            elif deop == CALL_INTRINSIC_2:
-                argrepr = _intrinsic_2_descs[arg]
         yield Instruction(_all_opname[op], op,
                           arg, argval, argrepr,
                           offset, starts_line, is_jump_target, positions)
@@ -603,12 +576,7 @@ def _disassemble_bytes(code, lasti=-1, varname_from_oparg=None,
                            instr.offset > 0)
         if new_source_line:
             print(file=file)
-        if show_caches:
-            is_current_instr = instr.offset == lasti
-        else:
-            # Each CACHE takes 2 bytes
-            is_current_instr = instr.offset <= lasti \
-                <= instr.offset + 2 * _inline_cache_entries[_deoptop(instr.opcode)]
+        is_current_instr = instr.offset == lasti
         print(instr._disassemble(lineno_width, is_current_instr, offset_width),
               file=file)
     if exception_entries:
@@ -664,12 +632,12 @@ def findlabels(code):
     for offset, op, arg in _unpack_opargs(code):
         if arg is not None:
             deop = _deoptop(op)
-            caches = _inline_cache_entries[deop]
             if deop in hasjrel:
                 if _is_backward_jump(deop):
                     arg = -arg
                 label = offset + 2 + arg*2
-                label += 2 * caches
+                if deop == FOR_ITER:
+                    label += 2
             elif deop in hasjabs:
                 label = arg*2
             else:

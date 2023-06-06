@@ -49,9 +49,9 @@ class Idb(bdb.Bdb):
         filename = code.co_filename
         lineno = frame.f_lineno
         basename = os.path.basename(filename)
-        message = f"{basename}:{lineno}"
+        message = "%s:%s" % (basename, lineno)
         if code.co_name != "?":
-            message = f"{message}: {code.co_name}()"
+            message = "%s: %s()" % (message, code.co_name)
         return message
 
 
@@ -213,8 +213,7 @@ class Debugger:
                 m1 = "%s" % str(type)
             if value is not None:
                 try:
-                   # TODO redo entire section, tries not needed.
-                    m1 = f"{m1}: {value}"
+                    m1 = "%s: %s" % (m1, str(value))
                 except:
                     pass
             bg = "yellow"

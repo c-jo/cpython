@@ -413,11 +413,6 @@ the current directory::
        print("serving at port", PORT)
        httpd.serve_forever()
 
-
-:class:`SimpleHTTPRequestHandler` can also be subclassed to enhance behavior,
-such as using different index file names by overriding the class attribute
-:attr:`index_pages`.
-
 .. _http-server-cli:
 
 :mod:`http.server` can also be invoked directly using the :option:`-m`

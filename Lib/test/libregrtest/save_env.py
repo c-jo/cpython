@@ -257,10 +257,8 @@ class saved_test_environment:
         sysconfig._INSTALL_SCHEMES.update(saved[2])
 
     def get_files(self):
-        # XXX: Maybe add an allow-list here?
         return sorted(fn + ('/' if os.path.isdir(fn) else '')
-                      for fn in os.listdir()
-                      if not fn.startswith(".hypothesis"))
+                      for fn in os.listdir())
     def restore_files(self, saved_value):
         fn = os_helper.TESTFN
         if fn not in saved_value and (fn + '/') not in saved_value:

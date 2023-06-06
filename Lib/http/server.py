@@ -300,10 +300,6 @@ class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
                 #   - Leading zeros MUST be ignored by recipients.
                 if len(version_number) != 2:
                     raise ValueError
-                if any(not component.isdigit() for component in version_number):
-                    raise ValueError("non digit in http version")
-                if any(len(component) > 10 for component in version_number):
-                    raise ValueError("unreasonable length http version")
                 version_number = int(version_number[0]), int(version_number[1])
             except (ValueError, IndexError):
                 self.send_error(
@@ -656,8 +652,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
 
     """
 
+    index_pages = ["index.html", "index.htm"]
     server_version = "SimpleHTTP/" + __version__
-    index_pages = ("index.html", "index.htm")
     extensions_map = _encodings_map_default = {
         '.gz': 'application/gzip',
         '.Z': 'application/octet-stream',
@@ -665,9 +661,11 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         '.xz': 'application/x-xz',
     }
 
-    def __init__(self, *args, directory=None, **kwargs):
+    def __init__(self, *args, directory=None, index_pages=None, **kwargs):
         if directory is None:
             directory = os.getcwd()
+        if index_pages is not None:
+            self.index_pages = index_pages
         self.directory = os.fspath(directory)
         super().__init__(*args, **kwargs)
 
@@ -795,7 +793,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             displaypath = urllib.parse.unquote(self.path,
                                                errors='surrogatepass')
         except UnicodeDecodeError:
-            displaypath = urllib.parse.unquote(self.path)
+            displaypath = urllib.parse.unquote(path)
         displaypath = html.escape(displaypath, quote=False)
         enc = sys.getfilesystemencoding()
         title = f'Directory listing for {displaypath}'

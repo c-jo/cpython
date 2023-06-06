@@ -5,7 +5,7 @@
 Byte Array Objects
 ------------------
 
-.. index:: pair: object; bytearray
+.. index:: object: bytearray
 
 
 .. c:type:: PyByteArrayObject

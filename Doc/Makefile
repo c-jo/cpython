@@ -9,18 +9,16 @@ VENVDIR      = ./venv
 SPHINXBUILD  = PATH=$(VENVDIR)/bin:$$PATH sphinx-build
 SPHINXLINT   = PATH=$(VENVDIR)/bin:$$PATH sphinx-lint
 BLURB        = PATH=$(VENVDIR)/bin:$$PATH blurb
-JOBS         = auto
 PAPER        =
 SOURCES      =
 DISTVERSION  = $(shell $(PYTHON) tools/extensions/patchlevel.py)
-REQUIREMENTS = requirements.txt
 SPHINXERRORHANDLING = -W
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_elements.papersize=a4paper
 PAPEROPT_letter = -D latex_elements.papersize=letterpaper
 
-ALLSPHINXOPTS = -b $(BUILDER) -d build/doctrees $(PAPEROPT_$(PAPER)) -j $(JOBS) \
+ALLSPHINXOPTS = -b $(BUILDER) -d build/doctrees $(PAPEROPT_$(PAPER)) -j auto \
                 $(SPHINXOPTS) $(SPHINXERRORHANDLING) . build/$(BUILDER) $(SOURCES)
 
 .PHONY: help
@@ -155,8 +153,8 @@ venv:
 		echo "To recreate it, remove it first with \`make clean-venv'."; \
 	else \
 		$(PYTHON) -m venv $(VENVDIR); \
-		$(VENVDIR)/bin/python3 -m pip install --upgrade pip; \
-		$(VENVDIR)/bin/python3 -m pip install -r $(REQUIREMENTS); \
+		$(VENVDIR)/bin/python3 -m pip install -U pip setuptools; \
+		$(VENVDIR)/bin/python3 -m pip install -r requirements.txt; \
 		echo "The venv has been created in the $(VENVDIR) directory"; \
 	fi
 

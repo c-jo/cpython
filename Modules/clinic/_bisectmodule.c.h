@@ -19,9 +19,7 @@ PyDoc_STRVAR(_bisect_bisect_right__doc__,
 "insert just after the rightmost x already there.\n"
 "\n"
 "Optional args lo (default 0) and hi (default len(a)) bound the\n"
-"slice of a to be searched.\n"
-"\n"
-"A custom key function can be supplied to customize the sort order.");
+"slice of a to be searched.");
 
 #define _BISECT_BISECT_RIGHT_METHODDEF    \
     {"bisect_right", _PyCFunction_CAST(_bisect_bisect_right), METH_FASTCALL|METH_KEYWORDS, _bisect_bisect_right__doc__},
@@ -127,9 +125,7 @@ PyDoc_STRVAR(_bisect_insort_right__doc__,
 "If x is already in a, insert it to the right of the rightmost x.\n"
 "\n"
 "Optional args lo (default 0) and hi (default len(a)) bound the\n"
-"slice of a to be searched.\n"
-"\n"
-"A custom key function can be supplied to customize the sort order.");
+"slice of a to be searched.");
 
 #define _BISECT_INSORT_RIGHT_METHODDEF    \
     {"insort_right", _PyCFunction_CAST(_bisect_insort_right), METH_FASTCALL|METH_KEYWORDS, _bisect_insort_right__doc__},
@@ -232,9 +228,7 @@ PyDoc_STRVAR(_bisect_bisect_left__doc__,
 "insert just before the leftmost x already there.\n"
 "\n"
 "Optional args lo (default 0) and hi (default len(a)) bound the\n"
-"slice of a to be searched.\n"
-"\n"
-"A custom key function can be supplied to customize the sort order.");
+"slice of a to be searched.");
 
 #define _BISECT_BISECT_LEFT_METHODDEF    \
     {"bisect_left", _PyCFunction_CAST(_bisect_bisect_left), METH_FASTCALL|METH_KEYWORDS, _bisect_bisect_left__doc__},
@@ -340,9 +334,7 @@ PyDoc_STRVAR(_bisect_insort_left__doc__,
 "If x is already in a, insert it to the left of the leftmost x.\n"
 "\n"
 "Optional args lo (default 0) and hi (default len(a)) bound the\n"
-"slice of a to be searched.\n"
-"\n"
-"A custom key function can be supplied to customize the sort order.");
+"slice of a to be searched.");
 
 #define _BISECT_INSORT_LEFT_METHODDEF    \
     {"insort_left", _PyCFunction_CAST(_bisect_insort_left), METH_FASTCALL|METH_KEYWORDS, _bisect_insort_left__doc__},
@@ -433,4 +425,4 @@ skip_optional_kwonly:
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=5a7fa64bf9b262f3 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=7dc87f7af75275a1 input=a9049054013a1b77]*/

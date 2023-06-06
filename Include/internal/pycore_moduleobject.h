@@ -36,9 +36,6 @@ static inline PyObject* _PyModule_GetDict(PyObject *mod) {
     return dict;
 }
 
-PyObject* _Py_module_getattro_impl(PyModuleObject *m, PyObject *name, int suppress);
-PyObject* _Py_module_getattro(PyModuleObject *m, PyObject *name);
-
 #ifdef __cplusplus
 }
 #endif

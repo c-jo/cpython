@@ -86,9 +86,10 @@ class FutureReprTests(unittest.IsolatedAsyncioTestCase):
         async def func():
             return asyncio.all_tasks()
 
-        # The repr() call should not raise RecursionError at first.
-        waiter = await asyncio.wait_for(asyncio.Task(func()),timeout=10)
-        self.assertIn('...', repr(waiter))
+        # The repr() call should not raise RecursiveError at first.
+        # The check for returned string is not very reliable but
+        # exact comparison for the whole string is even weaker.
+        self.assertIn('...', repr(await asyncio.wait_for(func(), timeout=10)))
 
 
 if __name__ == '__main__':

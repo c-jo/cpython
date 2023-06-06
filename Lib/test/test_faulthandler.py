@@ -270,7 +270,7 @@ class FaultHandlerTests(unittest.TestCase):
                 """,
                 2,
                 'xyz',
-                func='_testcapi_fatal_error_impl',
+                func='test_fatal_error',
                 py_fatal_error=True)
 
     def test_fatal_error(self):

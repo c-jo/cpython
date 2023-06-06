@@ -344,8 +344,6 @@ class CDLL(object):
                  use_errno=False,
                  use_last_error=False,
                  winmode=None):
-        if name:
-            name = _os.fspath(name)
         self._name = name
         flags = self._func_flags_
         if use_errno:

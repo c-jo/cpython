@@ -5,7 +5,6 @@
 #include "pycore_ast.h"           // _PyAST_Validate()
 #include "pycore_call.h"          // _PyObject_CallNoArgs()
 #include "pycore_compile.h"       // _PyAST_Compile()
-#include "pycore_long.h"          // _PyLong_CompactValue
 #include "pycore_object.h"        // _Py_AddToAllObjects()
 #include "pycore_pyerrors.h"      // _PyErr_NoMemory()
 #include "pycore_pystate.h"       // _PyThreadState_GET()
@@ -554,11 +553,9 @@ static void
 filter_dealloc(filterobject *lz)
 {
     PyObject_GC_UnTrack(lz);
-    Py_TRASHCAN_BEGIN(lz, filter_dealloc)
     Py_XDECREF(lz->func);
     Py_XDECREF(lz->it);
     Py_TYPE(lz)->tp_free(lz);
-    Py_TRASHCAN_END
 }
 
 static int
@@ -1817,7 +1814,7 @@ min_max(PyObject *args, PyObject *kwds, int op)
             maxitem = Py_NewRef(defaultval);
         } else {
             PyErr_Format(PyExc_ValueError,
-                         "%s() iterable argument is empty", name);
+                         "%s() arg is an empty sequence", name);
         }
     }
     else
@@ -1914,6 +1911,8 @@ builtin_ord(PyObject *module, PyObject *c)
         }
     }
     else if (PyUnicode_Check(c)) {
+        if (PyUnicode_READY(c) == -1)
+            return NULL;
         size = PyUnicode_GET_LENGTH(c);
         if (size == 1) {
             ord = (long)PyUnicode_READ_CHAR(c, 0);
@@ -2064,7 +2063,7 @@ builtin_print_impl(PyObject *module, PyObject *args, PyObject *sep,
 /*[clinic input]
 input as builtin_input
 
-    prompt: object(c_default="NULL") = ""
+    prompt: object(c_default="NULL") = None
     /
 
 Read a string from standard input.  The trailing newline is stripped.
@@ -2078,7 +2077,7 @@ On *nix systems, readline is used if available.
 
 static PyObject *
 builtin_input_impl(PyObject *module, PyObject *prompt)
-/*[clinic end generated code: output=83db5a191e7a0d60 input=159c46d4ae40977e]*/
+/*[clinic end generated code: output=83db5a191e7a0d60 input=5e8bb70c2908fe3c]*/
 {
     PyThreadState *tstate = _PyThreadState_GET();
     PyObject *fin = _PySys_GetAttr(
@@ -2314,7 +2313,7 @@ builtin_round_impl(PyObject *module, PyObject *number, PyObject *ndigits)
 {
     PyObject *round, *result;
 
-    if (!_PyType_IsReady(Py_TYPE(number))) {
+    if (Py_TYPE(number)->tp_dict == NULL) {
         if (PyType_Ready(Py_TYPE(number)) < 0)
             return NULL;
     }
@@ -2490,7 +2489,7 @@ builtin_sum_impl(PyObject *module, PyObject *iterable, PyObject *start)
     */
     if (PyLong_CheckExact(result)) {
         int overflow;
-        Py_ssize_t i_result = PyLong_AsLongAndOverflow(result, &overflow);
+        long i_result = PyLong_AsLongAndOverflow(result, &overflow);
         /* If this already overflowed, don't even enter the loop. */
         if (overflow == 0) {
             Py_SETREF(result, NULL);
@@ -2501,17 +2500,18 @@ builtin_sum_impl(PyObject *module, PyObject *iterable, PyObject *start)
                 Py_DECREF(iter);
                 if (PyErr_Occurred())
                     return NULL;
-                return PyLong_FromSsize_t(i_result);
+                return PyLong_FromLong(i_result);
             }
             if (PyLong_CheckExact(item) || PyBool_Check(item)) {
-                Py_ssize_t b;
+                long b;
                 overflow = 0;
                 /* Single digits are common, fast, and cannot overflow on unpacking. */
-                if (_PyLong_IsCompact((PyLongObject *)item)) {
-                    b = _PyLong_CompactValue((PyLongObject *)item);
-                }
-                else {
-                    b = PyLong_AsLongAndOverflow(item, &overflow);
+                switch (Py_SIZE(item)) {
+                    case -1: b = -(sdigit) ((PyLongObject*)item)->ob_digit[0]; break;
+                    // Note: the continue goes to the top of the "while" loop that iterates over the elements
+                    case  0: Py_DECREF(item); continue;
+                    case  1: b = ((PyLongObject*)item)->ob_digit[0]; break;
+                    default: b = PyLong_AsLongAndOverflow(item, &overflow); break;
                 }
                 if (overflow == 0 &&
                     (i_result >= 0 ? (b <= LONG_MAX - i_result)
@@ -2523,7 +2523,7 @@ builtin_sum_impl(PyObject *module, PyObject *iterable, PyObject *start)
                 }
             }
             /* Either overflowed or is not an int. Restore real objects and process normally */
-            result = PyLong_FromSsize_t(i_result);
+            result = PyLong_FromLong(i_result);
             if (result == NULL) {
                 Py_DECREF(item);
                 Py_DECREF(iter);
@@ -3012,16 +3012,9 @@ static PyMethodDef builtin_methods[] = {
 };
 
 PyDoc_STRVAR(builtin_doc,
-"Built-in functions, types, exceptions, and other objects.\n\
+"Built-in functions, exceptions, and other objects.\n\
 \n\
-This module provides direct access to all 'built-in'\n\
-identifiers of Python; for example, builtins.len is\n\
-the full name for the built-in function len().\n\
-\n\
-This module is not normally accessed explicitly by most\n\
-applications, but can be useful in modules that provide\n\
-objects with the same name as a built-in value, but in\n\
-which the built-in of that name is also needed.");
+Noteworthy: None is the `nil' object; Ellipsis represents `...' in slices.");
 
 static struct PyModuleDef builtinsmodule = {
     PyModuleDef_HEAD_INIT,

@@ -1040,8 +1040,11 @@ class InfNanTest(unittest.TestCase):
         self.assertEqual(copysign(1.0, float('inf')), 1.0)
         self.assertEqual(copysign(1.0, float('-inf')), -1.0)
 
+    @unittest.skipUnless(getattr(sys, 'float_repr_style', '') == 'short',
+                         "applies only when using short float repr style")
     def test_nan_signs(self):
-        # The sign of float('nan') should be predictable.
+        # When using the dtoa.c code, the sign of float('nan') should
+        # be predictable.
         self.assertEqual(copysign(1.0, float('nan')), 1.0)
         self.assertEqual(copysign(1.0, float('-nan')), -1.0)
 

@@ -1,8 +1,6 @@
 """Unit tests for zero-argument super() & related machinery."""
 
 import unittest
-from unittest.mock import patch
-from test import shadowed_super
 
 
 class A:
@@ -285,28 +283,17 @@ class TestSuper(unittest.TestCase):
     def test_obscure_super_errors(self):
         def f():
             super()
-        with self.assertRaisesRegex(RuntimeError, r"no arguments"):
-            f()
-
-        class C:
-            def f():
-                super()
-        with self.assertRaisesRegex(RuntimeError, r"no arguments"):
-            C.f()
-
+        self.assertRaises(RuntimeError, f)
         def f(x):
             del x
             super()
-        with self.assertRaisesRegex(RuntimeError, r"arg\[0\] deleted"):
-            f(None)
-
+        self.assertRaises(RuntimeError, f, None)
         class X:
             def f(x):
                 nonlocal __class__
                 del __class__
                 super()
-        with self.assertRaisesRegex(RuntimeError, r"empty __class__ cell"):
-            X().f()
+        self.assertRaises(RuntimeError, X().f)
 
     def test_cell_as_self(self):
         class X:
@@ -337,90 +324,6 @@ class TestSuper(unittest.TestCase):
     def test_super_argtype(self):
         with self.assertRaisesRegex(TypeError, "argument 1 must be a type"):
             super(1, int)
-
-    def test_shadowed_global(self):
-        self.assertEqual(shadowed_super.C().method(), "truly super")
-
-    def test_shadowed_local(self):
-        class super:
-            msg = "quite super"
-
-        class C:
-            def method(self):
-                return super().msg
-
-        self.assertEqual(C().method(), "quite super")
-
-    def test_shadowed_dynamic(self):
-        class MySuper:
-            msg = "super super"
-
-        class C:
-            def method(self):
-                return super().msg
-
-        with patch(f"{__name__}.super", MySuper) as m:
-            self.assertEqual(C().method(), "super super")
-
-    def test_shadowed_dynamic_two_arg(self):
-        call_args = []
-        class MySuper:
-            def __init__(self, *args):
-                call_args.append(args)
-            msg = "super super"
-
-        class C:
-            def method(self):
-                return super(1, 2).msg
-
-        with patch(f"{__name__}.super", MySuper) as m:
-            self.assertEqual(C().method(), "super super")
-            self.assertEqual(call_args, [(1, 2)])
-
-    def test_attribute_error(self):
-        class C:
-            def method(self):
-                return super().msg
-
-        with self.assertRaisesRegex(AttributeError, "'super' object has no attribute 'msg'"):
-            C().method()
-
-    def test_bad_first_arg(self):
-        class C:
-            def method(self):
-                return super(1, self).method()
-
-        with self.assertRaisesRegex(TypeError, "argument 1 must be a type"):
-            C().method()
-
-    def test_super___class__(self):
-        class C:
-            def method(self):
-                return super().__class__
-
-        self.assertEqual(C().method(), super)
-
-    def test_super_subclass___class__(self):
-        class mysuper(super):
-            pass
-
-        class C:
-            def method(self):
-                return mysuper(C, self).__class__
-
-        self.assertEqual(C().method(), mysuper)
-
-    def test_unusual_getattro(self):
-        class MyType(type):
-            pass
-
-        def test(name):
-            mytype = MyType(name, (MyType,), {})
-            super(MyType, type(mytype)).__setattr__(mytype, "bar", 1)
-            self.assertEqual(mytype.bar, 1)
-
-        test("foo1")
-        test("foo2")
 
 
 if __name__ == "__main__":

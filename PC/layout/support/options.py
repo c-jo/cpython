@@ -41,6 +41,7 @@ PRESETS = {
         "options": [
             "stable",
             "pip",
+            "pip-user",
             "tcltk",
             "idle",
             "venv",

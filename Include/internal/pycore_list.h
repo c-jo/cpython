@@ -75,8 +75,6 @@ typedef struct {
     PyListObject *it_seq; /* Set to NULL when iterator is exhausted */
 } _PyListIterObject;
 
-extern PyObject *_PyList_FromArraySteal(PyObject *const *src, Py_ssize_t n);
-
 #ifdef __cplusplus
 }
 #endif

@@ -1712,11 +1712,11 @@ class PolicyTests(unittest.TestCase):
     def create_policy(self):
         return asyncio.DefaultEventLoopPolicy()
 
-    @mock.patch('asyncio.unix_events.can_use_pidfd')
-    def test_get_default_child_watcher(self, m_can_use_pidfd):
-        m_can_use_pidfd.return_value = False
+    def test_get_default_child_watcher(self):
         policy = self.create_policy()
         self.assertIsNone(policy._watcher)
+        unix_events.can_use_pidfd = mock.Mock()
+        unix_events.can_use_pidfd.return_value = False
         with self.assertWarns(DeprecationWarning):
             watcher = policy.get_child_watcher()
         self.assertIsInstance(watcher, asyncio.ThreadedChildWatcher)
@@ -1725,9 +1725,10 @@ class PolicyTests(unittest.TestCase):
         with self.assertWarns(DeprecationWarning):
             self.assertIs(watcher, policy.get_child_watcher())
 
-        m_can_use_pidfd.return_value = True
         policy = self.create_policy()
         self.assertIsNone(policy._watcher)
+        unix_events.can_use_pidfd = mock.Mock()
+        unix_events.can_use_pidfd.return_value = True
         with self.assertWarns(DeprecationWarning):
             watcher = policy.get_child_watcher()
         self.assertIsInstance(watcher, asyncio.PidfdChildWatcher)
@@ -1883,20 +1884,16 @@ class TestFork(unittest.IsolatedAsyncioTestCase):
         if pid == 0:
             # child
             try:
-                with self.assertWarns(DeprecationWarning):
-                    loop = asyncio.get_event_loop_policy().get_event_loop()
-                os.write(w, b'LOOP:' + str(id(loop)).encode())
+                loop = asyncio.get_event_loop_policy().get_event_loop()
             except RuntimeError:
                 os.write(w, b'NO LOOP')
-            except BaseException as e:
-                os.write(w, b'ERROR:' + ascii(e).encode())
+            except:
+                os.write(w, b'ERROR:' + ascii(sys.exc_info()).encode())
             finally:
                 os._exit(0)
         else:
             # parent
-            result = os.read(r, 100)
-            self.assertEqual(result[:5], b'LOOP:', result)
-            self.assertNotEqual(int(result[5:]), id(loop))
+            self.assertEqual(os.read(r, 100), b'NO LOOP')
             wait_process(pid, exitcode=0)
 
     @hashlib_helper.requires_hashdigest('md5')

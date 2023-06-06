@@ -20,10 +20,7 @@ extern void _PyErr_FiniTypes(PyInterpreterState *);
 static inline PyObject* _PyErr_Occurred(PyThreadState *tstate)
 {
     assert(tstate != NULL);
-    if (tstate->current_exception == NULL) {
-        return NULL;
-    }
-    return (PyObject *)Py_TYPE(tstate->current_exception);
+    return tstate->curexc_type;
 }
 
 static inline void _PyErr_ClearExcState(_PyErr_StackItem *exc_state)
@@ -40,15 +37,9 @@ PyAPI_FUNC(void) _PyErr_Fetch(
     PyObject **value,
     PyObject **traceback);
 
-extern PyObject *
-_PyErr_GetRaisedException(PyThreadState *tstate);
-
 PyAPI_FUNC(int) _PyErr_ExceptionMatches(
     PyThreadState *tstate,
     PyObject *exc);
-
-void
-_PyErr_SetRaisedException(PyThreadState *tstate, PyObject *exc);
 
 PyAPI_FUNC(void) _PyErr_Restore(
     PyThreadState *tstate,
@@ -61,7 +52,8 @@ PyAPI_FUNC(void) _PyErr_SetObject(
     PyObject *type,
     PyObject *value);
 
-PyAPI_FUNC(void) _PyErr_ChainStackItem(void);
+PyAPI_FUNC(void) _PyErr_ChainStackItem(
+    _PyErr_StackItem *exc_info);
 
 PyAPI_FUNC(void) _PyErr_Clear(PyThreadState *tstate);
 
@@ -107,8 +99,6 @@ PyAPI_FUNC(void) _Py_DumpExtensionModules(int fd, PyInterpreterState *interp);
 extern PyObject* _Py_Offer_Suggestions(PyObject* exception);
 PyAPI_FUNC(Py_ssize_t) _Py_UTF8_Edit_Cost(PyObject *str_a, PyObject *str_b,
                                           Py_ssize_t max_cost);
-
-void _PyErr_FormatNote(const char *format, ...);
 
 #ifdef __cplusplus
 }

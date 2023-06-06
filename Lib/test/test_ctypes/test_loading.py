@@ -28,20 +28,10 @@ class LoaderTest(unittest.TestCase):
     unknowndll = "xxrandomnamexx"
 
     def test_load(self):
-        if libc_name is not None:
-            test_lib = libc_name
-        else:
-            if os.name == "nt":
-                import _ctypes_test
-                test_lib = _ctypes_test.__file__
-            else:
-                self.skipTest('could not find library to load')
-        CDLL(test_lib)
-        CDLL(os.path.basename(test_lib))
-        class CTypesTestPathLikeCls:
-            def __fspath__(self):
-                return test_lib
-        CDLL(CTypesTestPathLikeCls())
+        if libc_name is None:
+            self.skipTest('could not find libc')
+        CDLL(libc_name)
+        CDLL(os.path.basename(libc_name))
         self.assertRaises(OSError, CDLL, self.unknowndll)
 
     def test_load_version(self):

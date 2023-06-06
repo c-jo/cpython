@@ -418,7 +418,6 @@ The flow of log event information in loggers and handlers is illustrated in the
 following diagram.
 
 .. image:: logging_flow.png
-   :class: invert-in-dark-mode
 
 Loggers
 ^^^^^^^

@@ -66,7 +66,7 @@ internal_bisect_right(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t 
     if (sq_item == NULL) {
         return -1;
     }
-    if (Py_EnterRecursiveCall("in _bisect.bisect_right")) {
+    if (Py_EnterRecursiveCall("in _bisect.bisect_right") < 0) {
         return -1;
     }
     PyTypeObject *tp = Py_TYPE(item);
@@ -162,14 +162,12 @@ insert just after the rightmost x already there.
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched.
-
-A custom key function can be supplied to customize the sort order.
 [clinic start generated code]*/
 
 static Py_ssize_t
 _bisect_bisect_right_impl(PyObject *module, PyObject *a, PyObject *x,
                           Py_ssize_t lo, Py_ssize_t hi, PyObject *key)
-/*[clinic end generated code: output=3a4bc09cc7c8a73d input=43071869772dd53a]*/
+/*[clinic end generated code: output=3a4bc09cc7c8a73d input=40fcc5afa06ae593]*/
 {
     return internal_bisect_right(a, x, lo, hi, key);
 }
@@ -190,14 +188,12 @@ If x is already in a, insert it to the right of the rightmost x.
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched.
-
-A custom key function can be supplied to customize the sort order.
 [clinic start generated code]*/
 
 static PyObject *
 _bisect_insort_right_impl(PyObject *module, PyObject *a, PyObject *x,
                           Py_ssize_t lo, Py_ssize_t hi, PyObject *key)
-/*[clinic end generated code: output=ac3bf26d07aedda2 input=f60777d2b6ddb239]*/
+/*[clinic end generated code: output=ac3bf26d07aedda2 input=44e1708e26b7b802]*/
 {
     PyObject *result, *key_x;
     Py_ssize_t index;
@@ -250,7 +246,7 @@ internal_bisect_left(PyObject *list, PyObject *item, Py_ssize_t lo, Py_ssize_t h
     if (sq_item == NULL) {
         return -1;
     }
-    if (Py_EnterRecursiveCall("in _bisect.bisect_left")) {
+    if (Py_EnterRecursiveCall("in _bisect.bisect_left") < 0) {
         return -1;
     }
     PyTypeObject *tp = Py_TYPE(item);
@@ -347,14 +343,12 @@ insert just before the leftmost x already there.
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched.
-
-A custom key function can be supplied to customize the sort order.
 [clinic start generated code]*/
 
 static Py_ssize_t
 _bisect_bisect_left_impl(PyObject *module, PyObject *a, PyObject *x,
                          Py_ssize_t lo, Py_ssize_t hi, PyObject *key)
-/*[clinic end generated code: output=70749d6e5cae9284 input=f29c4fe7f9b797c7]*/
+/*[clinic end generated code: output=70749d6e5cae9284 input=90dd35b50ceb05e3]*/
 {
     return internal_bisect_left(a, x, lo, hi, key);
 }
@@ -376,14 +370,12 @@ If x is already in a, insert it to the left of the leftmost x.
 
 Optional args lo (default 0) and hi (default len(a)) bound the
 slice of a to be searched.
-
-A custom key function can be supplied to customize the sort order.
 [clinic start generated code]*/
 
 static PyObject *
 _bisect_insort_left_impl(PyObject *module, PyObject *a, PyObject *x,
                          Py_ssize_t lo, Py_ssize_t hi, PyObject *key)
-/*[clinic end generated code: output=b1d33e5e7ffff11e input=0a700a82edbd472c]*/
+/*[clinic end generated code: output=b1d33e5e7ffff11e input=3ab65d8784f585b1]*/
 {
     PyObject *result, *key_x;
     Py_ssize_t index;
@@ -457,7 +449,6 @@ bisect_modexec(PyObject *m)
 
 static PyModuleDef_Slot bisect_slots[] = {
     {Py_mod_exec, bisect_modexec},
-    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
     {0, NULL}
 };
 

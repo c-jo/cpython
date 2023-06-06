@@ -961,10 +961,7 @@ class BaseEventLoop(events.AbstractEventLoop):
             sock = socket.socket(family=family, type=type_, proto=proto)
             sock.setblocking(False)
             if local_addr_infos is not None:
-                for lfamily, _, _, _, laddr in local_addr_infos:
-                    # skip local addresses of different family
-                    if lfamily != family:
-                        continue
+                for _, _, _, _, laddr in local_addr_infos:
                     try:
                         sock.bind(laddr)
                         break
@@ -977,10 +974,7 @@ class BaseEventLoop(events.AbstractEventLoop):
                         exc = OSError(exc.errno, msg)
                         my_exceptions.append(exc)
                 else:  # all bind attempts failed
-                    if my_exceptions:
-                        raise my_exceptions.pop()
-                    else:
-                        raise OSError(f"no matching local address with {family=} found")
+                    raise my_exceptions.pop()
             await self.sock_connect(sock, address)
             return sock
         except OSError as exc:
@@ -1857,9 +1851,12 @@ class BaseEventLoop(events.AbstractEventLoop):
                                  exc_info=True)
 
     def _add_callback(self, handle):
-        """Add a Handle to _ready."""
-        if not handle._cancelled:
-            self._ready.append(handle)
+        """Add a Handle to _scheduled (TimerHandle) or _ready."""
+        assert isinstance(handle, events.Handle), 'A Handle is required here'
+        if handle._cancelled:
+            return
+        assert not isinstance(handle, events.TimerHandle)
+        self._ready.append(handle)
 
     def _add_callback_signalsafe(self, handle):
         """Like _add_callback() but called from a signal handler."""

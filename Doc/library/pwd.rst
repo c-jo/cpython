@@ -39,13 +39,16 @@ raised if the entry asked for cannot be found.
 
 .. note::
 
+   .. index:: module: crypt
+
    In traditional Unix the field ``pw_passwd`` usually contains a password
-   encrypted with a DES derived algorithm.  However most
+   encrypted with a DES derived algorithm (see module :mod:`crypt`).  However most
    modern unices  use a so-called *shadow password* system.  On those unices the
    *pw_passwd* field only contains an asterisk (``'*'``) or the  letter ``'x'``
    where the encrypted password is stored in a file :file:`/etc/shadow` which is
    not world readable.  Whether the *pw_passwd* field contains anything useful is
-   system-dependent.
+   system-dependent.  If available, the :mod:`spwd` module should be used where
+   access to the encrypted password is required.
 
 It defines the following items:
 
@@ -69,3 +72,7 @@ It defines the following items:
 
    Module :mod:`grp`
       An interface to the group database, similar to this.
+
+   Module :mod:`spwd`
+      An interface to the shadow password database, similar to this.
+

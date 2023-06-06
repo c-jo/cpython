@@ -11,9 +11,8 @@
 
 --------------
 
-The :mod:`wave` module provides a convenient interface to the Waveform Audio
-"WAVE" (or "WAV") file format. Only uncompressed PCM encoded wave files are
-supported.
+The :mod:`wave` module provides a convenient interface to the WAV sound format.
+Only PCM encoded wave files are supported.
 
 .. versionchanged:: 3.12
 
@@ -42,12 +41,13 @@ The :mod:`wave` module defines the following function and exception:
    value for *mode*.
 
    If you pass in a file-like object, the wave object will not close it when its
-   ``close()`` method is called; it is the caller's responsibility to close
+   :meth:`close` method is called; it is the caller's responsibility to close
    the file object.
 
    The :func:`.open` function may be used in a :keyword:`with` statement.  When
-   the :keyword:`!with` block completes, the :meth:`Wave_read.close()` or
-   :meth:`Wave_write.close()` method is called.
+   the :keyword:`!with` block completes, the :meth:`Wave_read.close()
+   <wave.Wave_read.close>` or :meth:`Wave_write.close()
+   <wave.Wave_write.close()>` method is called.
 
    .. versionchanged:: 3.4
       Added support for unseekable files.
@@ -63,99 +63,87 @@ The :mod:`wave` module defines the following function and exception:
 Wave_read Objects
 -----------------
 
-.. class:: Wave_read
-
-   Read a WAV file.
-
-   Wave_read objects, as returned by :func:`.open`, have the following methods:
+Wave_read objects, as returned by :func:`.open`, have the following methods:
 
 
-   .. method:: close()
+.. method:: Wave_read.close()
 
-      Close the stream if it was opened by :mod:`wave`, and make the instance
-      unusable.  This is called automatically on object collection.
-
-
-   .. method:: getnchannels()
-
-      Returns number of audio channels (``1`` for mono, ``2`` for stereo).
+   Close the stream if it was opened by :mod:`wave`, and make the instance
+   unusable.  This is called automatically on object collection.
 
 
-   .. method:: getsampwidth()
+.. method:: Wave_read.getnchannels()
 
-      Returns sample width in bytes.
-
-
-   .. method:: getframerate()
-
-      Returns sampling frequency.
+   Returns number of audio channels (``1`` for mono, ``2`` for stereo).
 
 
-   .. method:: getnframes()
+.. method:: Wave_read.getsampwidth()
 
-      Returns number of audio frames.
-
-
-   .. method:: getcomptype()
-
-      Returns compression type (``'NONE'`` is the only supported type).
+   Returns sample width in bytes.
 
 
-   .. method:: getcompname()
+.. method:: Wave_read.getframerate()
 
-      Human-readable version of :meth:`getcomptype`. Usually ``'not compressed'``
-      parallels ``'NONE'``.
-
-
-   .. method:: getparams()
-
-      Returns a :func:`~collections.namedtuple` ``(nchannels, sampwidth,
-      framerate, nframes, comptype, compname)``, equivalent to output of the
-      ``get*()`` methods.
+   Returns sampling frequency.
 
 
-   .. method:: readframes(n)
+.. method:: Wave_read.getnframes()
 
-      Reads and returns at most *n* frames of audio, as a :class:`bytes` object.
-
-
-   .. method:: rewind()
-
-      Rewind the file pointer to the beginning of the audio stream.
-
-   The following two methods are defined for compatibility with the old :mod:`!aifc`
-   module, and don't do anything interesting.
+   Returns number of audio frames.
 
 
-   .. method:: getmarkers()
+.. method:: Wave_read.getcomptype()
 
-      Returns ``None``.
-
-      .. deprecated-removed:: 3.13 3.15
-         The method only existed for compatibility with the :mod:`!aifc` module
-         which has been removed in Python 3.13.
+   Returns compression type (``'NONE'`` is the only supported type).
 
 
-   .. method:: getmark(id)
+.. method:: Wave_read.getcompname()
 
-      Raise an error.
-
-      .. deprecated-removed:: 3.13 3.15
-         The method only existed for compatibility with the :mod:`!aifc` module
-         which has been removed in Python 3.13.
-
-   The following two methods define a term "position" which is compatible between
-   them, and is otherwise implementation dependent.
+   Human-readable version of :meth:`getcomptype`. Usually ``'not compressed'``
+   parallels ``'NONE'``.
 
 
-   .. method:: setpos(pos)
+.. method:: Wave_read.getparams()
 
-      Set the file pointer to the specified position.
+   Returns a :func:`~collections.namedtuple` ``(nchannels, sampwidth,
+   framerate, nframes, comptype, compname)``, equivalent to output of the
+   :meth:`get\*` methods.
 
 
-   .. method:: tell()
+.. method:: Wave_read.readframes(n)
 
-      Return current file pointer position.
+   Reads and returns at most *n* frames of audio, as a :class:`bytes` object.
+
+
+.. method:: Wave_read.rewind()
+
+   Rewind the file pointer to the beginning of the audio stream.
+
+The following two methods are defined for compatibility with the :mod:`aifc`
+module, and don't do anything interesting.
+
+
+.. method:: Wave_read.getmarkers()
+
+   Returns ``None``.
+
+
+.. method:: Wave_read.getmark(id)
+
+   Raise an error.
+
+The following two methods define a term "position" which is compatible between
+them, and is otherwise implementation dependent.
+
+
+.. method:: Wave_read.setpos(pos)
+
+   Set the file pointer to the specified position.
+
+
+.. method:: Wave_read.tell()
+
+   Return current file pointer position.
 
 
 .. _wave-write-objects:
@@ -163,100 +151,97 @@ Wave_read Objects
 Wave_write Objects
 ------------------
 
-.. class:: Wave_write
+For seekable output streams, the ``wave`` header will automatically be updated
+to reflect the number of frames actually written.  For unseekable streams, the
+*nframes* value must be accurate when the first frame data is written.  An
+accurate *nframes* value can be achieved either by calling
+:meth:`~Wave_write.setnframes` or :meth:`~Wave_write.setparams` with the number
+of frames that will be written before :meth:`~Wave_write.close` is called and
+then using :meth:`~Wave_write.writeframesraw` to write the frame data, or by
+calling :meth:`~Wave_write.writeframes` with all of the frame data to be
+written.  In the latter case :meth:`~Wave_write.writeframes` will calculate
+the number of frames in the data and set *nframes* accordingly before writing
+the frame data.
 
-   Write a WAV file.
+Wave_write objects, as returned by :func:`.open`, have the following methods:
 
-   Wave_write objects, as returned by :func:`.open`.
+.. versionchanged:: 3.4
+   Added support for unseekable files.
 
-   For seekable output streams, the ``wave`` header will automatically be updated
-   to reflect the number of frames actually written.  For unseekable streams, the
-   *nframes* value must be accurate when the first frame data is written.  An
-   accurate *nframes* value can be achieved either by calling
-   :meth:`setnframes` or :meth:`setparams` with the number
-   of frames that will be written before :meth:`close` is called and
-   then using :meth:`writeframesraw` to write the frame data, or by
-   calling :meth:`writeframes` with all of the frame data to be
-   written.  In the latter case :meth:`writeframes` will calculate
-   the number of frames in the data and set *nframes* accordingly before writing
-   the frame data.
+
+.. method:: Wave_write.close()
+
+   Make sure *nframes* is correct, and close the file if it was opened by
+   :mod:`wave`.  This method is called upon object collection.  It will raise
+   an exception if the output stream is not seekable and *nframes* does not
+   match the number of frames actually written.
+
+
+.. method:: Wave_write.setnchannels(n)
+
+   Set the number of channels.
+
+
+.. method:: Wave_write.setsampwidth(n)
+
+   Set the sample width to *n* bytes.
+
+
+.. method:: Wave_write.setframerate(n)
+
+   Set the frame rate to *n*.
+
+   .. versionchanged:: 3.2
+      A non-integral input to this method is rounded to the nearest
+      integer.
+
+
+.. method:: Wave_write.setnframes(n)
+
+   Set the number of frames to *n*.  This will be changed later if the number
+   of frames actually written is different (this update attempt will
+   raise an error if the output stream is not seekable).
+
+
+.. method:: Wave_write.setcomptype(type, name)
+
+   Set the compression type and description. At the moment, only compression type
+   ``NONE`` is supported, meaning no compression.
+
+
+.. method:: Wave_write.setparams(tuple)
+
+   The *tuple* should be ``(nchannels, sampwidth, framerate, nframes, comptype,
+   compname)``, with values valid for the :meth:`set\*` methods.  Sets all
+   parameters.
+
+
+.. method:: Wave_write.tell()
+
+   Return current position in the file, with the same disclaimer for the
+   :meth:`Wave_read.tell` and :meth:`Wave_read.setpos` methods.
+
+
+.. method:: Wave_write.writeframesraw(data)
+
+   Write audio frames, without correcting *nframes*.
 
    .. versionchanged:: 3.4
-      Added support for unseekable files.
-
-   Wave_write objects have the following methods:
-
-   .. method:: close()
-
-      Make sure *nframes* is correct, and close the file if it was opened by
-      :mod:`wave`.  This method is called upon object collection.  It will raise
-      an exception if the output stream is not seekable and *nframes* does not
-      match the number of frames actually written.
+      Any :term:`bytes-like object` is now accepted.
 
 
-   .. method:: setnchannels(n)
+.. method:: Wave_write.writeframes(data)
 
-      Set the number of channels.
+   Write audio frames and make sure *nframes* is correct.  It will raise an
+   error if the output stream is not seekable and the total number of frames
+   that have been written after *data* has been written does not match the
+   previously set value for *nframes*.
 
-
-   .. method:: setsampwidth(n)
-
-      Set the sample width to *n* bytes.
-
-
-   .. method:: setframerate(n)
-
-      Set the frame rate to *n*.
-
-      .. versionchanged:: 3.2
-         A non-integral input to this method is rounded to the nearest
-         integer.
+   .. versionchanged:: 3.4
+      Any :term:`bytes-like object` is now accepted.
 
 
-   .. method:: setnframes(n)
+Note that it is invalid to set any parameters after calling :meth:`writeframes`
+or :meth:`writeframesraw`, and any attempt to do so will raise
+:exc:`wave.Error`.
 
-      Set the number of frames to *n*.  This will be changed later if the number
-      of frames actually written is different (this update attempt will
-      raise an error if the output stream is not seekable).
-
-
-   .. method:: setcomptype(type, name)
-
-      Set the compression type and description. At the moment, only compression type
-      ``NONE`` is supported, meaning no compression.
-
-
-   .. method:: setparams(tuple)
-
-      The *tuple* should be ``(nchannels, sampwidth, framerate, nframes, comptype,
-      compname)``, with values valid for the ``set*()`` methods.  Sets all
-      parameters.
-
-
-   .. method:: tell()
-
-      Return current position in the file, with the same disclaimer for the
-      :meth:`Wave_read.tell` and :meth:`Wave_read.setpos` methods.
-
-
-   .. method:: writeframesraw(data)
-
-      Write audio frames, without correcting *nframes*.
-
-      .. versionchanged:: 3.4
-         Any :term:`bytes-like object` is now accepted.
-
-
-   .. method:: writeframes(data)
-
-      Write audio frames and make sure *nframes* is correct.  It will raise an
-      error if the output stream is not seekable and the total number of frames
-      that have been written after *data* has been written does not match the
-      previously set value for *nframes*.
-
-      .. versionchanged:: 3.4
-         Any :term:`bytes-like object` is now accepted.
-
-      Note that it is invalid to set any parameters after calling :meth:`writeframes`
-      or :meth:`writeframesraw`, and any attempt to do so will raise
-      :exc:`wave.Error`.

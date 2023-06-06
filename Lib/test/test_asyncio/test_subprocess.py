@@ -1,4 +1,5 @@
 import os
+import shutil
 import signal
 import sys
 import unittest
@@ -150,24 +151,6 @@ class SubprocessMixin:
         exitcode, stdout = self.loop.run_until_complete(task)
         self.assertEqual(exitcode, 0)
         self.assertEqual(stdout, b'some data')
-
-    def test_communicate_none_input(self):
-        args = PROGRAM_CAT
-
-        async def run():
-            proc = await asyncio.create_subprocess_exec(
-                *args,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-            )
-            stdout, stderr = await proc.communicate()
-            return proc.returncode, stdout
-
-        task = run()
-        task = asyncio.wait_for(task, support.LONG_TIMEOUT)
-        exitcode, stdout = self.loop.run_until_complete(task)
-        self.assertEqual(exitcode, 0)
-        self.assertEqual(stdout, b'')
 
     def test_shell(self):
         proc = self.loop.run_until_complete(

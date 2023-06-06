@@ -33,13 +33,6 @@ _Py_IsMainInterpreter(PyInterpreterState *interp)
     return (interp == _PyInterpreterState_Main());
 }
 
-static inline int
-_Py_IsMainInterpreterFinalizing(PyInterpreterState *interp)
-{
-    return (_PyRuntimeState_GetFinalizing(interp->runtime) != NULL &&
-            interp == &interp->runtime->_main_interpreter);
-}
-
 
 static inline const PyConfig *
 _Py_GetMainConfig(void)
@@ -68,17 +61,20 @@ _Py_ThreadCanHandlePendingCalls(void)
 }
 
 
-/* Variable and static inline functions for in-line access to current thread
+/* Variable and macro for in-line access to current thread
    and interpreter state */
 
-#if defined(HAVE_THREAD_LOCAL) && !defined(Py_BUILD_CORE_MODULE)
-extern _Py_thread_local PyThreadState *_Py_tss_tstate;
-#endif
-PyAPI_DATA(PyThreadState *) _PyThreadState_GetCurrent(void);
+static inline PyThreadState*
+_PyRuntimeState_GetThreadState(_PyRuntimeState *runtime)
+{
+    return (PyThreadState*)_Py_atomic_load_relaxed(&runtime->gilstate.tstate_current);
+}
 
 /* Get the current Python thread state.
 
-   This function is unsafe: it does not check for error and it can return NULL.
+   Efficient macro reading directly the 'gilstate.tstate_current' atomic
+   variable. The macro is unsafe: it does not check for error and it can
+   return NULL.
 
    The caller must hold the GIL.
 
@@ -86,13 +82,8 @@ PyAPI_DATA(PyThreadState *) _PyThreadState_GetCurrent(void);
 static inline PyThreadState*
 _PyThreadState_GET(void)
 {
-#if defined(HAVE_THREAD_LOCAL) && !defined(Py_BUILD_CORE_MODULE)
-    return _Py_tss_tstate;
-#else
-    return _PyThreadState_GetCurrent();
-#endif
+    return _PyRuntimeState_GetThreadState(&_PyRuntime);
 }
-
 
 static inline void
 _Py_EnsureFuncTstateNotNULL(const char *func, PyThreadState *tstate)
@@ -112,7 +103,7 @@ _Py_EnsureFuncTstateNotNULL(const char *func, PyThreadState *tstate)
 
 /* Get the current interpreter state.
 
-   The function is unsafe: it does not check for error and it can return NULL.
+   The macro is unsafe: it does not check for error and it can return NULL.
 
    The caller must hold the GIL.
 
@@ -129,29 +120,36 @@ static inline PyInterpreterState* _PyInterpreterState_GET(void) {
 
 // PyThreadState functions
 
-PyAPI_FUNC(PyThreadState *) _PyThreadState_New(PyInterpreterState *interp);
-PyAPI_FUNC(void) _PyThreadState_Bind(PyThreadState *tstate);
+PyAPI_FUNC(void) _PyThreadState_SetCurrent(PyThreadState *tstate);
 // We keep this around exclusively for stable ABI compatibility.
 PyAPI_FUNC(void) _PyThreadState_Init(
     PyThreadState *tstate);
-PyAPI_FUNC(void) _PyThreadState_DeleteExcept(PyThreadState *tstate);
+PyAPI_FUNC(void) _PyThreadState_DeleteExcept(
+    _PyRuntimeState *runtime,
+    PyThreadState *tstate);
 
-extern void _PyThreadState_InitDetached(PyThreadState *, PyInterpreterState *);
-extern void _PyThreadState_ClearDetached(PyThreadState *);
-extern void _PyThreadState_BindDetached(PyThreadState *);
-extern void _PyThreadState_UnbindDetached(PyThreadState *);
+
+static inline void
+_PyThreadState_UpdateTracingState(PyThreadState *tstate)
+{
+    bool use_tracing =
+        (tstate->tracing == 0) &&
+        (tstate->c_tracefunc != NULL || tstate->c_profilefunc != NULL);
+    tstate->cframe->use_tracing = (use_tracing ? 255 : 0);
+}
 
 
 /* Other */
 
 PyAPI_FUNC(PyThreadState *) _PyThreadState_Swap(
-    _PyRuntimeState *runtime,
+    struct _gilstate_runtime_state *gilstate,
     PyThreadState *newts);
 
 PyAPI_FUNC(PyStatus) _PyInterpreterState_Enable(_PyRuntimeState *runtime);
 
 #ifdef HAVE_FORK
 extern PyStatus _PyInterpreterState_DeleteExceptMain(_PyRuntimeState *runtime);
+extern PyStatus _PyGILState_Reinit(_PyRuntimeState *runtime);
 extern void _PySignal_AfterFork(void);
 #endif
 
@@ -163,12 +161,6 @@ PyAPI_FUNC(int) _PyState_AddModule(
 
 
 PyAPI_FUNC(int) _PyOS_InterruptOccurred(PyThreadState *tstate);
-
-#define HEAD_LOCK(runtime) \
-    PyThread_acquire_lock((runtime)->interpreters.mutex, WAIT_LOCK)
-#define HEAD_UNLOCK(runtime) \
-    PyThread_release_lock((runtime)->interpreters.mutex)
-
 
 #ifdef __cplusplus
 }

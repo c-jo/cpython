@@ -296,6 +296,7 @@ def collect_os(info_add):
         "TEMP",
         "TERM",
         "TILE_LIBRARY",
+        "TIX_LIBRARY",
         "TMP",
         "TMPDIR",
         "TRAVIS",

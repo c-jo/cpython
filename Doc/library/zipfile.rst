@@ -7,7 +7,7 @@
 .. moduleauthor:: James C. Ahlstrom <jim@interet.com>
 .. sectionauthor:: James C. Ahlstrom <jim@interet.com>
 
-**Source code:** :source:`Lib/zipfile/`
+**Source code:** :source:`Lib/zipfile.py`
 
 --------------
 
@@ -55,9 +55,8 @@ The module defines the following items:
 .. class:: Path
    :noindex:
 
-   Class that implements a subset of the interface provided by
-   :class:`pathlib.Path`, including the full
-   :class:`importlib.resources.abc.Traversable` interface.
+   A pathlib-compatible wrapper for zip files. See section
+   :ref:`path-objects` for details.
 
    .. versionadded:: 3.8
 
@@ -128,7 +127,7 @@ The module defines the following items:
       Documentation on the ZIP file format by Phil Katz, the creator of the format and
       algorithms used.
 
-   `Info-ZIP Home Page <https://infozip.sourceforge.net/>`_
+   `Info-ZIP Home Page <http://www.info-zip.org/>`_
       Information about the Info-ZIP project's ZIP archive programs and development
       libraries.
 
@@ -288,7 +287,7 @@ ZipFile Objects
    (``ZipExtFile``) is read-only and provides the following methods:
    :meth:`~io.BufferedIOBase.read`, :meth:`~io.IOBase.readline`,
    :meth:`~io.IOBase.readlines`, :meth:`~io.IOBase.seek`,
-   :meth:`~io.IOBase.tell`, :meth:`~container.__iter__`, :meth:`~iterator.__next__`.
+   :meth:`~io.IOBase.tell`, :meth:`__iter__`, :meth:`~iterator.__next__`.
    These objects can operate independently of the ZipFile.
 
    With ``mode='w'``, a writable file handle is returned, which supports the
@@ -552,12 +551,6 @@ Path objects are traversable using the ``/`` operator or ``joinpath``.
       Added support for text and binary modes for open. Default
       mode is now text.
 
-   .. versionchanged:: 3.11.2
-      The ``encoding`` parameter can be supplied as a positional argument
-      without causing a :exc:`TypeError`. As it could in 3.9. Code needing to
-      be compatible with unpatched 3.10 and 3.11 versions must pass all
-      :class:`io.TextIOWrapper` arguments, ``encoding`` included, as keywords.
-
 .. method:: Path.iterdir()
 
    Enumerate the children of the current directory.
@@ -602,12 +595,6 @@ Path objects are traversable using the ``/`` operator or ``joinpath``.
    keyword arguments are passed through to
    :class:`io.TextIOWrapper` (except ``buffer``, which is
    implied by the context).
-
-   .. versionchanged:: 3.11.2
-      The ``encoding`` parameter can be supplied as a positional argument
-      without causing a :exc:`TypeError`. As it could in 3.9. Code needing to
-      be compatible with unpatched 3.10 and 3.11 versions must pass all
-      :class:`io.TextIOWrapper` arguments, ``encoding`` included, as keywords.
 
 .. method:: Path.read_bytes()
 

@@ -286,7 +286,7 @@ static WCHAR *FormatError(DWORD code)
 #ifndef DONT_USE_SEH
 static void SetException(DWORD code, EXCEPTION_RECORD *pr)
 {
-    if (PySys_Audit("ctypes.set_exception", "I", code) < 0) {
+    if (PySys_Audit("ctypes.seh_exception", "I", code) < 0) {
         /* An exception was set by the audit hook */
         return;
     }
@@ -469,41 +469,21 @@ PyCArgObject *
 PyCArgObject_new(void)
 {
     PyCArgObject *p;
-    ctypes_state *st = GLOBAL_STATE();
-    p = PyObject_GC_New(PyCArgObject, st->PyCArg_Type);
+    p = PyObject_New(PyCArgObject, &PyCArg_Type);
     if (p == NULL)
         return NULL;
     p->pffi_type = NULL;
     p->tag = '\0';
     p->obj = NULL;
     memset(&p->value, 0, sizeof(p->value));
-    PyObject_GC_Track(p);
     return p;
-}
-
-static int
-PyCArg_traverse(PyCArgObject *self, visitproc visit, void *arg)
-{
-    Py_VISIT(Py_TYPE(self));
-    Py_VISIT(self->obj);
-    return 0;
-}
-
-static int
-PyCArg_clear(PyCArgObject *self)
-{
-    Py_CLEAR(self->obj);
-    return 0;
 }
 
 static void
 PyCArg_dealloc(PyCArgObject *self)
 {
-    PyTypeObject *tp = Py_TYPE(self);
-    PyObject_GC_UnTrack(self);
-    (void)PyCArg_clear(self);
-    tp->tp_free((PyObject *)self);
-    Py_DECREF(tp);
+    Py_XDECREF(self->obj);
+    PyObject_Free(self);
 }
 
 static int
@@ -587,21 +567,36 @@ static PyMemberDef PyCArgType_members[] = {
     { NULL },
 };
 
-static PyType_Slot carg_slots[] = {
-    {Py_tp_dealloc, PyCArg_dealloc},
-    {Py_tp_traverse, PyCArg_traverse},
-    {Py_tp_clear, PyCArg_clear},
-    {Py_tp_repr, PyCArg_repr},
-    {Py_tp_members, PyCArgType_members},
-    {0, NULL},
-};
-
-PyType_Spec carg_spec = {
-    .name = "_ctypes.CArgObject",
-    .basicsize = sizeof(PyCArgObject),
-    .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
-              Py_TPFLAGS_IMMUTABLETYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION),
-    .slots = carg_slots,
+PyTypeObject PyCArg_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "CArgObject",
+    sizeof(PyCArgObject),
+    0,
+    (destructor)PyCArg_dealloc,                 /* tp_dealloc */
+    0,                                          /* tp_vectorcall_offset */
+    0,                                          /* tp_getattr */
+    0,                                          /* tp_setattr */
+    0,                                          /* tp_as_async */
+    (reprfunc)PyCArg_repr,                      /* tp_repr */
+    0,                                          /* tp_as_number */
+    0,                                          /* tp_as_sequence */
+    0,                                          /* tp_as_mapping */
+    0,                                          /* tp_hash */
+    0,                                          /* tp_call */
+    0,                                          /* tp_str */
+    0,                                          /* tp_getattro */
+    0,                                          /* tp_setattro */
+    0,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                         /* tp_flags */
+    0,                                          /* tp_doc */
+    0,                                          /* tp_traverse */
+    0,                                          /* tp_clear */
+    0,                                          /* tp_richcompare */
+    0,                                          /* tp_weaklistoffset */
+    0,                                          /* tp_iter */
+    0,                                          /* tp_iternext */
+    0,                                          /* tp_methods */
+    PyCArgType_members,                         /* tp_members */
 };
 
 /****************************************************************/
@@ -674,8 +669,7 @@ static int ConvParam(PyObject *obj, Py_ssize_t index, struct argument *pa)
         return 0;
     }
 
-    ctypes_state *st = GLOBAL_STATE();
-    if (PyCArg_CheckExact(st, obj)) {
+    if (PyCArg_CheckExact(obj)) {
         PyCArgObject *carg = (PyCArgObject *)obj;
         pa->ffi_type = carg->pffi_type;
         pa->keep = Py_NewRef(obj);
@@ -1019,43 +1013,41 @@ static PyObject *GetResult(PyObject *restype, void *result, PyObject *checker)
 void _ctypes_extend_error(PyObject *exc_class, const char *fmt, ...)
 {
     va_list vargs;
+    PyObject *tp, *v, *tb, *s, *cls_str, *msg_str;
 
     va_start(vargs, fmt);
-    PyObject *s = PyUnicode_FromFormatV(fmt, vargs);
+    s = PyUnicode_FromFormatV(fmt, vargs);
     va_end(vargs);
-    if (s == NULL) {
+    if (!s)
         return;
-    }
 
-    assert(PyErr_Occurred());
-    PyObject *exc = PyErr_GetRaisedException();
-    assert(exc != NULL);
-    PyObject *cls_str = PyType_GetName(Py_TYPE(exc));
+    PyErr_Fetch(&tp, &v, &tb);
+    PyErr_NormalizeException(&tp, &v, &tb);
+    if (PyType_Check(tp))
+        cls_str = PyType_GetName((PyTypeObject *)tp);
+    else
+        cls_str = PyObject_Str(tp);
     if (cls_str) {
         PyUnicode_AppendAndDel(&s, cls_str);
         PyUnicode_AppendAndDel(&s, PyUnicode_FromString(": "));
-        if (s == NULL) {
+        if (s == NULL)
             goto error;
-        }
-    }
-    else {
+    } else
         PyErr_Clear();
-    }
-
-    PyObject *msg_str = PyObject_Str(exc);
-    if (msg_str) {
+    msg_str = PyObject_Str(v);
+    if (msg_str)
         PyUnicode_AppendAndDel(&s, msg_str);
-    }
     else {
         PyErr_Clear();
         PyUnicode_AppendAndDel(&s, PyUnicode_FromString("???"));
     }
-    if (s == NULL) {
+    if (s == NULL)
         goto error;
-    }
     PyErr_SetObject(exc_class, s);
 error:
-    Py_XDECREF(exc);
+    Py_XDECREF(tp);
+    Py_XDECREF(v);
+    Py_XDECREF(tb);
     Py_XDECREF(s);
 }
 
@@ -1115,8 +1107,7 @@ GetComError(HRESULT errcode, GUID *riid, IUnknown *pIunk)
         descr, source, helpfile, helpcontext,
         progid);
     if (obj) {
-        ctypes_state *st = GLOBAL_STATE();
-        PyErr_SetObject((PyObject *)st->PyComError_Type, obj);
+        PyErr_SetObject(ComError, obj);
         Py_DECREF(obj);
     }
     LocalFree(text);
@@ -1824,7 +1815,7 @@ resize(PyObject *self, PyObject *args)
     dict = PyObject_stgdict((PyObject *)obj);
     if (dict == NULL) {
         PyErr_SetString(PyExc_TypeError,
-                        "expected ctypes instance");
+                        "excepted ctypes instance");
         return NULL;
     }
     if (size < dict->size) {

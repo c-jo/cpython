@@ -63,3 +63,7 @@ It defines the following items:
 
    Module :mod:`pwd`
       An interface to the user database, similar to this.
+
+   Module :mod:`spwd`
+      An interface to the shadow password database, similar to this.
+

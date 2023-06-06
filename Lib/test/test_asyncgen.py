@@ -2,6 +2,7 @@ import inspect
 import types
 import unittest
 import contextlib
+import warnings
 
 from test.support.import_helper import import_module
 from test.support import gc_collect, requires_working_socket
@@ -415,9 +416,8 @@ class AsyncGenTest(unittest.TestCase):
         self.assertIsInstance(g.ag_frame, types.FrameType)
         self.assertFalse(g.ag_running)
         self.assertIsInstance(g.ag_code, types.CodeType)
-        aclose = g.aclose()
-        self.assertTrue(inspect.isawaitable(aclose))
-        aclose.close()
+
+        self.assertTrue(inspect.isawaitable(g.aclose()))
 
 
 class AsyncGenAsyncioTest(unittest.TestCase):
@@ -1692,39 +1692,6 @@ class AsyncGenAsyncioTest(unittest.TestCase):
                 task.get_stack()
 
         self.loop.run_until_complete(run())
-
-
-class TestUnawaitedWarnings(unittest.TestCase):
-    def test_asend(self):
-        async def gen():
-            yield 1
-
-        msg = f"coroutine method 'asend' of '{gen.__qualname__}' was never awaited"
-        with self.assertWarnsRegex(RuntimeWarning, msg):
-            g = gen()
-            g.asend(None)
-            gc_collect()
-
-    def test_athrow(self):
-        async def gen():
-            yield 1
-
-        msg = f"coroutine method 'athrow' of '{gen.__qualname__}' was never awaited"
-        with self.assertWarnsRegex(RuntimeWarning, msg):
-            g = gen()
-            g.athrow(RuntimeError)
-            gc_collect()
-
-    def test_aclose(self):
-        async def gen():
-            yield 1
-
-        msg = f"coroutine method 'aclose' of '{gen.__qualname__}' was never awaited"
-        with self.assertWarnsRegex(RuntimeWarning, msg):
-            g = gen()
-            g.aclose()
-            gc_collect()
-
 
 
 if __name__ == "__main__":

@@ -11,10 +11,7 @@
 #include <signal.h>
 #include <stddef.h>
 #include <stdlib.h>               // free()
-#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
-#endif
-#include <time.h>
 
 #if defined(HAVE_SETLOCALE)
 /* GNU readline() mistakenly sets the LC_CTYPE locale.
@@ -1015,7 +1012,7 @@ static int
 #if defined(_RL_FUNCTION_TYPEDEF)
 on_startup_hook(void)
 #else
-on_startup_hook(void)
+on_startup_hook()
 #endif
 {
     int r;
@@ -1030,7 +1027,7 @@ static int
 #if defined(_RL_FUNCTION_TYPEDEF)
 on_pre_input_hook(void)
 #else
-on_pre_input_hook(void)
+on_pre_input_hook()
 #endif
 {
     int r;

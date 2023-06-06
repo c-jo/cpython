@@ -226,13 +226,9 @@ def pretty(defname):
 def kind_to_text(kind, defines, opname):
     if kind <= 8:
         return pretty(defines[kind][0])
-    if opname == "LOAD_SUPER_ATTR":
-        opname = "SUPER"
-    elif opname.endswith("ATTR"):
+    if opname.endswith("ATTR"):
         opname = "ATTR"
-    elif opname in ("FOR_ITER", "SEND"):
-        opname = "ITER"
-    elif opname.endswith("SUBSCR"):
+    if opname.endswith("SUBSCR"):
         opname = "SUBSCR"
     for name in defines[kind]:
         if name.startswith(opname):
@@ -408,9 +404,6 @@ def emit_specialization_overview(opcode_stats, total):
             total = 0
             counts = []
             for i, opcode_stat in enumerate(opcode_stats):
-                # Avoid double counting misses
-                if title == "Misses" and "specializable" in opcode_stat:
-                    continue
                 value = opcode_stat.get(field, 0)
                 counts.append((value, opname[i]))
                 total += value

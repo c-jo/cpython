@@ -225,8 +225,6 @@ MakeFields(PyObject *type, CFieldObject *descr,
     if (fieldlist == NULL)
         return -1;
 
-    ctypes_state *st = GLOBAL_STATE();
-    PyTypeObject *cfield_tp = st->PyCField_Type;
     for (i = 0; i < PySequence_Fast_GET_SIZE(fieldlist); ++i) {
         PyObject *pair = PySequence_Fast_GET_ITEM(fieldlist, i); /* borrowed */
         PyObject *fname, *ftype, *bits;
@@ -242,7 +240,7 @@ MakeFields(PyObject *type, CFieldObject *descr,
             Py_DECREF(fieldlist);
             return -1;
         }
-        if (!Py_IS_TYPE(fdescr, cfield_tp)) {
+        if (!Py_IS_TYPE(fdescr, &PyCField_Type)) {
             PyErr_SetString(PyExc_TypeError, "unexpected type");
             Py_DECREF(fdescr);
             Py_DECREF(fieldlist);
@@ -259,13 +257,13 @@ MakeFields(PyObject *type, CFieldObject *descr,
             }
             continue;
         }
-        new_descr = (CFieldObject *)cfield_tp->tp_alloc(cfield_tp, 0);
+        new_descr = (CFieldObject *)PyCField_Type.tp_alloc((PyTypeObject *)&PyCField_Type, 0);
         if (new_descr == NULL) {
             Py_DECREF(fdescr);
             Py_DECREF(fieldlist);
             return -1;
         }
-        assert(Py_IS_TYPE(new_descr, cfield_tp));
+        assert(Py_IS_TYPE(new_descr, &PyCField_Type));
         new_descr->size = fdescr->size;
         new_descr->offset = fdescr->offset + offset;
         new_descr->index = fdescr->index + index;
@@ -306,8 +304,6 @@ MakeAnonFields(PyObject *type)
     if (anon_names == NULL)
         return -1;
 
-    ctypes_state *st = GLOBAL_STATE();
-    PyTypeObject *cfield_tp = st->PyCField_Type;
     for (i = 0; i < PySequence_Fast_GET_SIZE(anon_names); ++i) {
         PyObject *fname = PySequence_Fast_GET_ITEM(anon_names, i); /* borrowed */
         CFieldObject *descr = (CFieldObject *)PyObject_GetAttr(type, fname);
@@ -315,7 +311,7 @@ MakeAnonFields(PyObject *type)
             Py_DECREF(anon_names);
             return -1;
         }
-        if (!Py_IS_TYPE(descr, cfield_tp)) {
+        if (!Py_IS_TYPE(descr, &PyCField_Type)) {
             PyErr_Format(PyExc_AttributeError,
                          "'%U' is specified in _anonymous_ but not in "
                          "_fields_",
@@ -342,29 +338,6 @@ MakeAnonFields(PyObject *type)
 }
 
 /*
-  Allocate a memory block for a pep3118 format string, copy prefix (if
-  non-null) into it and append `{padding}x` to the end.
-  Returns NULL on failure, with the error indicator set.
-*/
-char *
-_ctypes_alloc_format_padding(const char *prefix, Py_ssize_t padding)
-{
-    /* int64 decimal characters + x + null */
-    char buf[19 + 1 + 1];
-
-    assert(padding > 0);
-
-    if (padding == 1) {
-        /* Use x instead of 1x, for brevity */
-        return _ctypes_alloc_format_string(prefix, "x");
-    }
-
-    int ret = PyOS_snprintf(buf, sizeof(buf), "%zdx", padding); (void)ret;
-    assert(0 <= ret && ret < (Py_ssize_t)sizeof(buf));
-    return _ctypes_alloc_format_string(prefix, buf);
-}
-
-/*
   Retrieve the (optional) _pack_ attribute from a type, the _fields_ attribute,
   and create an StgDictObject.  Used for Structure and Union subclasses.
 */
@@ -373,10 +346,11 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
 {
     StgDictObject *stgdict, *basedict;
     Py_ssize_t len, offset, size, align, i;
-    Py_ssize_t union_size, total_align, aligned_size;
+    Py_ssize_t union_size, total_align;
     Py_ssize_t field_size = 0;
     int bitofs;
     PyObject *tmp;
+    int isPacked;
     int pack;
     Py_ssize_t ffi_ofs;
     int big_endian;
@@ -400,6 +374,7 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
         return -1;
     }
     if (tmp) {
+        isPacked = 1;
         pack = _PyLong_AsInt(tmp);
         Py_DECREF(tmp);
         if (pack < 0) {
@@ -414,7 +389,7 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
         }
     }
     else {
-        /* Setting `_pack_ = 0` amounts to using the default alignment */
+        isPacked = 0;
         pack = 0;
     }
 
@@ -495,10 +470,12 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
     }
 
     assert(stgdict->format == NULL);
-    if (isStruct) {
+    if (isStruct && !isPacked) {
         stgdict->format = _ctypes_alloc_format_string(NULL, "T{");
     } else {
-        /* PEP3118 doesn't support union. Use 'B' for bytes. */
+        /* PEP3118 doesn't support union, or packed structures (well,
+           only standard packing, but we don't support the pep for
+           that). Use 'B' for bytes. */
         stgdict->format = _ctypes_alloc_format_string(NULL, "B");
     }
     if (stgdict->format == NULL)
@@ -566,14 +543,12 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
         } else
             bitsize = 0;
 
-        if (isStruct) {
+        if (isStruct && !isPacked) {
             const char *fieldfmt = dict->format ? dict->format : "B";
             const char *fieldname = PyUnicode_AsUTF8(name);
             char *ptr;
             Py_ssize_t len;
             char *buf;
-            Py_ssize_t last_size = size;
-            Py_ssize_t padding;
 
             if (fieldname == NULL)
             {
@@ -581,38 +556,11 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
                 return -1;
             }
 
-            /* construct the field now, as `prop->offset` is `offset` with
-               corrected alignment */
-            prop = PyCField_FromDesc(desc, i,
-                                   &field_size, bitsize, &bitofs,
-                                   &size, &offset, &align,
-                                   pack, big_endian);
-            if (prop == NULL) {
-                Py_DECREF(pair);
-                return -1;
-            }
-
-            /* number of bytes between the end of the last field and the start
-               of this one */
-            padding = ((CFieldObject *)prop)->offset - last_size;
-
-            if (padding > 0) {
-                ptr = stgdict->format;
-                stgdict->format = _ctypes_alloc_format_padding(ptr, padding);
-                PyMem_Free(ptr);
-                if (stgdict->format == NULL) {
-                    Py_DECREF(pair);
-                    Py_DECREF(prop);
-                    return -1;
-                }
-            }
-
             len = strlen(fieldname) + strlen(fieldfmt);
 
             buf = PyMem_Malloc(len + 2 + 1);
             if (buf == NULL) {
                 Py_DECREF(pair);
-                Py_DECREF(prop);
                 PyErr_NoMemory();
                 return -1;
             }
@@ -630,9 +578,15 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
 
             if (stgdict->format == NULL) {
                 Py_DECREF(pair);
-                Py_DECREF(prop);
                 return -1;
             }
+        }
+
+        if (isStruct) {
+            prop = PyCField_FromDesc(desc, i,
+                                   &field_size, bitsize, &bitofs,
+                                   &size, &offset, &align,
+                                   pack, big_endian);
         } else /* union */ {
             size = 0;
             offset = 0;
@@ -641,14 +595,14 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
                                    &field_size, bitsize, &bitofs,
                                    &size, &offset, &align,
                                    pack, big_endian);
-            if (prop == NULL) {
-                Py_DECREF(pair);
-                return -1;
-            }
             union_size = max(size, union_size);
         }
         total_align = max(align, total_align);
 
+        if (!prop) {
+            Py_DECREF(pair);
+            return -1;
+        }
         if (-1 == PyObject_SetAttr(type, name, prop)) {
             Py_DECREF(prop);
             Py_DECREF(pair);
@@ -658,41 +612,26 @@ PyCStructUnionType_update_stgdict(PyObject *type, PyObject *fields, int isStruct
         Py_DECREF(prop);
     }
 
-    if (!isStruct) {
-        size = union_size;
-    }
-
-    /* Adjust the size according to the alignment requirements */
-    aligned_size = ((size + total_align - 1) / total_align) * total_align;
-
-    if (isStruct) {
-        char *ptr;
-        Py_ssize_t padding;
-
-        /* Pad up to the full size of the struct */
-        padding = aligned_size - size;
-        if (padding > 0) {
-            ptr = stgdict->format;
-            stgdict->format = _ctypes_alloc_format_padding(ptr, padding);
-            PyMem_Free(ptr);
-            if (stgdict->format == NULL) {
-                return -1;
-            }
-        }
-
-        ptr = stgdict->format;
+    if (isStruct && !isPacked) {
+        char *ptr = stgdict->format;
         stgdict->format = _ctypes_alloc_format_string(stgdict->format, "}");
         PyMem_Free(ptr);
         if (stgdict->format == NULL)
             return -1;
     }
 
+    if (!isStruct)
+        size = union_size;
+
+    /* Adjust the size according to the alignment requirements */
+    size = ((size + total_align - 1) / total_align) * total_align;
+
     stgdict->ffi_type_pointer.alignment = Py_SAFE_DOWNCAST(total_align,
                                                            Py_ssize_t,
                                                            unsigned short);
-    stgdict->ffi_type_pointer.size = aligned_size;
+    stgdict->ffi_type_pointer.size = size;
 
-    stgdict->size = aligned_size;
+    stgdict->size = size;
     stgdict->align = total_align;
     stgdict->length = len;      /* ADD ffi_ofs? */
 

@@ -1,5 +1,5 @@
 # This script lists the names of standard library modules
-# to update Python/stdlib_module_names.h
+# to update Python/stdlib_mod_names.h
 import _imp
 import os.path
 import re
@@ -36,7 +36,6 @@ IGNORE = {
     '_testmultiphase',
     '_testsinglephase',
     '_xxsubinterpreters',
-    '_xxinterpchannels',
     '_xxtestfuzz',
     'idlelib.idle_test',
     'test',

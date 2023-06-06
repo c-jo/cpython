@@ -50,6 +50,7 @@ CORE_MODULES = {
 
 # Windows-only modules
 WINDOWS_MODULES = {
+    "_msi",
     "_overlapped",
     "_testconsole",
     "_winapi",

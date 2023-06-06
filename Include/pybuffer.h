@@ -104,7 +104,7 @@ PyAPI_FUNC(void) PyBuffer_Release(Py_buffer *view);
 /* Maximum number of dimensions */
 #define PyBUF_MAX_NDIM 64
 
-/* Flags for getting buffers. Keep these in sync with inspect.BufferFlags. */
+/* Flags for getting buffers */
 #define PyBUF_SIMPLE 0
 #define PyBUF_WRITABLE 0x0001
 

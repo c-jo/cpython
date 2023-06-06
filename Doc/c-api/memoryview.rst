@@ -3,7 +3,7 @@
 .. _memoryview-objects:
 
 .. index::
-   pair: object; memoryview
+   object: memoryview
 
 MemoryView objects
 ------------------

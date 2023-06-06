@@ -121,8 +121,6 @@ IDENTIFIERS = [
     '__xor__',
     '__divmod__',
     '__rdivmod__',
-    '__buffer__',
-    '__release_buffer__',
 ]
 
 NON_GENERATED_IMMORTAL_OBJECTS = [
@@ -356,14 +354,13 @@ def generate_static_strings_initializer(identifiers, strings):
         printer.write(before)
         printer.write(START)
         printer.write("static inline void")
-        with printer.block("_PyUnicode_InitStaticStrings(PyInterpreterState *interp)"):
+        with printer.block("_PyUnicode_InitStaticStrings(void)"):
             printer.write(f'PyObject *string;')
             for i in sorted(identifiers):
                 # This use of _Py_ID() is ignored by iter_global_strings()
                 # since iter_files() ignores .h files.
                 printer.write(f'string = &_Py_ID({i});')
-                printer.write(f'assert(_PyUnicode_CheckConsistency(string, 1));')
-                printer.write(f'_PyUnicode_InternInPlace(interp, &string);')
+                printer.write(f'PyUnicode_InternInPlace(&string);')
             # XXX What about "strings"?
         printer.write(END)
         printer.write(after)

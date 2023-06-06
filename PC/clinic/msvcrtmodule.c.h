@@ -261,8 +261,6 @@ msvcrt_getch(PyObject *module, PyObject *Py_UNUSED(ignored))
     return return_value;
 }
 
-#if defined(MS_WINDOWS_DESKTOP)
-
 PyDoc_STRVAR(msvcrt_getwch__doc__,
 "getwch($module, /)\n"
 "--\n"
@@ -286,8 +284,6 @@ msvcrt_getwch(PyObject *module, PyObject *Py_UNUSED(ignored))
 
     return return_value;
 }
-
-#endif /* defined(MS_WINDOWS_DESKTOP) */
 
 PyDoc_STRVAR(msvcrt_getche__doc__,
 "getche($module, /)\n"
@@ -313,8 +309,6 @@ msvcrt_getche(PyObject *module, PyObject *Py_UNUSED(ignored))
     return return_value;
 }
 
-#if defined(MS_WINDOWS_DESKTOP)
-
 PyDoc_STRVAR(msvcrt_getwche__doc__,
 "getwche($module, /)\n"
 "--\n"
@@ -338,8 +332,6 @@ msvcrt_getwche(PyObject *module, PyObject *Py_UNUSED(ignored))
 
     return return_value;
 }
-
-#endif /* defined(MS_WINDOWS_DESKTOP) */
 
 PyDoc_STRVAR(msvcrt_putch__doc__,
 "putch($module, char, /)\n"
@@ -375,8 +367,6 @@ exit:
     return return_value;
 }
 
-#if defined(MS_WINDOWS_DESKTOP)
-
 PyDoc_STRVAR(msvcrt_putwch__doc__,
 "putwch($module, unicode_char, /)\n"
 "--\n"
@@ -399,6 +389,9 @@ msvcrt_putwch(PyObject *module, PyObject *arg)
         _PyArg_BadArgument("putwch", "argument", "a unicode character", arg);
         goto exit;
     }
+    if (PyUnicode_READY(arg)) {
+        goto exit;
+    }
     if (PyUnicode_GET_LENGTH(arg) != 1) {
         _PyArg_BadArgument("putwch", "argument", "a unicode character", arg);
         goto exit;
@@ -409,8 +402,6 @@ msvcrt_putwch(PyObject *module, PyObject *arg)
 exit:
     return return_value;
 }
-
-#endif /* defined(MS_WINDOWS_DESKTOP) */
 
 PyDoc_STRVAR(msvcrt_ungetch__doc__,
 "ungetch($module, char, /)\n"
@@ -450,8 +441,6 @@ exit:
     return return_value;
 }
 
-#if defined(MS_WINDOWS_DESKTOP)
-
 PyDoc_STRVAR(msvcrt_ungetwch__doc__,
 "ungetwch($module, unicode_char, /)\n"
 "--\n"
@@ -474,6 +463,9 @@ msvcrt_ungetwch(PyObject *module, PyObject *arg)
         _PyArg_BadArgument("ungetwch", "argument", "a unicode character", arg);
         goto exit;
     }
+    if (PyUnicode_READY(arg)) {
+        goto exit;
+    }
     if (PyUnicode_GET_LENGTH(arg) != 1) {
         _PyArg_BadArgument("ungetwch", "argument", "a unicode character", arg);
         goto exit;
@@ -484,8 +476,6 @@ msvcrt_ungetwch(PyObject *module, PyObject *arg)
 exit:
     return return_value;
 }
-
-#endif /* defined(MS_WINDOWS_DESKTOP) */
 
 #if defined(_DEBUG)
 
@@ -620,8 +610,6 @@ exit:
 
 #endif /* defined(_DEBUG) */
 
-#if (defined(MS_WINDOWS_DESKTOP) || defined(MS_WINDOWS_APP) || defined(MS_WINDOWS_SYSTEM))
-
 PyDoc_STRVAR(msvcrt_GetErrorMode__doc__,
 "GetErrorMode($module, /)\n"
 "--\n"
@@ -639,8 +627,6 @@ msvcrt_GetErrorMode(PyObject *module, PyObject *Py_UNUSED(ignored))
 {
     return msvcrt_GetErrorMode_impl(module);
 }
-
-#endif /* (defined(MS_WINDOWS_DESKTOP) || defined(MS_WINDOWS_APP) || defined(MS_WINDOWS_SYSTEM)) */
 
 PyDoc_STRVAR(msvcrt_SetErrorMode__doc__,
 "SetErrorMode($module, mode, /)\n"
@@ -670,22 +656,6 @@ exit:
     return return_value;
 }
 
-#ifndef MSVCRT_GETWCH_METHODDEF
-    #define MSVCRT_GETWCH_METHODDEF
-#endif /* !defined(MSVCRT_GETWCH_METHODDEF) */
-
-#ifndef MSVCRT_GETWCHE_METHODDEF
-    #define MSVCRT_GETWCHE_METHODDEF
-#endif /* !defined(MSVCRT_GETWCHE_METHODDEF) */
-
-#ifndef MSVCRT_PUTWCH_METHODDEF
-    #define MSVCRT_PUTWCH_METHODDEF
-#endif /* !defined(MSVCRT_PUTWCH_METHODDEF) */
-
-#ifndef MSVCRT_UNGETWCH_METHODDEF
-    #define MSVCRT_UNGETWCH_METHODDEF
-#endif /* !defined(MSVCRT_UNGETWCH_METHODDEF) */
-
 #ifndef MSVCRT_CRTSETREPORTFILE_METHODDEF
     #define MSVCRT_CRTSETREPORTFILE_METHODDEF
 #endif /* !defined(MSVCRT_CRTSETREPORTFILE_METHODDEF) */
@@ -697,8 +667,4 @@ exit:
 #ifndef MSVCRT_SET_ERROR_MODE_METHODDEF
     #define MSVCRT_SET_ERROR_MODE_METHODDEF
 #endif /* !defined(MSVCRT_SET_ERROR_MODE_METHODDEF) */
-
-#ifndef MSVCRT_GETERRORMODE_METHODDEF
-    #define MSVCRT_GETERRORMODE_METHODDEF
-#endif /* !defined(MSVCRT_GETERRORMODE_METHODDEF) */
-/*[clinic end generated code: output=9dd12bf210e362a4 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=204bae9fee7f6124 input=a9049054013a1b77]*/
