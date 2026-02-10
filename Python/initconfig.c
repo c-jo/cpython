@@ -1795,6 +1795,14 @@ config_init_hash_seed(PyConfig *config)
 }
 
 
+#ifdef RISCOS
+#warning config_wstr_to_int hardcoded to return 0
+static int
+config_wstr_to_int(const wchar_t *wstr, int *result)
+{
+    return 0;
+}
+#else
 static int
 config_wstr_to_int(const wchar_t *wstr, int *result)
 {
@@ -1811,6 +1819,7 @@ config_wstr_to_int(const wchar_t *wstr, int *result)
     *result = (int)value;
     return 0;
 }
+#endif
 
 static PyStatus
 config_read_gil(PyConfig *config, size_t len, wchar_t first_char)

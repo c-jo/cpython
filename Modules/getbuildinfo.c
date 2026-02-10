@@ -50,10 +50,14 @@ Py_GetBuildInfo(void)
     initialized = 1;
     const char *revision = _Py_gitversion();
     const char *sep = *revision ? ":" : "";
+#ifdef RISCOS
+    const char *gitid = "riscos-1";
+#else
     const char *gitid = _Py_gitidentifier();
     if (!(*gitid)) {
         gitid = "main";
     }
+#endif
     PyOS_snprintf(buildinfo, sizeof(buildinfo),
                   "%s%s%s, %.20s, %.9s", gitid, sep, revision,
                   DATE, TIME);

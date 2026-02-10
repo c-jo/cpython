@@ -24,6 +24,11 @@ extern "C" {
 #  define DELIM L';'
 #endif
 
+#ifdef RISCOS
+#  define DELIM L','
+#  define SEP L'.'
+#endif
+
 /* Filename separator */
 #ifndef SEP
 #  define SEP L'/'

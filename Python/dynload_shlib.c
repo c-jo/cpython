@@ -8,6 +8,10 @@
 #include "pycore_interp.h"        // _PyInterpreterState.dlopenflags
 #include "pycore_pystate.h"       // _PyInterpreterState_GET()
 
+#ifdef RISCOS
+#include <unixlib/local.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 
@@ -37,7 +41,10 @@
 */
 
 const char *_PyImport_DynLoadFiletab[] = {
-#ifdef __CYGWIN__
+#if defined(RISCOS)
+    "/so",
+    "/" SOABI "/so",
+#elif defined(__CYGWIN__)
     ".dll",
 #else  /* !__CYGWIN__ */
     "." SOABI ".so",
@@ -59,14 +66,18 @@ _PyImport_FindSharedFuncptr(const char *prefix,
     dl_funcptr p;
     void *handle;
     char funcname[258];
+#ifndef RISCOS
     char pathbuf[260];
+#endif
     int dlopenflags=0;
 
+#ifndef RISCOS
     if (strchr(pathname, '/') == NULL) {
         /* Prefix bare filename with "./" */
         PyOS_snprintf(pathbuf, sizeof(pathbuf), "./%-.255s", pathname);
         pathname = pathbuf;
     }
+#endif
 
     PyOS_snprintf(funcname, sizeof(funcname),
                   LEAD_UNDERSCORE "%.20s_%.200s", prefix, shortname);
@@ -79,7 +90,13 @@ _PyImport_FindSharedFuncptr(const char *prefix,
 
     dlopenflags = _PyImport_GetDLOpenFlags(_PyInterpreterState_GET());
 
+#ifdef RISCOS
+    char* unixpath = __unixify(pathname, 0x0, 0, 0, -1);
+    handle = dlopen(unixpath, dlopenflags);
+    free(unixpath);
+#else
     handle = dlopen(pathname, dlopenflags);
+#endif
 
     if (handle == NULL) {
         PyObject *mod_name;

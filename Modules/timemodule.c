@@ -2260,7 +2260,14 @@ pysleep(PyTime_t timeout)
         ret = nanosleep(&timeout_ts, NULL);
         err = errno;
 #else
+#ifdef RISCOS
+        unsigned int end = _swi(OS_ReadMonotonicTime, _RETURN(0)) +
+                           (timeout_tv.tv_sec * 100 + timeout_tv.tv_usec / 10000);
+        while ((unsigned)_swi(OS_ReadMonotonicTime, _RETURN(0)) < end) ;
+        ret = 0;
+#else
         ret = select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &timeout_tv);
+#endif
         err = errno;
 #endif
         Py_END_ALLOW_THREADS

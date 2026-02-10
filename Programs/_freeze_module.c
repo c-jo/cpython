@@ -14,6 +14,13 @@
 #include "pycore_fileutils.h"     // _Py_stat_struct
 #include <pycore_import.h>
 
+#ifdef RISCOS
+#include <unixlib/local.h>
+int __riscosify_control =  __RISCOSIFY_NO_PROCESS |
+                           __RISCOSIFY_NO_SUFFIX |
+                           __RISCOSIFY_NO_REVERSE_SUFFIX;
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>               // malloc()
 #include <sys/types.h>
@@ -79,12 +86,18 @@ read_text(const char *inpath)
     }
 
     struct _Py_stat_struct stat;
+#ifdef RISCOS
+    fseek(infile, 0, SEEK_END);
+    size_t text_size = ftell(infile);
+    fseek(infile, 0, SEEK_SET);
+#else
     if (_Py_fstat_noraise(fileno(infile), &stat)) {
         fprintf(stderr, "cannot fstat '%s'\n", inpath);
         fclose(infile);
         return NULL;
     }
     size_t text_size = (size_t)stat.st_size;
+#endif
 
     char *text = (char *) malloc(text_size + 1);
     if (text == NULL) {
