@@ -14,7 +14,7 @@ There is a riscos-python mailing list https://www.freelists.org/riscos-python fo
 
 Feedback and bugs
 -----------------
-Plese send any feedback or bug reports to chris@lessthan3.org.uk
+Please send any feedback or bug reports to chris@lessthan3.org.uk
 
 Filetypes
 ---------
@@ -29,7 +29,7 @@ Types are also used for the cached bytecode (.pyc) and extensions (.so).
 
 The subprocess module on RISC OS
 --------------------------------
-Limited subprocess support is provided using the TaskRunner module to execute subprocesses using the RISC OS TaskWindow susyem.
+Limited subprocess support is provided using the TaskRunner module to execute subprocesses using the RISC OS TaskWindow system.
 
 RISC OS additions
 -----------------

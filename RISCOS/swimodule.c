@@ -19,7 +19,7 @@
    * Updated to Python 3
 
  1.11  06 February 2020 Chris Johns
-   * Added 'I' / 'u' for unsigned intger.
+   * Added 'I' / 'u' for unsigned integer.
 
  1.12  16 March 2020 Chris Johns.
    * Added 'y' for bytes.

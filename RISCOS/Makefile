@@ -9,7 +9,7 @@ MODOBJS=Modules/posixmodule.o  Modules/errnomodule.o  Modules/pwdmodule.o  Modul
 MODLIBS=           $(LOCALMODLIBS) $(BASEMODLIBS)
 
 # === Variables set by configure
-VERSION=	3.8
+VERSION=	3.14
 srcdir=         .
 
 # Add  -mfpu=vfp -mfloat-abi=softfp for VFP

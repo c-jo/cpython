@@ -159,7 +159,7 @@ Py_canonicialise(const char *path)
    return res;
 }
 
-/* get RISC OS objet type (file, directory or image) */
+/* get RISC OS object type (file, directory or image) */
 static int
 get_obj_type(const char *pathname)
 {
@@ -211,7 +211,7 @@ ismodule(const char *directory, const char *module)
     strcat(buffer, ".");
     strcat(buffer, module);
 
-    // Is ita typed file?
+    // Is it a typed file?
     int filetype = get_filetype(buffer);
     if (filetype == 0xa73 || filetype == 0xa74)
          return 1; // It's a python one
