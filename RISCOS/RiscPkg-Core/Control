@@ -1,0 +1,11 @@
+Package: Python-Core
+Version: 0.0.2-1
+Section: Development
+Priority: Optional
+Maintainer: Chris Johns <chris@lessthan3.org.uk>
+Standards-Version: 0.4.0
+Environment: any
+Licence: Free
+Description: Python Core Package
+ This package provides core the Python resources.
+Components: Apps.Development.!Python3 (Movable LookAt), Resources.!PythonSite (Movable LookAt), ToBeLoaded.!PythonUser (Movable LookAt)

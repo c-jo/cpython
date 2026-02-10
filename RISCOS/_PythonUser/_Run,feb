@@ -1,0 +1,4 @@
+| !Run file for RISC OS Python User.
+
+Unset PythonUser$Dir
+Run <Obey$Dir>.!Boot

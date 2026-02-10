@@ -4193,6 +4193,73 @@ SimpleExtendsException(PyExc_Warning, ResourceWarning,
     "Base class for warnings about resource usage.");
 
 
+#ifdef RISCOS
+/*
+ *    RISC OS error.
+ */
+
+static int
+RISCOSError_init(PyRISCOSErrorObject *self, PyObject *args, PyObject *kwds)
+{
+    Py_ssize_t lenargs = PyTuple_GET_SIZE(args);
+
+    if (BaseException_init((PyBaseExceptionObject *)self, args, kwds) == -1)
+        return -1;
+
+    if (lenargs >= 1) {
+        Py_INCREF(PyTuple_GET_ITEM(args, 0));
+        Py_XSETREF(self->errnum, PyTuple_GET_ITEM(args, 0));
+    }
+    if (lenargs == 2) {
+        Py_INCREF(PyTuple_GET_ITEM(args, 1));
+        Py_XSETREF(self->errmsg, PyTuple_GET_ITEM(args, 1));
+    }
+    return 0;
+}
+
+static int
+RISCOSError_clear(PyRISCOSErrorObject *self)
+{
+    Py_CLEAR(self->errmsg);
+    Py_CLEAR(self->errnum);
+    return BaseException_clear((PyBaseExceptionObject *)self);
+}
+
+static void
+RISCOSError_dealloc(PyRISCOSErrorObject *self)
+{
+    _PyObject_GC_UNTRACK(self);
+    RISCOSError_clear(self);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static int
+RISCOSError_traverse(PyRISCOSErrorObject *self, visitproc visit, void *arg)
+{
+    Py_VISIT(self->errmsg);
+    Py_VISIT(self->errnum);
+    return BaseException_traverse((PyBaseExceptionObject *)self, visit, arg);
+}
+
+static PyObject *
+RISCOSError_str(PyRISCOSErrorObject *self)
+{
+    return self->errmsg;
+}
+
+static PyMemberDef RISCOSError_members[] = {
+    {"errmsg", _Py_T_OBJECT, offsetof(PyRISCOSErrorObject, errmsg), Py_READONLY,
+        PyDoc_STR("error message")},
+    {"errnum", _Py_T_OBJECT, offsetof(PyRISCOSErrorObject, errnum), Py_READONLY,
+        PyDoc_STR("error number")},
+    {NULL}  /* Sentinel */
+};
+
+ComplexExtendsException(PyExc_Exception, RISCOSError, RISCOSError,
+                        0, 0, RISCOSError_members, 0,
+                        RISCOSError_str, "RISC OS error.");
+#endif
+
 
 #ifdef MS_WINDOWS
 #include <winsock2.h>
@@ -4341,6 +4408,9 @@ static struct static_exception static_exceptions[] = {
     ITEM(UnicodeDecodeError),
     ITEM(UnicodeEncodeError),
     ITEM(UnicodeTranslateError),
+#ifdef RISCOS
+    ITEM(RISCOSError), // base: Exception
+#endif
 #undef ITEM
 };
 
