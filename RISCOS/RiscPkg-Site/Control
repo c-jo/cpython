@@ -1,0 +1,10 @@
+Package: PythonSite
+Version: 0.0.2-1
+Section: Development
+Priority: Optional
+Maintainer: Chris Johns <chris@lessthan3.org.uk>
+Standards-Version: 0.4.0
+Environment: any
+Licence: Free
+Description: Container for python site packages
+Components: Resources.!PythonSite (Movable LookAt)

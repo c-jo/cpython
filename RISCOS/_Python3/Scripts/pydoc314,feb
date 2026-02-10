@@ -1,0 +1,6 @@
+python38 -xx Python3:Scripts.pydoc38 %*0
+Obey
+
+import pydoc
+if __name__ == '__main__':
+    pydoc.cli()
