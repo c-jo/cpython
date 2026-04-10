@@ -5,6 +5,7 @@
 #include "osdefs.h"
 #include "pycore_fileutils.h"
 #include "pycore_pathconfig.h"
+#include "pycore_pymem.h"       // _PyMem_RawWcsdup()
 #include "pycore_pystate.h"
 
 #include "swis.h"
@@ -124,6 +125,21 @@ typedef struct {
     int warnings;
     char *pythonpath_env;
 } PyCalculatePath;
+
+/* Local mirror of the _PyPathConfig struct from Python/pathconfig.c.
+   Only used internally within this file; must be kept in sync with
+   Python/pathconfig.c when fields are added or changed. */
+typedef struct {
+    wchar_t *program_full_path;
+    wchar_t *prefix;
+    wchar_t *exec_prefix;
+    wchar_t *stdlib_dir;
+    wchar_t *module_search_path;
+    wchar_t *calculated_module_search_path;
+    wchar_t *program_name;
+    wchar_t *home;
+    int _is_python_build;
+} _PyPathConfig;
 
 static const char delimiter[2] = {DELIM, '\0'};
 static const char separator[2] = {SEP, '\0'};
@@ -1077,7 +1093,7 @@ calculate_path(PyCalculatePath *calculate, _PyPathConfig *pathconfig)
    - exec_prefix
 
    If a field is already set (non NULL), it is left unchanged. */
-PyStatus
+static PyStatus
 _PyPathConfig_Calculate(_PyPathConfig *pathconfig, const PyConfig *config)
 {
     PyStatus status;
@@ -1101,6 +1117,116 @@ done:
     return status;
 }
 
-#ifdef __cplusplus
+
+/* RISC OS uses C-based path calculation; no frozen getpath.py is used. */
+PyObject *
+_Py_Get_Getpath_CodeObject(void)
+{
+    PyErr_SetString(PyExc_RuntimeError,
+                    "getpath.py not available on RISC OS (using C implementation)");
+    return NULL;
+}
+
+
+/* Main entry point for path configuration, called from Python/initconfig.c.
+   Wraps the RISC OS C-based path calculation with the modern PyConfig API. */
+PyStatus
+_PyConfig_InitPathConfig(PyConfig *config, int compute_path_config)
+{
+    PyStatus status = _PyPathConfig_ReadGlobal(config);
+    if (_PyStatus_EXCEPTION(status)) {
+        return status;
+    }
+    if (!compute_path_config) {
+        return _PyStatus_OK();
+    }
+
+    _PyPathConfig pathconfig;
+    memset(&pathconfig, 0, sizeof(pathconfig));
+
+    /* program_name and home are read by _PyPathConfig_Calculate; pass them
+       in as plain pointer copies (not owned by pathconfig). */
+    pathconfig.program_name = config->program_name;
+    pathconfig.home = config->home;
+
+    status = _PyPathConfig_Calculate(&pathconfig, config);
+    if (_PyStatus_EXCEPTION(status)) {
+        goto done;
+    }
+
+    /* Copy calculated fields back to config */
+    if (pathconfig.program_full_path != NULL && config->executable == NULL) {
+        status = PyConfig_SetString(config, &config->executable,
+                                    pathconfig.program_full_path);
+        if (_PyStatus_EXCEPTION(status)) { goto done; }
+    }
+    if (pathconfig.prefix != NULL && config->prefix == NULL) {
+        status = PyConfig_SetString(config, &config->prefix, pathconfig.prefix);
+        if (_PyStatus_EXCEPTION(status)) { goto done; }
+    }
+    if (pathconfig.exec_prefix != NULL && config->exec_prefix == NULL) {
+        status = PyConfig_SetString(config, &config->exec_prefix,
+                                    pathconfig.exec_prefix);
+        if (_PyStatus_EXCEPTION(status)) { goto done; }
+    }
+    /* Outside a virtual environment, base_prefix/base_exec_prefix equal
+       prefix/exec_prefix. */
+    if (pathconfig.prefix != NULL && config->base_prefix == NULL) {
+        status = PyConfig_SetString(config, &config->base_prefix,
+                                    pathconfig.prefix);
+        if (_PyStatus_EXCEPTION(status)) { goto done; }
+    }
+    if (pathconfig.exec_prefix != NULL && config->base_exec_prefix == NULL) {
+        status = PyConfig_SetString(config, &config->base_exec_prefix,
+                                    pathconfig.exec_prefix);
+        if (_PyStatus_EXCEPTION(status)) { goto done; }
+    }
+
+    /* Split the DELIM-separated module_search_path string into the
+       module_search_paths wide-string list. */
+    if (pathconfig.module_search_path != NULL && !config->module_search_paths_set) {
+        wchar_t *p = pathconfig.module_search_path;
+        while (*p) {
+            wchar_t *delim = wcschr(p, DELIM);
+            wchar_t *entry;
+            if (delim != NULL) {
+                size_t len = (size_t)(delim - p);
+                entry = (wchar_t *)PyMem_RawMalloc((len + 1) * sizeof(wchar_t));
+                if (entry == NULL) {
+                    status = _PyStatus_NO_MEMORY();
+                    goto done;
+                }
+                wcsncpy(entry, p, len);
+                entry[len] = L'\0';
+                p = delim + 1;
+            }
+            else {
+                entry = _PyMem_RawWcsdup(p);
+                if (entry == NULL) {
+                    status = _PyStatus_NO_MEMORY();
+                    goto done;
+                }
+                p += wcslen(p);
+            }
+            status = PyWideStringList_Append(&config->module_search_paths, entry);
+            PyMem_RawFree(entry);
+            if (_PyStatus_EXCEPTION(status)) { goto done; }
+        }
+        config->module_search_paths_set = 1;
+    }
+
+    status = _PyStatus_OK();
+
+done:
+    /* Free fields allocated by _PyPathConfig_Calculate.
+       program_name and home are not freed as they are borrowed from config. */
+    PyMem_RawFree(pathconfig.program_full_path);
+    PyMem_RawFree(pathconfig.prefix);
+    PyMem_RawFree(pathconfig.exec_prefix);
+    PyMem_RawFree(pathconfig.module_search_path);
+    return status;
+}
+
+
 }
 #endif

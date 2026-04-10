@@ -5,6 +5,7 @@
 
 MODBUILT_NAMES=      posix  errno  pwd  _sre  _codecs  _weakref  _functools _operator  _collections  _abc  itertools  atexit  _signal  _stat  time _thread _locale  _io  faulthandler  _tracemalloc  _symtable  xxsubtype
 MODDISABLED_NAMES=
+MODSHARED_NAMES=
 MODOBJS=Modules/posixmodule.o  Modules/errnomodule.o  Modules/pwdmodule.o  Modules/_sre.o  Modules/_codecsmodule.o  Modules/_weakref.o  Modules/_functoolsmodule.o  Modules/_operator.o  Modules/_collectionsmodule.o  Modules/_abc.o  Modules/itertoolsmodule.o  Modules/atexitmodule.o  Modules/signalmodule.o  Modules/_stat.o  Modules/timemodule.o  Modules/_threadmodule.o  Modules/_localemodule.o  Modules/_iomodule.o Modules/iobase.o Modules/fileio.o Modules/bytesio.o Modules/bufferedio.o Modules/textio.o Modules/stringio.o  Modules/faulthandler.o  Modules/_tracemalloc.o Modules/hashtable.o Modules/symtablemodule.o Modules/xxsubtype.o
 MODLIBS=           $(LOCALMODLIBS) $(BASEMODLIBS)
 
@@ -29,7 +30,7 @@ MAINCC=		$(CC)
 LINKCC=		$(PURIFY) $(MAINCC)
 AR=		ar
 READELF=	readelf
-SOABI=          cpython-38-arm-riscos
+SOABI=          cpython-314-arm-riscos
 LDVERSION=	$(VERSION)$(ABIFLAGS)
 LIBPYTHON=
 GITVERSION=	git --git-dir $(srcdir)/.git rev-parse --short HEAD
@@ -89,13 +90,15 @@ CONFIGURE_LDFLAGS=
 # command line to append to these values without stomping the pre-set
 # values.
 PY_CFLAGS=	$(BASECFLAGS) $(OPT) $(CONFIGURE_CFLAGS) $(CFLAGS) $(EXTRA_CFLAGS)
-PY_CFLAGS_NODIST=$(CONFIGURE_CFLAGS_NODIST) $(CFLAGS_NODIST) -IInclude/internal
+PY_CFLAGS_NODIST=$(CONFIGURE_CFLAGS_NODIST) $(CFLAGS_NODIST) -IInclude/internal -IInclude/internal/mimalloc
 # Both CPPFLAGS and LDFLAGS need to contain the shell's value for setup.py to
 # be able to build extension modules using the directories specified in the
 # environment variables
 PY_CPPFLAGS=	$(BASECPPFLAGS) -IInclude -IRISCOS $(CONFIGURE_CPPFLAGS) $(CPPFLAGS)
 PY_LDFLAGS=	$(CONFIGURE_LDFLAGS) $(LDFLAGS) $(VFP_FLAGS)
 PY_LDFLAGS_NODIST=$(CONFIGURE_LDFLAGS_NODIST) $(LDFLAGS_NODIST)
+CONFIGURE_LDFLAGS_NOLTO=
+PY_LDFLAGS_NOLTO=$(PY_LDFLAGS) $(CONFIGURE_LDFLAGS_NOLTO) $(LDFLAGS_NODIST)
 NO_AS_NEEDED=	-Wl,--no-as-needed
 SGI_ABI=	@SGI_ABI@
 CCSHARED=	-fPIC
@@ -135,10 +138,11 @@ INCLUDEDIR=	${prefix}/include
 CONFINCLUDEDIR=	$(exec_prefix)/include
 SCRIPTDIR=	$(prefix)/lib
 ABIFLAGS=
+ABI_THREAD=
 
 # Detailed destination directories
 BINLIBDEST=	$(LIBDIR)/python$(VERSION)
-LIBDEST=	$(SCRIPTDIR)/python$(VERSION)
+LIBDEST=	$(SCRIPTDIR)/python$(VERSION)$(ABI_THREAD)
 INCLUDEPY=	$(INCLUDEDIR)/python$(LDVERSION)
 CONFINCLUDEPY=	$(CONFINCLUDEDIR)/python$(LDVERSION)
 
@@ -197,13 +201,18 @@ DIST=		$(DISTFILES) $(DISTDIRS)
 
 #LIBRARY=	libpython$(VERSION)$(ABIFLAGS).a
 #LDLIBRARY=      libpython$(VERSION)$(ABIFLAGS).a
-LIBRARY=	libpython38
+LIBRARY=	libpython314
 LDLIBRARY=	$(LIBRARY)
 BLDLIBRARY=     $(LDLIBRARY)
 PY3LIBRARY=
 DLLLIBRARY=
 LDLIBRARYDIR=
 INSTSONAME=	$(LDLIBRARY)
+
+LIBMPDEC_A= Modules/_decimal/libmpdec/libmpdec.a
+LIBEXPAT_A= Modules/expat/libexpat.a
+LIBHACL_CFLAGS=
+LIBHACL_LDFLAGS=
 
 
 #LIBS=		-lcrypt -lpthread -ldl  -lutil -lm
@@ -219,14 +228,19 @@ MACHDEP_OBJS=
 LIBOBJDIR=	Python/
 LIBOBJS=
 
-PYTHON=		python38
+PYTHON=		python314
 BUILDPYTHON=	python3$(EXE)
 
-PYTHON_FOR_REGEN=python3.8
-UPDATE_FILE=python3.8 $(srcdir)/Tools/scripts/update_file.py
+PYTHON_FOR_REGEN=python3.14
+UPDATE_FILE=$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/update_file.py
 PYTHON_FOR_BUILD=./$(BUILDPYTHON) -E
 _PYTHON_HOST_PLATFORM=_riscos
 HOST_GNU_TYPE=arm-unknown-riscos
+PYTHON_FOR_FREEZE=./$(BUILDPYTHON)
+FREEZE_MODULE_BOOTSTRAP=./Programs/_freeze_module
+FREEZE_MODULE_BOOTSTRAP_DEPS=Programs/_freeze_module
+FREEZE_MODULE=./_bootstrap_python $(srcdir)/Programs/_freeze_module.py
+FREEZE_MODULE_DEPS=_bootstrap_python
 
 # Tcl and Tk config info from --with-tcltk-includes and -libs options
 TCLTK_INCLUDES=
@@ -284,59 +298,104 @@ LIBFFI_INCLUDEDIR=
 
 ##########################################################################
 # Parser
-POBJS=		\
-		Parser/acceler.o \
-		Parser/grammar1.o \
-		Parser/listnode.o \
-		Parser/node.o \
+
+PEGEN_OBJS=		\
+		Parser/pegen.o \
+		Parser/pegen_errors.o \
+		Parser/action_helpers.o \
 		Parser/parser.o \
+		Parser/string_parser.o \
+		Parser/peg_api.o
+
+TOKENIZER_OBJS=		\
+		Parser/lexer/buffer.o \
+		Parser/lexer/lexer.o \
+		Parser/lexer/state.o \
+		Parser/tokenizer/file_tokenizer.o \
+		Parser/tokenizer/readline_tokenizer.o \
+		Parser/tokenizer/string_tokenizer.o \
+		Parser/tokenizer/utf8_tokenizer.o \
+		Parser/tokenizer/helpers.o
+
+PEGEN_HEADERS= \
+		$(srcdir)/Include/internal/pycore_parser.h \
+		$(srcdir)/Parser/pegen.h \
+		$(srcdir)/Parser/string_parser.h
+
+TOKENIZER_HEADERS= \
+		Parser/lexer/buffer.h \
+		Parser/lexer/lexer.h \
+		Parser/lexer/state.h \
+		Parser/tokenizer/tokenizer.h \
+		Parser/tokenizer/helpers.h
+
+POBJS=		\
 		Parser/token.o \
 
-PARSER_OBJS=	$(POBJS) \
-		Parser/myreadline.o \
-		Parser/parsetok.o \
-		Parser/tokenizer.o
+PARSER_OBJS=	$(POBJS) $(PEGEN_OBJS) $(TOKENIZER_OBJS) Parser/myreadline.o
 
 PARSER_HEADERS= \
-		$(srcdir)/Include/grammar.h \
-		$(srcdir)/Include/parsetok.h \
-		$(srcdir)/Parser/parser.h \
-		$(srcdir)/Parser/tokenizer.h
+		$(PEGEN_HEADERS) \
+		$(TOKENIZER_HEADERS)
 
 ##########################################################################
 # Python
 PYTHON_OBJS=	\
+		Python/_contextvars.o \
 		Python/_warnings.o \
 		Python/Python-ast.o \
+		Python/Python-tokenize.o \
 		Python/asdl.o \
+		Python/assemble.o \
 		Python/ast.o \
-		Python/ast_opt.o \
+		Python/ast_preprocess.o \
 		Python/ast_unparse.o \
 		Python/bltinmodule.o \
+		Python/brc.o \
 		Python/ceval.o \
 		Python/codecs.o \
+		Python/codegen.o \
 		Python/compile.o \
 		Python/context.o \
+		Python/critical_section.o \
+		Python/crossinterp.o \
 		Python/dynamic_annotations.o \
 		Python/errors.o \
+		Python/flowgraph.o \
+		Python/frame.o \
 		Python/frozenmain.o \
 		Python/future.o \
+		Python/gc.o \
+		Python/gc_gil.o \
 		Python/getargs.o \
 		Python/getcompiler.o \
 		Python/getcopyright.o \
 		Python/getplatform.o \
 		Python/getversion.o \
-		Python/graminit.o \
+		Python/ceval_gil.o \
 		Python/hamt.o \
+		Python/hashtable.o \
 		Python/import.o \
 		Python/importdl.o \
+		Python/index_pool.o \
 		Python/initconfig.o \
+		Python/interpconfig.o \
+		Python/instrumentation.o \
+		Python/instruction_sequence.o \
+		Python/intrinsics.o \
+		Python/jit.o \
+		Python/legacy_tracing.o \
+		Python/lock.o \
 		Python/marshal.o \
 		Python/modsupport.o \
 		Python/mysnprintf.o \
 		Python/mystrtoul.o \
+		Python/object_stack.o \
+		Python/optimizer.o \
+		Python/optimizer_analysis.o \
+		Python/optimizer_symbols.o \
+		Python/parking_lot.o \
 		Python/pathconfig.o \
-		Python/peephole.o \
 		Python/preconfig.o \
 		Python/pyarena.o \
 		Python/pyctype.o \
@@ -347,12 +406,17 @@ PYTHON_OBJS=	\
 		Python/pystate.o \
 		Python/pythonrun.o \
 		Python/pytime.o \
+		Python/qsbr.o \
 		Python/bootstrap_hash.o \
+		Python/specialize.o \
+		Python/stackrefs.o \
 		Python/structmember.o \
 		Python/symtable.o \
 		Python/sysmodule.o \
 		Python/thread.o \
 		Python/traceback.o \
+		Python/tracemalloc.o \
+		Python/uniqueid.o \
 		Python/getopt.o \
 		Python/pystrcmp.o \
 		Python/pystrtod.o \
@@ -360,6 +424,10 @@ PYTHON_OBJS=	\
 		Python/dtoa.o \
 		Python/formatter_unicode.o \
 		Python/fileutils.o \
+		Python/suggestions.o \
+		Python/perf_trampoline.o \
+		Python/perf_jit_trampoline.o \
+		Python/remote_debugging.o \
 		Python/$(DYNLOADFILE) \
 		$(LIBOBJS) \
 		$(MACHDEP_OBJS) \
@@ -370,7 +438,6 @@ PYTHON_OBJS=	\
 # Objects
 OBJECT_OBJS=	\
 		Objects/abstract.o \
-		Objects/accu.o \
 		Objects/boolobject.o \
 		Objects/bytes_methods.o \
 		Objects/bytearrayobject.o \
@@ -384,12 +451,13 @@ OBJECT_OBJS=	\
 		Objects/descrobject.o \
 		Objects/enumobject.o \
 		Objects/exceptions.o \
+		Objects/genericaliasobject.o \
 		Objects/genobject.o \
 		Objects/fileobject.o \
 		Objects/floatobject.o \
 		Objects/frameobject.o \
 		Objects/funcobject.o \
-		Objects/interpreteridobject.o \
+		Objects/interpolationobject.o \
 		Objects/iterobject.o \
 		Objects/listobject.o \
 		Objects/longobject.o \
@@ -406,10 +474,13 @@ OBJECT_OBJS=	\
 		Objects/setobject.o \
 		Objects/sliceobject.o \
 		Objects/structseq.o \
+		Objects/templateobject.o \
 		Objects/tupleobject.o \
 		Objects/typeobject.o \
+		Objects/typevarobject.o \
 		Objects/unicodeobject.o \
 		Objects/unicodectype.o \
+		Objects/unionobject.o \
 		Objects/weakrefobject.o
 
 ##########################################################################
@@ -425,6 +496,61 @@ LIBRARY_OBJS_OMIT_FROZEN=	\
 LIBRARY_OBJS=	\
 		$(LIBRARY_OBJS_OMIT_FROZEN) \
 		Python/frozen.o
+
+##########################################################################
+# Frozen modules
+
+FROZEN_FILES_IN = \
+		Lib/importlib/_bootstrap.py \
+		Lib/importlib/_bootstrap_external.py \
+		Lib/zipimport.py \
+		Lib/abc.py \
+		Lib/codecs.py \
+		Lib/io.py \
+		Lib/_collections_abc.py \
+		Lib/_sitebuiltins.py \
+		Lib/genericpath.py \
+		Lib/ntpath.py \
+		Lib/posixpath.py \
+		Lib/os.py \
+		Lib/site.py \
+		Lib/stat.py \
+		Lib/importlib/util.py \
+		Lib/importlib/machinery.py \
+		Lib/runpy.py \
+		Lib/__hello__.py \
+		Lib/__phello__/__init__.py \
+		Lib/__phello__/ham/__init__.py \
+		Lib/__phello__/ham/eggs.py \
+		Lib/__phello__/spam.py \
+		Tools/freeze/flag.py
+# End FROZEN_FILES_IN
+
+FROZEN_FILES_OUT = \
+		Python/frozen_modules/importlib._bootstrap.h \
+		Python/frozen_modules/importlib._bootstrap_external.h \
+		Python/frozen_modules/zipimport.h \
+		Python/frozen_modules/abc.h \
+		Python/frozen_modules/codecs.h \
+		Python/frozen_modules/io.h \
+		Python/frozen_modules/_collections_abc.h \
+		Python/frozen_modules/_sitebuiltins.h \
+		Python/frozen_modules/genericpath.h \
+		Python/frozen_modules/ntpath.h \
+		Python/frozen_modules/posixpath.h \
+		Python/frozen_modules/os.h \
+		Python/frozen_modules/site.h \
+		Python/frozen_modules/stat.h \
+		Python/frozen_modules/importlib.util.h \
+		Python/frozen_modules/importlib.machinery.h \
+		Python/frozen_modules/runpy.h \
+		Python/frozen_modules/__hello__.h \
+		Python/frozen_modules/__phello__.h \
+		Python/frozen_modules/__phello__.ham.h \
+		Python/frozen_modules/__phello__.ham.eggs.h \
+		Python/frozen_modules/__phello__.spam.h \
+		Python/frozen_modules/frozen_only.h
+# End FROZEN_FILES_OUT
 
 ##########################################################################
 # DTrace
@@ -541,38 +667,20 @@ Programs/_testembed: Programs/_testembed.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY)
 ############################################################################
 # Importlib
 
-Programs/_freeze_importlib.o: Programs/_freeze_importlib.c
-
-Programs/_freeze_importlib$(EXE): Programs/_freeze_importlib.o $(LIBRARY_OBJS_OMIT_FROZEN)
-	$(LINKCC) $(PY_CORE_LDFLAGS) -o $@ Programs/_freeze_importlib.o $(LIBRARY_OBJS_OMIT_FROZEN) $(LIBS) $(MODLIBS) $(SYSLIBS)
+.PHONY: regen-frozen
+regen-frozen: Tools/build/freeze_modules.py $(FROZEN_FILES_IN)
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/freeze_modules.py --frozen-modules
+	@echo "The Makefile was updated, you may need to re-run make."
 
 .PHONY: regen-importlib
-regen-importlib: Programs/_freeze_importlib
-	# Regenerate Python/importlib_external.h
-	# from Lib/importlib/_bootstrap_external.py using _freeze_importlib
-	./Programs/_freeze_importlib importlib._bootstrap_external \
-	    $(srcdir)/Lib/importlib/_bootstrap_external.py \
-	    $(srcdir)/Python/importlib_external.h.new
-	$(UPDATE_FILE) $(srcdir)/Python/importlib_external.h $(srcdir)/Python/importlib_external.h.new
-	# Regenerate Python/importlib.h from Lib/importlib/_bootstrap.py
-	# using _freeze_importlib
-	./Programs/_freeze_importlib importlib._bootstrap \
-	    $(srcdir)/Lib/importlib/_bootstrap.py \
-	    $(srcdir)/Python/importlib.h.new
-	$(UPDATE_FILE) $(srcdir)/Python/importlib.h $(srcdir)/Python/importlib.h.new
-	# Regenerate Python/importlib_zipimport.h from Lib/zipimport.py
-	# using _freeze_importlib
-	./Programs/_freeze_importlib zipimport \
-	    $(srcdir)/Lib/zipimport.py \
-	    $(srcdir)/Python/importlib_zipimport.h.new
-	$(UPDATE_FILE) $(srcdir)/Python/importlib_zipimport.h $(srcdir)/Python/importlib_zipimport.h.new
+regen-importlib: regen-frozen
 
 
 ############################################################################
 # Regenerate all generated files
 
-regen-all: regen-opcode regen-opcode-targets regen-typeslots regen-grammar \
-	regen-token regen-keyword regen-symbol regen-ast regen-importlib clinic
+regen-all: regen-cases regen-typeslots \
+	regen-token regen-ast regen-frozen clinic
 
 ############################################################################
 # Special rules for object files
@@ -619,88 +727,65 @@ Modules/signalmodule.o: $(srcdir)/Modules/signalmodule.c $(srcdir)/Modules/posix
 Python/dynload_shlib.o: $(srcdir)/Python/dynload_shlib.c
 	$(CC) -c $(PY_CORE_CFLAGS) -DSOABI=\"$(SOABI)\" -o $@ $(srcdir)/Python/dynload_shlib.c
 
-Python/sysmodule.o: $(srcdir)/Python/sysmodule.c $(srcdir)/Include/pydtrace.h
-	$(CC) -c $(PY_CORE_CFLAGS) -DABIFLAGS="\"$(ABIFLAGS)\"" -o $@ $(srcdir)/Python/sysmodule.c
+Python/sysmodule.o: $(srcdir)/Python/sysmodule.c Makefile $(srcdir)/Include/pydtrace.h
+	$(CC) -c $(PY_CORE_CFLAGS) \
+		-DABIFLAGS='"$(ABIFLAGS)"' \
+		-o $@ $(srcdir)/Python/sysmodule.c
 
 $(IO_OBJS): $(IO_H)
 
-.PHONY: regen-grammar
-regen-grammar: regen-token
-	# Regenerate Include/graminit.h and Python/graminit.c
-	# from Grammar/Grammar using pgen
-	@$(MKDIR_P) Include
-	PYTHONPATH=$(srcdir) $(PYTHON_FOR_REGEN) -m Parser.pgen $(srcdir)/Grammar/Grammar \
-		$(srcdir)/Grammar/Tokens \
-		$(srcdir)/Include/graminit.h.new \
-		$(srcdir)/Python/graminit.c.new
-	$(UPDATE_FILE) $(srcdir)/Include/graminit.h $(srcdir)/Include/graminit.h.new
-	$(UPDATE_FILE) $(srcdir)/Python/graminit.c $(srcdir)/Python/graminit.c.new
+.PHONY: regen-pegen
+regen-pegen:
+	# Regenerate Parser/parser.c from Grammar/python.gram using pegen
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/peg_generator/peg_parser/build.py \
+		--grammar-file $(srcdir)/Grammar/python.gram \
+		--output $(srcdir)/Parser/parser.c
 
-.PHONY=regen-ast
+.PHONY: regen-ast
 regen-ast:
-	# Regenerate Include/Python-ast.h using Parser/asdl_c.py -h
-	$(MKDIR_P) $(srcdir)/Include
-	$(PYTHON_FOR_REGEN) $(srcdir)/Parser/asdl_c.py \
-		-h $(srcdir)/Include/Python-ast.h.new \
-		$(srcdir)/Parser/Python.asdl
-	$(UPDATE_FILE) $(srcdir)/Include/Python-ast.h $(srcdir)/Include/Python-ast.h.new
-	# Regenerate Python/Python-ast.c using Parser/asdl_c.py -c
+	# Regenerate Include/internal/pycore_ast.h, Include/internal/pycore_ast_state.h,
+	# and Python/Python-ast.c using Parser/asdl_c.py
+	$(MKDIR_P) $(srcdir)/Include/internal
 	$(MKDIR_P) $(srcdir)/Python
 	$(PYTHON_FOR_REGEN) $(srcdir)/Parser/asdl_c.py \
-		-c $(srcdir)/Python/Python-ast.c.new \
-		$(srcdir)/Parser/Python.asdl
+		$(srcdir)/Parser/Python.asdl \
+		-H $(srcdir)/Include/internal/pycore_ast.h.new \
+		-I $(srcdir)/Include/internal/pycore_ast_state.h.new \
+		-C $(srcdir)/Python/Python-ast.c.new
+	$(UPDATE_FILE) $(srcdir)/Include/internal/pycore_ast.h $(srcdir)/Include/internal/pycore_ast.h.new
+	$(UPDATE_FILE) $(srcdir)/Include/internal/pycore_ast_state.h $(srcdir)/Include/internal/pycore_ast_state.h.new
 	$(UPDATE_FILE) $(srcdir)/Python/Python-ast.c $(srcdir)/Python/Python-ast.c.new
 
-.PHONY: regen-opcode
-regen-opcode:
-	# Regenerate Include/opcode.h from Lib/opcode.py
-	# using Tools/scripts/generate_opcode_h.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/scripts/generate_opcode_h.py \
-		$(srcdir)/Lib/opcode.py \
-		$(srcdir)/Include/opcode.h.new
-	$(UPDATE_FILE) $(srcdir)/Include/opcode.h $(srcdir)/Include/opcode.h.new
+.PHONY: regen-cases
+regen-cases:
+	# Regenerate Python/generated_cases.c.h from Python/bytecodes.c
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/cases_generator/generate_cases.py \
+		-o $(srcdir)/Python/generated_cases.c.h.new \
+		$(srcdir)/Python/bytecodes.c
+	$(UPDATE_FILE) $(srcdir)/Python/generated_cases.c.h $(srcdir)/Python/generated_cases.c.h.new
 
 .PHONY: regen-token
 regen-token:
 	# Regenerate Doc/library/token-list.inc from Grammar/Tokens
-	# using Tools/scripts/generate_token.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/scripts/generate_token.py rst \
+	# using Tools/build/generate_token.py
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/generate_token.py rst \
 		$(srcdir)/Grammar/Tokens \
 		$(srcdir)/Doc/library/token-list.inc
 	# Regenerate Include/token.h from Grammar/Tokens
-	# using Tools/scripts/generate_token.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/scripts/generate_token.py h \
+	# using Tools/build/generate_token.py
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/generate_token.py h \
 		$(srcdir)/Grammar/Tokens \
 		$(srcdir)/Include/token.h
 	# Regenerate Parser/token.c from Grammar/Tokens
-	# using Tools/scripts/generate_token.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/scripts/generate_token.py c \
+	# using Tools/build/generate_token.py
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/generate_token.py c \
 		$(srcdir)/Grammar/Tokens \
 		$(srcdir)/Parser/token.c
 	# Regenerate Lib/token.py from Grammar/Tokens
-	# using Tools/scripts/generate_token.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/scripts/generate_token.py py \
+	# using Tools/build/generate_token.py
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/generate_token.py py \
 		$(srcdir)/Grammar/Tokens \
 		$(srcdir)/Lib/token.py
-
-.PHONY: regen-keyword
-regen-keyword:
-	# Regenerate Lib/keyword.py from Grammar/Grammar and Grammar/Tokens
-	# using Parser/pgen
-	PYTHONPATH=$(srcdir) $(PYTHON_FOR_REGEN) -m Parser.pgen.keywordgen $(srcdir)/Grammar/Grammar \
-		$(srcdir)/Grammar/Tokens \
-		$(srcdir)/Lib/keyword.py.new
-	$(UPDATE_FILE) $(srcdir)/Lib/keyword.py $(srcdir)/Lib/keyword.py.new
-
-.PHONY: regen-symbol
-regen-symbol: $(srcdir)/Include/graminit.h
-	# Regenerate Lib/symbol.py from Include/graminit.h
-	# using Tools/scripts/generate_symbol_py.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/scripts/generate_symbol_py.py \
-		$(srcdir)/Include/graminit.h \
-		$(srcdir)/Lib/symbol.py
-
-Python/compile.o Python/symtable.o Python/ast_unparse.o Python/ast.o Python/future.o Parser/parsetok.o: $(srcdir)/Include/graminit.h $(srcdir)/Include/Python-ast.h
 
 Python/getplatform.o: $(srcdir)/Python/getplatform.c
 		$(CC) -c $(PY_CORE_CFLAGS) -DPLATFORM='"$(MACHDEP)"' -o $@ $(srcdir)/Python/getplatform.c
@@ -750,19 +835,10 @@ Objects/odictobject.o: $(srcdir)/Objects/dict-common.h
 Objects/dictobject.o: $(srcdir)/Objects/stringlib/eq.h $(srcdir)/Objects/dict-common.h
 Objects/setobject.o: $(srcdir)/Objects/stringlib/eq.h
 
-.PHONY: regen-opcode-targets
-regen-opcode-targets:
-	# Regenerate Python/opcode_targets.h from Lib/opcode.py
-	# using Python/makeopcodetargets.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Python/makeopcodetargets.py \
-		$(srcdir)/Python/opcode_targets.h.new
-	$(UPDATE_FILE) $(srcdir)/Python/opcode_targets.h $(srcdir)/Python/opcode_targets.h.new
-
-Python/ceval.o: $(srcdir)/Python/opcode_targets.h $(srcdir)/Python/ceval_gil.h \
+Python/ceval.o: $(srcdir)/Python/ceval_gil.h \
 		$(srcdir)/Python/condvar.h
 
-Python/frozen.o: $(srcdir)/Python/importlib.h $(srcdir)/Python/importlib_external.h \
-		$(srcdir)/Python/importlib_zipimport.h
+Python/frozen.o: $(FROZEN_FILES_OUT)
 
 # Generate DTrace probe macros, then rename them (PYTHON_ -> PyDTrace_) to
 # follow our naming conventions. dtrace(1) uses the output filename to generate
@@ -785,10 +861,10 @@ Objects/typeobject.o: Objects/typeslots.inc
 
 .PHONY: regen-typeslots
 regen-typeslots:
-	# Regenerate Objects/typeslots.inc from Include/typeslotsh
-	# using Objects/typeslots.py
-	$(PYTHON_FOR_REGEN) $(srcdir)/Objects/typeslots.py \
-		< $(srcdir)/Include/typeslots.h \
+	# Regenerate Objects/typeslots.inc from Include/typeslots.h
+	# using Tools/build/generate_typeslots.py
+	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/build/generate_typeslots.py \
+		$(srcdir)/Include/typeslots.h \
 		$(srcdir)/Objects/typeslots.inc.new
 	$(UPDATE_FILE) $(srcdir)/Objects/typeslots.inc $(srcdir)/Objects/typeslots.inc.new
 
@@ -798,64 +874,53 @@ regen-typeslots:
 PYTHON_HEADERS= \
 		$(srcdir)/Include/Python.h \
 		$(srcdir)/Include/abstract.h \
-		$(srcdir)/Include/asdl.h \
-		$(srcdir)/Include/ast.h \
-		$(srcdir)/Include/bitset.h \
+		$(srcdir)/Include/audit.h \
 		$(srcdir)/Include/bltinmodule.h \
 		$(srcdir)/Include/boolobject.h \
 		$(srcdir)/Include/bytearrayobject.h \
-		$(srcdir)/Include/bytes_methods.h \
 		$(srcdir)/Include/bytesobject.h \
-		$(srcdir)/Include/cellobject.h \
 		$(srcdir)/Include/ceval.h \
-		$(srcdir)/Include/classobject.h \
-		$(srcdir)/Include/code.h \
 		$(srcdir)/Include/codecs.h \
 		$(srcdir)/Include/compile.h \
 		$(srcdir)/Include/complexobject.h \
-		$(srcdir)/Include/context.h \
+		$(srcdir)/Include/critical_section.h \
 		$(srcdir)/Include/descrobject.h \
 		$(srcdir)/Include/dictobject.h \
-		$(srcdir)/Include/dtoa.h \
 		$(srcdir)/Include/dynamic_annotations.h \
 		$(srcdir)/Include/enumobject.h \
 		$(srcdir)/Include/errcode.h \
-		$(srcdir)/Include/eval.h \
+		$(srcdir)/Include/exports.h \
 		$(srcdir)/Include/fileobject.h \
 		$(srcdir)/Include/fileutils.h \
 		$(srcdir)/Include/floatobject.h \
 		$(srcdir)/Include/frameobject.h \
-		$(srcdir)/Include/funcobject.h \
-		$(srcdir)/Include/genobject.h \
+		$(srcdir)/Include/genericaliasobject.h \
 		$(srcdir)/Include/import.h \
-		$(srcdir)/Include/interpreteridobject.h \
 		$(srcdir)/Include/intrcheck.h \
 		$(srcdir)/Include/iterobject.h \
 		$(srcdir)/Include/listobject.h \
-		$(srcdir)/Include/longintrepr.h \
+		$(srcdir)/Include/lock.h \
 		$(srcdir)/Include/longobject.h \
 		$(srcdir)/Include/marshal.h \
 		$(srcdir)/Include/memoryobject.h \
 		$(srcdir)/Include/methodobject.h \
 		$(srcdir)/Include/modsupport.h \
 		$(srcdir)/Include/moduleobject.h \
-		$(srcdir)/Include/namespaceobject.h \
-		$(srcdir)/Include/node.h \
+		$(srcdir)/Include/monitoring.h \
 		$(srcdir)/Include/object.h \
 		$(srcdir)/Include/objimpl.h \
-		$(srcdir)/Include/odictobject.h \
 		$(srcdir)/Include/opcode.h \
+		$(srcdir)/Include/opcode_ids.h \
 		$(srcdir)/Include/osdefs.h \
 		$(srcdir)/Include/osmodule.h \
 		$(srcdir)/Include/patchlevel.h \
-		$(srcdir)/Include/picklebufobject.h \
-		$(srcdir)/Include/pyarena.h \
+		$(srcdir)/Include/pyatomic.h \
+		$(srcdir)/Include/pybuffer.h \
 		$(srcdir)/Include/pycapsule.h \
-		$(srcdir)/Include/pyctype.h \
-		$(srcdir)/Include/pydebug.h \
 		$(srcdir)/Include/pydtrace.h \
 		$(srcdir)/Include/pyerrors.h \
-		$(srcdir)/Include/pyfpe.h \
+		$(srcdir)/Include/pyexpat.h \
+		$(srcdir)/Include/pyframe.h \
 		$(srcdir)/Include/pyhash.h \
 		$(srcdir)/Include/pylifecycle.h \
 		$(srcdir)/Include/pymacconfig.h \
@@ -864,70 +929,225 @@ PYTHON_HEADERS= \
 		$(srcdir)/Include/pymem.h \
 		$(srcdir)/Include/pyport.h \
 		$(srcdir)/Include/pystate.h \
+		$(srcdir)/Include/pystats.h \
 		$(srcdir)/Include/pystrcmp.h \
-		$(srcdir)/Include/pystrhex.h \
 		$(srcdir)/Include/pystrtod.h \
 		$(srcdir)/Include/pythonrun.h \
 		$(srcdir)/Include/pythread.h \
-		$(srcdir)/Include/pytime.h \
+		$(srcdir)/Include/pytypedefs.h \
 		$(srcdir)/Include/rangeobject.h \
+		$(srcdir)/Include/refcount.h \
 		$(srcdir)/Include/setobject.h \
 		$(srcdir)/Include/sliceobject.h \
 		$(srcdir)/Include/structmember.h \
 		$(srcdir)/Include/structseq.h \
-		$(srcdir)/Include/symtable.h \
 		$(srcdir)/Include/sysmodule.h \
-		$(srcdir)/Include/token.h \
 		$(srcdir)/Include/traceback.h \
-		$(srcdir)/Include/tracemalloc.h \
 		$(srcdir)/Include/tupleobject.h \
-		$(srcdir)/Include/ucnhash.h \
+		$(srcdir)/Include/typeslots.h \
 		$(srcdir)/Include/unicodeobject.h \
 		$(srcdir)/Include/warnings.h \
 		$(srcdir)/Include/weakrefobject.h \
+		$(srcdir)/Python/remote_debug.h \
 		\
 		$(srcdir)/RISCOS/pyconfig.h \
 		$(PARSER_HEADERS) \
-		$(srcdir)/Include/Python-ast.h \
 		\
 		$(srcdir)/Include/cpython/abstract.h \
+		$(srcdir)/Include/cpython/audit.h \
+		$(srcdir)/Include/cpython/bytearrayobject.h \
+		$(srcdir)/Include/cpython/bytesobject.h \
+		$(srcdir)/Include/cpython/cellobject.h \
+		$(srcdir)/Include/cpython/ceval.h \
+		$(srcdir)/Include/cpython/classobject.h \
+		$(srcdir)/Include/cpython/code.h \
+		$(srcdir)/Include/cpython/compile.h \
+		$(srcdir)/Include/cpython/complexobject.h \
+		$(srcdir)/Include/cpython/context.h \
+		$(srcdir)/Include/cpython/critical_section.h \
+		$(srcdir)/Include/cpython/descrobject.h \
 		$(srcdir)/Include/cpython/dictobject.h \
 		$(srcdir)/Include/cpython/fileobject.h \
+		$(srcdir)/Include/cpython/fileutils.h \
+		$(srcdir)/Include/cpython/floatobject.h \
+		$(srcdir)/Include/cpython/frameobject.h \
+		$(srcdir)/Include/cpython/funcobject.h \
+		$(srcdir)/Include/cpython/genobject.h \
+		$(srcdir)/Include/cpython/import.h \
 		$(srcdir)/Include/cpython/initconfig.h \
-		$(srcdir)/Include/cpython/interpreteridobject.h \
+		$(srcdir)/Include/cpython/listobject.h \
+		$(srcdir)/Include/cpython/lock.h \
+		$(srcdir)/Include/cpython/longintrepr.h \
+		$(srcdir)/Include/cpython/longobject.h \
+		$(srcdir)/Include/cpython/memoryobject.h \
+		$(srcdir)/Include/cpython/methodobject.h \
+		$(srcdir)/Include/cpython/modsupport.h \
+		$(srcdir)/Include/cpython/monitoring.h \
 		$(srcdir)/Include/cpython/object.h \
 		$(srcdir)/Include/cpython/objimpl.h \
+		$(srcdir)/Include/cpython/odictobject.h \
+		$(srcdir)/Include/cpython/picklebufobject.h \
+		$(srcdir)/Include/cpython/pthread_stubs.h \
+		$(srcdir)/Include/cpython/pyatomic.h \
+		$(srcdir)/Include/cpython/pyatomic_gcc.h \
+		$(srcdir)/Include/cpython/pyatomic_std.h \
+		$(srcdir)/Include/cpython/pyctype.h \
+		$(srcdir)/Include/cpython/pydebug.h \
 		$(srcdir)/Include/cpython/pyerrors.h \
+		$(srcdir)/Include/cpython/pyfpe.h \
+		$(srcdir)/Include/cpython/pyframe.h \
+		$(srcdir)/Include/cpython/pyhash.h \
 		$(srcdir)/Include/cpython/pylifecycle.h \
 		$(srcdir)/Include/cpython/pymem.h \
 		$(srcdir)/Include/cpython/pystate.h \
-		$(srcdir)/Include/cpython/sysmodule.h \
+		$(srcdir)/Include/cpython/pystats.h \
+		$(srcdir)/Include/cpython/pythonrun.h \
+		$(srcdir)/Include/cpython/pythread.h \
+		$(srcdir)/Include/cpython/setobject.h \
 		$(srcdir)/Include/cpython/traceback.h \
+		$(srcdir)/Include/cpython/tracemalloc.h \
 		$(srcdir)/Include/cpython/tupleobject.h \
 		$(srcdir)/Include/cpython/unicodeobject.h \
+		$(srcdir)/Include/cpython/warnings.h \
+		$(srcdir)/Include/cpython/weakrefobject.h \
 		\
-		$(srcdir)/Include/internal/pycore_accu.h \
-		$(srcdir)/Include/internal/pycore_atomic.h \
+		$(srcdir)/Include/internal/pycore_abstract.h \
+		$(srcdir)/Include/internal/pycore_asdl.h \
+		$(srcdir)/Include/internal/pycore_ast.h \
+		$(srcdir)/Include/internal/pycore_ast_state.h \
+		$(srcdir)/Include/internal/pycore_atexit.h \
+		$(srcdir)/Include/internal/pycore_audit.h \
+		$(srcdir)/Include/internal/pycore_backoff.h \
+		$(srcdir)/Include/internal/pycore_bitutils.h \
+		$(srcdir)/Include/internal/pycore_blocks_output_buffer.h \
+		$(srcdir)/Include/internal/pycore_brc.h \
+		$(srcdir)/Include/internal/pycore_bytes_methods.h \
+		$(srcdir)/Include/internal/pycore_bytesobject.h \
+		$(srcdir)/Include/internal/pycore_call.h \
+		$(srcdir)/Include/internal/pycore_capsule.h \
+		$(srcdir)/Include/internal/pycore_cell.h \
 		$(srcdir)/Include/internal/pycore_ceval.h \
+		$(srcdir)/Include/internal/pycore_ceval_state.h \
 		$(srcdir)/Include/internal/pycore_code.h \
+		$(srcdir)/Include/internal/pycore_codecs.h \
+		$(srcdir)/Include/internal/pycore_compile.h \
+		$(srcdir)/Include/internal/pycore_complexobject.h \
 		$(srcdir)/Include/internal/pycore_condvar.h \
 		$(srcdir)/Include/internal/pycore_context.h \
+		$(srcdir)/Include/internal/pycore_critical_section.h \
+		$(srcdir)/Include/internal/pycore_crossinterp.h \
+		$(srcdir)/Include/internal/pycore_crossinterp_data_registry.h \
+		$(srcdir)/Include/internal/pycore_debug_offsets.h \
+		$(srcdir)/Include/internal/pycore_descrobject.h \
+		$(srcdir)/Include/internal/pycore_dict.h \
+		$(srcdir)/Include/internal/pycore_dict_state.h \
+		$(srcdir)/Include/internal/pycore_dtoa.h \
+		$(srcdir)/Include/internal/pycore_exceptions.h \
+		$(srcdir)/Include/internal/pycore_faulthandler.h \
 		$(srcdir)/Include/internal/pycore_fileutils.h \
+		$(srcdir)/Include/internal/pycore_floatobject.h \
+		$(srcdir)/Include/internal/pycore_flowgraph.h \
+		$(srcdir)/Include/internal/pycore_format.h \
+		$(srcdir)/Include/internal/pycore_frame.h \
+		$(srcdir)/Include/internal/pycore_freelist.h \
+		$(srcdir)/Include/internal/pycore_freelist_state.h \
+		$(srcdir)/Include/internal/pycore_function.h \
+		$(srcdir)/Include/internal/pycore_gc.h \
+		$(srcdir)/Include/internal/pycore_genobject.h \
 		$(srcdir)/Include/internal/pycore_getopt.h \
 		$(srcdir)/Include/internal/pycore_gil.h \
+		$(srcdir)/Include/internal/pycore_global_objects.h \
+		$(srcdir)/Include/internal/pycore_global_objects_fini_generated.h \
+		$(srcdir)/Include/internal/pycore_global_strings.h \
 		$(srcdir)/Include/internal/pycore_hamt.h \
+		$(srcdir)/Include/internal/pycore_hashtable.h \
+		$(srcdir)/Include/internal/pycore_import.h \
+		$(srcdir)/Include/internal/pycore_importdl.h \
+		$(srcdir)/Include/internal/pycore_index_pool.h \
 		$(srcdir)/Include/internal/pycore_initconfig.h \
+		$(srcdir)/Include/internal/pycore_instruments.h \
+		$(srcdir)/Include/internal/pycore_instruction_sequence.h \
+		$(srcdir)/Include/internal/pycore_interp.h \
+		$(srcdir)/Include/internal/pycore_interp_structs.h \
+		$(srcdir)/Include/internal/pycore_interpframe.h \
+		$(srcdir)/Include/internal/pycore_interpframe_structs.h \
+		$(srcdir)/Include/internal/pycore_interpolation.h \
+		$(srcdir)/Include/internal/pycore_intrinsics.h \
+		$(srcdir)/Include/internal/pycore_jit.h \
+		$(srcdir)/Include/internal/pycore_list.h \
+		$(srcdir)/Include/internal/pycore_llist.h \
+		$(srcdir)/Include/internal/pycore_lock.h \
+		$(srcdir)/Include/internal/pycore_long.h \
+		$(srcdir)/Include/internal/pycore_memoryobject.h \
+		$(srcdir)/Include/internal/pycore_mimalloc.h \
+		$(srcdir)/Include/internal/pycore_modsupport.h \
+		$(srcdir)/Include/internal/pycore_moduleobject.h \
+		$(srcdir)/Include/internal/pycore_namespace.h \
 		$(srcdir)/Include/internal/pycore_object.h \
+		$(srcdir)/Include/internal/pycore_object_alloc.h \
+		$(srcdir)/Include/internal/pycore_object_deferred.h \
+		$(srcdir)/Include/internal/pycore_object_stack.h \
+		$(srcdir)/Include/internal/pycore_object_state.h \
+		$(srcdir)/Include/internal/pycore_obmalloc.h \
+		$(srcdir)/Include/internal/pycore_obmalloc_init.h \
+		$(srcdir)/Include/internal/pycore_opcode_metadata.h \
+		$(srcdir)/Include/internal/pycore_opcode_utils.h \
+		$(srcdir)/Include/internal/pycore_optimizer.h \
+		$(srcdir)/Include/internal/pycore_parking_lot.h \
+		$(srcdir)/Include/internal/pycore_parser.h \
 		$(srcdir)/Include/internal/pycore_pathconfig.h \
+		$(srcdir)/Include/internal/pycore_pyarena.h \
+		$(srcdir)/Include/internal/pycore_pyatomic_ft_wrappers.h \
+		$(srcdir)/Include/internal/pycore_pybuffer.h \
 		$(srcdir)/Include/internal/pycore_pyerrors.h \
 		$(srcdir)/Include/internal/pycore_pyhash.h \
 		$(srcdir)/Include/internal/pycore_pylifecycle.h \
+		$(srcdir)/Include/internal/pycore_pymath.h \
 		$(srcdir)/Include/internal/pycore_pymem.h \
+		$(srcdir)/Include/internal/pycore_pymem_init.h \
 		$(srcdir)/Include/internal/pycore_pystate.h \
+		$(srcdir)/Include/internal/pycore_pystats.h \
+		$(srcdir)/Include/internal/pycore_pythonrun.h \
+		$(srcdir)/Include/internal/pycore_pythread.h \
+		$(srcdir)/Include/internal/pycore_qsbr.h \
+		$(srcdir)/Include/internal/pycore_range.h \
+		$(srcdir)/Include/internal/pycore_runtime.h \
+		$(srcdir)/Include/internal/pycore_runtime_init.h \
+		$(srcdir)/Include/internal/pycore_runtime_init_generated.h \
+		$(srcdir)/Include/internal/pycore_runtime_structs.h \
+		$(srcdir)/Include/internal/pycore_semaphore.h \
+		$(srcdir)/Include/internal/pycore_setobject.h \
+		$(srcdir)/Include/internal/pycore_signal.h \
+		$(srcdir)/Include/internal/pycore_sliceobject.h \
+		$(srcdir)/Include/internal/pycore_stats.h \
+		$(srcdir)/Include/internal/pycore_strhex.h \
+		$(srcdir)/Include/internal/pycore_stackref.h \
+		$(srcdir)/Include/internal/pycore_structs.h \
+		$(srcdir)/Include/internal/pycore_structseq.h \
+		$(srcdir)/Include/internal/pycore_symtable.h \
+		$(srcdir)/Include/internal/pycore_sysmodule.h \
+		$(srcdir)/Include/internal/pycore_template.h \
+		$(srcdir)/Include/internal/pycore_time.h \
+		$(srcdir)/Include/internal/pycore_token.h \
 		$(srcdir)/Include/internal/pycore_traceback.h \
-		$(srcdir)/Include/internal/pycore_tupleobject.h \
+		$(srcdir)/Include/internal/pycore_tracemalloc.h \
+		$(srcdir)/Include/internal/pycore_tstate.h \
+		$(srcdir)/Include/internal/pycore_tuple.h \
+		$(srcdir)/Include/internal/pycore_typedefs.h \
+		$(srcdir)/Include/internal/pycore_typeobject.h \
+		$(srcdir)/Include/internal/pycore_typevarobject.h \
+		$(srcdir)/Include/internal/pycore_ucnhash.h \
+		$(srcdir)/Include/internal/pycore_unicodeobject.h \
+		$(srcdir)/Include/internal/pycore_unicodeobject_generated.h \
+		$(srcdir)/Include/internal/pycore_unionobject.h \
+		$(srcdir)/Include/internal/pycore_uniqueid.h \
+		$(srcdir)/Include/internal/pycore_uop_ids.h \
+		$(srcdir)/Include/internal/pycore_uop_metadata.h \
 		$(srcdir)/Include/internal/pycore_warnings.h \
-		$(DTRACE_HEADERS)
+		$(srcdir)/Include/internal/pycore_weakref.h \
+		$(DTRACE_HEADERS) \
+		\
+		$(srcdir)/Python/stdlib_module_names.h
 
 $(LIBRARY_OBJS) $(MODOBJS) Programs/python.o: $(PYTHON_HEADERS)
 
@@ -1217,7 +1437,7 @@ inclinstall:
 
 # Install the library and miscellaneous stuff needed for extending/embedding
 # This goes into $(exec_prefix)
-LIBPL=		$(prefix)/lib/python3.8/config-$(VERSION)$(ABIFLAGS)-arm-riscos
+LIBPL=		$(prefix)/lib/python$(VERSION)$(ABI_THREAD)/config-$(VERSION)$(ABIFLAGS)-arm-riscos
 
 # pkgconfig directory
 LIBPC=		$(LIBDIR)/pkgconfig
