@@ -1,0 +1,6 @@
+python314 -xx Python3:Scripts.pydoc314 %*0
+Obey
+
+import pydoc
+if __name__ == '__main__':
+    pydoc.cli()

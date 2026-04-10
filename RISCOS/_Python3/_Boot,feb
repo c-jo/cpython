@@ -1,0 +1,19 @@
+| !Boot file for RISC OS Python 3.
+
+If "<Python3$Dir>" <> "" Then Set Python3$Seen "True"
+If "<Python3$Seen>" = "" Then Set Python3$Dir <Obey$Dir>
+If "<Python3$Seen>" = "" Then Set Python3$Path <Python3$Dir>.
+If "<Python3$Seen>" = "" Then IconSprites <Python3$Dir>.!Sprites
+If "<Python3$Seen>" = "" Then Run <Python3$Dir>.!Setup
+If "<Python3$Seen>" = "" Then Run <Python3$Dir>.!PathAdd -py3
+
+Unset Python3$BootRun
+
+If "<File$Type_a73>" = "" Then Set File$Type_a73 Python3
+If "<File$Type_a74>" = "" Then Set File$Type_a74 PytnCode
+If "<File$Type_a75>" = "" Then Set File$Type_a75 PytnExtn
+
+Set Python3$RunTypeSet "True"
+X If "<Alias$RunType_a73>" = "" Then Unset Python3$RunTypeSet
+If "<Python3$RunTypeSet>" = "" Then Set Alias$@RunType_a73 python3 %%*0
+Unset Python3$RunTypeSet
