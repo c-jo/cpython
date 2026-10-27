@@ -4,6 +4,7 @@
 #include "pycore_fileutils.h"     // _Py_BEGIN_SUPPRESS_IPH
 #include "pycore_object.h"        // _PyObject_GC_UNTRACK()
 #include "pycore_pyerrors.h"      // _PyErr_ChainExceptions1()
+#include "pycore_pymem.h"         // _PyMem_RawStrdup()
 #include "pycore_weakref.h"       // FT_CLEAR_WEAKREFS()
 
 #include <stdbool.h>              // bool
@@ -411,12 +412,14 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
 #else
                 self->fd = open(name, flags, 0666);
 #ifdef RISCOS
-                if (self->fd < 0 && strrchr(name, '.'))
-                {
-                    char* x = strrchr(name, '.');
-                    {
-                        *x = '/';
-                        self->fd = open(name, flags, 0666);
+                /* Retry "file.txt" as "file/txt".  Use a copy, as name
+                   may be the caller's bytes object. */
+                if (self->fd < 0 && errno != EINTR && strrchr(name, '.')) {
+                    char *altname = _PyMem_RawStrdup(name);
+                    if (altname != NULL) {
+                        *strrchr(altname, '.') = '/';
+                        self->fd = open(altname, flags, 0666);
+                        PyMem_RawFree(altname);
                     }
                 }
 #endif

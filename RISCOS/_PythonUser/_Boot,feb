@@ -3,6 +3,6 @@
 If "<PythonUser$Dir>" <> "" Then Set PythonUser$Seen "True"
 If "<PythonUser$Seen>" = "" Then Set PythonUser$Dir <Obey$Dir>
 If "<PythonUser$Seen>" = "" Then IconSprites <PythonUser$Dir>.!Sprites
-If "<PythonSite$Seen>" = "" Then Run <PythonUser$Dir>.!PathAdd -user
+If "<PythonUser$Seen>" = "" Then Run <PythonUser$Dir>.!PathAdd -user
 
 Unset PythonUser$Seen
