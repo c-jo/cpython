@@ -203,7 +203,12 @@ fcntl_ioctl_impl(PyObject *module, int fd, unsigned long code, PyObject *arg,
 
         do {
             Py_BEGIN_ALLOW_THREADS
+#ifdef RISCOS
+            /* UnixLib's ioctl() is not variadic */
+            ret = ioctl(fd, code, (void *)(intptr_t)int_arg);
+#else
             ret = ioctl(fd, code, int_arg);
+#endif
             Py_END_ALLOW_THREADS
         } while (ret == -1 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
         if (ret < 0) {

@@ -718,7 +718,12 @@ encode_current_locale(const wchar_t *text, char **str,
                     converted = wcstombs(bytes, buf, size);
                 }
                 else {
+#ifdef HAVE_BROKEN_MBSTOWCS
+                    static char temp[8];
+                    converted = wcstombs(temp, buf, 8);
+#else
                     converted = wcstombs(NULL, buf, 0);
+#endif
                 }
                 if (converted == DECODE_ERROR) {
                     goto encode_error;
@@ -1283,6 +1288,29 @@ _Py_fstat_noraise(int fd, struct _Py_stat_struct *status)
 
     _Py_attribute_data_to_stat(&info, 0, &basicInfo, pIdInfo, status);
     return 0;
+#elif defined(RISCOS)
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        return -1;
+    }
+    memset(status, 0, sizeof(*status));
+    status->st_dev = st.st_dev;
+    status->st_ino = st.st_ino;
+    status->st_mode = st.st_mode;
+    status->st_nlink = st.st_nlink;
+    status->st_uid = st.st_uid;
+    status->st_gid = st.st_gid;
+    status->st_rdev = st.st_rdev;
+    status->st_size = st.st_size;
+    status->st_atim = st.st_atim;
+    status->st_mtim = st.st_mtim;
+    status->st_ctim = st.st_ctim;
+    status->st_blksize = st.st_blksize;
+    status->st_blocks = st.st_blocks;
+    /* The catalogue information is not available from a file descriptor */
+    status->st_objtype = S_ISDIR(st.st_mode) ? 2 : 1;
+    status->st_filetype = -1;
+    return 0;
 #else
     return fstat(fd, status);
 #endif
@@ -1451,7 +1479,8 @@ set_inheritable(int fd, int inheritable, int raise, int *atomic_flag_works)
     HANDLE handle;
     DWORD flags;
 #else
-#if defined(HAVE_SYS_IOCTL_H) && defined(FIOCLEX) && defined(FIONCLEX)
+#if defined(HAVE_SYS_IOCTL_H) && defined(FIOCLEX) && defined(FIONCLEX) \
+    && !defined(RISCOS)
     static int ioctl_works = -1;
     int request;
     int err;
@@ -1498,7 +1527,10 @@ set_inheritable(int fd, int inheritable, int raise, int *atomic_flag_works)
 
 #else
 
-#if defined(HAVE_SYS_IOCTL_H) && defined(FIOCLEX) && defined(FIONCLEX)
+/* UnixLib defines FIOCLEX, but ioctl() fails with EINVAL rather than ENOTTY
+   for files, so use fcntl() on RISC OS */
+#if defined(HAVE_SYS_IOCTL_H) && defined(FIOCLEX) && defined(FIONCLEX) \
+    && !defined(RISCOS)
     if (raise != 0 && _Py_atomic_load_int_relaxed(&ioctl_works) != 0) {
         /* fast-path: ioctl() only requires one syscall */
         /* caveat: raise=0 is an indicator that we must be async-signal-safe
@@ -1664,11 +1696,13 @@ _Py_open_impl(const char *pathname, int flags, int gil_held)
             return -1;
     }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
     if (set_inheritable(fd, 0, gil_held, atomic_flag_works) < 0) {
         close(fd);
         return -1;
     }
+#elif defined(RISCOS)
+    (void)atomic_flag_works;  /* RISC OS does not support inheritable fds */
 #endif
 
     return fd;
@@ -1830,10 +1864,12 @@ Py_fopen(PyObject *path, const char *mode)
         return NULL;
     }
 
+#ifndef RISCOS
     if (set_inheritable(fileno(f), 0, 1, NULL) < 0) {
         fclose(f);
         return NULL;
     }
+#endif
     return f;
 }
 

@@ -159,6 +159,9 @@ PyAPI_DATA(PyObject *) PyExc_UnicodeWarning;
 PyAPI_DATA(PyObject *) PyExc_BytesWarning;
 PyAPI_DATA(PyObject *) PyExc_EncodingWarning;
 PyAPI_DATA(PyObject *) PyExc_ResourceWarning;
+#ifdef RISCOS
+PyAPI_DATA(PyObject *) PyExc_RISCOSError;
+#endif
 
 
 /* Convenience functions */

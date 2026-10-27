@@ -4193,6 +4193,82 @@ SimpleExtendsException(PyExc_Warning, ResourceWarning,
     "Base class for warnings about resource usage.");
 
 
+#ifdef RISCOS
+/*
+ *    RISCOSError extends Exception
+ */
+
+static inline PyRISCOSErrorObject *
+PyRISCOSErrorObject_CAST(PyObject *self)
+{
+    assert(PyObject_TypeCheck(self, (PyTypeObject *)PyExc_RISCOSError));
+    return (PyRISCOSErrorObject *)self;
+}
+
+static int
+RISCOSError_init(PyObject *op, PyObject *args, PyObject *kwds)
+{
+    Py_ssize_t lenargs = PyTuple_GET_SIZE(args);
+
+    if (BaseException_init(op, args, kwds) == -1)
+        return -1;
+
+    PyRISCOSErrorObject *self = PyRISCOSErrorObject_CAST(op);
+    if (lenargs == 2) {
+        Py_XSETREF(self->errmsg, Py_NewRef(PyTuple_GET_ITEM(args, 0)));
+        Py_XSETREF(self->errnum, Py_NewRef(PyTuple_GET_ITEM(args, 1)));
+    }
+    return 0;
+}
+
+static int
+RISCOSError_clear(PyObject *op)
+{
+    PyRISCOSErrorObject *self = PyRISCOSErrorObject_CAST(op);
+    Py_CLEAR(self->errmsg);
+    Py_CLEAR(self->errnum);
+    return BaseException_clear(op);
+}
+
+static void
+RISCOSError_dealloc(PyObject *self)
+{
+    PyObject_GC_UnTrack(self);
+    (void)RISCOSError_clear(self);
+    Py_TYPE(self)->tp_free(self);
+}
+
+static int
+RISCOSError_traverse(PyObject *op, visitproc visit, void *arg)
+{
+    PyRISCOSErrorObject *self = PyRISCOSErrorObject_CAST(op);
+    Py_VISIT(self->errmsg);
+    Py_VISIT(self->errnum);
+    return BaseException_traverse(op, visit, arg);
+}
+
+static PyObject *
+RISCOSError_str(PyObject *op)
+{
+    PyRISCOSErrorObject *self = PyRISCOSErrorObject_CAST(op);
+    if (self->errmsg != NULL) {
+        return PyObject_Str(self->errmsg);
+    }
+    return BaseException_str(op);
+}
+
+static PyMemberDef RISCOSError_members[] = {
+    {"errmsg", _Py_T_OBJECT, offsetof(PyRISCOSErrorObject, errmsg), 0,
+        PyDoc_STR("error message")},
+    {"errnum", _Py_T_OBJECT, offsetof(PyRISCOSErrorObject, errnum), 0,
+        PyDoc_STR("error number")},
+    {NULL}  /* Sentinel */
+};
+
+ComplexExtendsException(PyExc_Exception, RISCOSError, RISCOSError,
+                        0, 0, RISCOSError_members, 0,
+                        RISCOSError_str, "RISC OS error.");
+#endif  /* RISCOS */
 
 #ifdef MS_WINDOWS
 #include <winsock2.h>
@@ -4315,6 +4391,9 @@ static struct static_exception static_exceptions[] = {
     ITEM(PermissionError),
     ITEM(ProcessLookupError),
     ITEM(TimeoutError),
+#ifdef RISCOS
+    ITEM(RISCOSError),  // base: Exception
+#endif
 
     // Level 4: Other subclasses
     ITEM(IndentationError), // base: SyntaxError(Exception)

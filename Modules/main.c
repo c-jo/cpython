@@ -382,9 +382,20 @@ pymain_run_file_obj(PyObject *program_name, PyObject *filename,
 
     if (skip_source_first_line) {
         int ch;
+#ifdef RISCOS
+        /* On RISC OS, -x may be repeated to skip that many lines.  Only
+           one newline can be pushed back, so line numbers are only
+           preserved when skipping a single line. */
+        int count = 0;
+#endif
         /* Push back first newline so line numbers remain the same */
         while ((ch = getc(fp)) != EOF) {
             if (ch == '\n') {
+#ifdef RISCOS
+                if (++count < skip_source_first_line) {
+                    continue;
+                }
+#endif
                 (void)ungetc(ch, fp);
                 break;
             }

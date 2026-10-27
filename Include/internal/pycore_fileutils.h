@@ -82,6 +82,28 @@ struct _Py_stat_struct {
     unsigned long st_reparse_tag;
     uint64_t st_ino_high;
 };
+#elif defined(RISCOS)
+/* The same members as UnixLib's struct stat (so the st_atime etc. macros
+   work), followed by the RISC OS catalogue information. */
+struct _Py_stat_struct {
+    dev_t st_dev;
+    ino_t st_ino;
+    mode_t st_mode;
+    nlink_t st_nlink;
+    uid_t st_uid;
+    gid_t st_gid;
+    dev_t st_rdev;
+    off_t st_size;
+    struct timespec st_atim;
+    struct timespec st_mtim;
+    struct timespec st_ctim;
+    blksize_t st_blksize;
+    blkcnt_t st_blocks;
+    unsigned int st_loadaddr;
+    unsigned int st_execaddr;
+    int st_objtype;
+    int st_filetype;
+};
 #else
 #  define _Py_stat_struct stat
 #endif

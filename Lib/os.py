@@ -1,4 +1,4 @@
-r"""OS routines for NT or Posix depending on what system we're on.
+r"""OS routines for NT, Posix or RISC OS depending on what system we're on.
 
 This exports:
   - all functions from posix or nt, e.g. unlink, stat, etc.
@@ -97,6 +97,43 @@ elif 'nt' in _names:
     except ImportError:
         pass
 
+elif 'riscos' in _names:
+    name = 'riscos'
+    linesep = '\n'
+    from riscos import *
+    try:
+        from riscos import _exit
+        __all__.append('_exit')
+    except ImportError:
+        pass
+    import riscospath as path
+    import swi
+
+    def putenv(var,val):
+        if issubclass(var.__class__, bytes):
+            var = var.decode()
+        if issubclass(val.__class__, bytes):
+            val = val.decode()
+        swi.swi('OS_SetVarVal','ssiii',var,val,len(val),0,4)
+
+    def unsetenv(var):
+        if issubclass(var.__class__, bytes):
+            var = var.decode()
+        try:
+            swi.swi('OS_SetVarVal','s0iii',var,-1,0,4)
+        except swi.error:
+            pass
+
+
+    try:
+        from riscos import _have_functions
+    except ImportError:
+        pass
+
+    import riscos
+    __all__.extend(_get_exports_list(riscos))
+    del riscos
+
 else:
     raise ImportError('no os specific module found')
 
@@ -105,7 +142,6 @@ from os.path import (curdir, pardir, sep, pathsep, defpath, extsep, altsep,
     devnull)
 
 del _names
-
 
 if _exists("_have_functions"):
     _globals = globals()
@@ -766,6 +802,31 @@ class _Environ(MutableMapping):
         new.update(self)
         return new
 
+if name == 'riscos':
+    def _riscos_envdata():
+        environ = {}
+        blk = swi.block(4096)
+        nameptr = 0
+
+        while(True):
+            try:
+                ln,nameptr,type = swi.swi(
+                    'OS_ReadVarVal','sbiii;..iii',
+                    '*',blk,4096,nameptr,0)
+            except swi.error:
+                break
+
+            val = None
+            if type in (0,2):
+                val = blk.tobytes(0,ln)
+            elif type == 1:
+                val = str(blk[0]).encode('latin-1')
+
+            if val:
+                environ[swi.bytes(nameptr)] = val
+
+        return environ
+
 def _create_environ_mapping():
     if name == 'nt':
         # Where Env Var Names Must Be UPPERCASE
@@ -790,7 +851,13 @@ def _create_environ_mapping():
         def decode(value):
             return value.decode(encoding, 'surrogateescape')
         encodekey = encode
-        data = environ
+        if name == 'riscos':
+            data = _riscos_envdata()
+            return _Environ(data,
+                encodekey, decode,
+                encode, decode)
+        else:
+            data = environ
     return _Environ(data,
         encodekey, decode,
         encode, decode)
@@ -1189,3 +1256,14 @@ if _exists('sched_getaffinity') and sys._get_cpu_count_config() < 0:
 else:
     # Just an alias to cpu_count() (same docstring)
     process_cpu_count = cpu_count
+
+
+if name == 'riscos':
+    import swi
+    def read_catalogue_info(object):
+        return swi.swi('OS_File','is;i.IIII',17,object)
+
+    def write_catalogue_info(object, load, exec, attribs):
+        swi.swi('OS_File','isIII',1, object, load, exec, attribs)
+
+    __all__.extend(['read_catalogue_info','write_catalogue_info'])

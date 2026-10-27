@@ -76,6 +76,7 @@ my_getpagesize(void)
 #define my_getallocationgranularity my_getpagesize
 #else
 #define my_getpagesize getpagesize
+#define my_getallocationgranularity my_getpagesize
 #endif
 
 #endif /* UNIX */

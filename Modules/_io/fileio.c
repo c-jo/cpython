@@ -258,9 +258,9 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
     int flags = 0;
     int fd = -1;
     int fd_is_own = 0;
-#ifdef O_CLOEXEC
+#if !defined(RISCOS) && defined(O_CLOEXEC)
     int *atomic_flag_works = &_Py_open_cloexec_works;
-#elif !defined(MS_WINDOWS)
+#elif !defined(MS_WINDOWS) && !defined(RISCOS)
     int *atomic_flag_works = NULL;
 #endif
     int fstat_result;
@@ -410,6 +410,16 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
                 self->fd = _wopen(widename, flags, 0666);
 #else
                 self->fd = open(name, flags, 0666);
+#ifdef RISCOS
+                if (self->fd < 0 && strrchr(name, '.'))
+                {
+                    char* x = strrchr(name, '.');
+                    {
+                        *x = '/';
+                        self->fd = open(name, flags, 0666);
+                    }
+                }
+#endif
 #endif
                 Py_END_ALLOW_THREADS
             } while (self->fd < 0 && errno == EINTR &&
@@ -426,7 +436,7 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
         else {
             PyObject *fdobj;
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
             /* the opener may clear the atomic flag */
             atomic_flag_works = NULL;
 #endif
@@ -455,7 +465,7 @@ _io_FileIO___init___impl(fileio *self, PyObject *nameobj, const char *mode,
         }
         fd_is_own = 1;
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
         if (_Py_set_inheritable(self->fd, 0, atomic_flag_works) < 0)
             goto error;
 #endif

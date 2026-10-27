@@ -1798,6 +1798,30 @@ config_init_hash_seed(PyConfig *config)
 static int
 config_wstr_to_int(const wchar_t *wstr, int *result)
 {
+#ifdef RISCOS
+    /* Avoid wcstol(), which is unreliable in UnixLib */
+    const wchar_t *p = wstr;
+    int negative = 0;
+    long value = 0;
+    if (*p == L'-' || *p == L'+') {
+        negative = (*p == L'-');
+        p++;
+    }
+    if (*p == L'\0') {
+        return -1;
+    }
+    for (; *p != L'\0'; p++) {
+        if (*p < L'0' || *p > L'9') {
+            return -1;
+        }
+        value = value * 10 + (*p - L'0');
+        if (value > INT_MAX) {
+            return -1;
+        }
+    }
+    *result = (int)(negative ? -value : value);
+    return 0;
+#else
     const wchar_t *endptr = wstr;
     errno = 0;
     long value = wcstol(wstr, (wchar_t **)&endptr, 10);
@@ -1810,6 +1834,7 @@ config_wstr_to_int(const wchar_t *wstr, int *result)
 
     *result = (int)value;
     return 0;
+#endif
 }
 
 static PyStatus
@@ -2415,6 +2440,11 @@ static PyStatus
 config_get_locale_encoding(PyConfig *config, const PyPreConfig *preconfig,
                            wchar_t **locale_encoding)
 {
+#ifdef RISCOS
+    if (!preconfig->utf8_mode) {
+        return PyConfig_SetString(config, locale_encoding, L"latin-1");
+    }
+#endif
     wchar_t *encoding;
     if (preconfig->utf8_mode) {
         encoding = _PyMem_RawWcsdup(L"utf-8");
@@ -2520,6 +2550,9 @@ static PyStatus
 config_get_fs_encoding(PyConfig *config, const PyPreConfig *preconfig,
                        wchar_t **fs_encoding)
 {
+#ifdef RISCOS
+    return PyConfig_SetString(config, fs_encoding, L"latin-1");
+#endif
 #ifdef _Py_FORCE_UTF8_FS_ENCODING
     return PyConfig_SetString(config, fs_encoding, L"utf-8");
 #elif defined(MS_WINDOWS)
@@ -2999,7 +3032,12 @@ config_parse_cmdline(PyConfig *config, PyWideStringList *warnoptions,
             break;
 
         case 'x':
+#ifdef RISCOS
+            /* -x can be repeated to skip several lines */
+            config->skip_source_first_line++;
+#else
             config->skip_source_first_line = 1;
+#endif
             break;
 
         case 'h':

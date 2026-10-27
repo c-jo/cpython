@@ -43,6 +43,12 @@
 #include <stdio.h>                // ctermid()
 #include <stdlib.h>               // system()
 
+#ifdef RISCOS
+#  include <kernel.h>             // _kernel_swi()
+#  include <swis.h>               // _swix(), OS_File, OS_GBPB
+#  include "osdefs.h"             // SEP
+#endif
+
 #ifdef HAVE_UNISTD_H
 #  include <unistd.h>             // symlink()
 #endif
@@ -401,6 +407,12 @@ extern char *ctermid_r(char *);
 #  define LSTAT win32_lstat
 #  define FSTAT _Py_fstat_noraise
 #  define STRUCT_STAT struct _Py_stat_struct
+#elif defined(RISCOS)
+   /* RISC OS has no symbolic links, so lstat() is the same as stat() */
+#  define STAT riscos_stat
+#  define LSTAT riscos_stat
+#  define FSTAT _Py_fstat_noraise
+#  define STRUCT_STAT struct _Py_stat_struct
 #else
 #  define STAT stat
 #  define LSTAT lstat
@@ -600,6 +612,10 @@ extern char *ctermid_r(char *);
 #  define INITFUNC PyInit_nt
 #  define MODNAME "nt"
 #  define MODNAME_OBJ &_Py_ID(nt)
+#elif defined(RISCOS)
+#  define INITFUNC PyInit_riscos
+#  define MODNAME "riscos"
+   /* No MODNAME_OBJ: "riscos" is not one of the static global strings */
 #else
 #  define INITFUNC PyInit_posix
 #  define MODNAME "posix"
@@ -2319,6 +2335,89 @@ win32_stat(const wchar_t* path, struct _Py_stat_struct *result)
 
 #endif /* MS_WINDOWS */
 
+#ifdef RISCOS
+/* Centiseconds between 1900-01-01 (RISC OS epoch) and 1970-01-01 */
+static const uint64_t riscos_epoch_offset = 25567ULL * 24 * 60 * 60 * 100;
+
+/* Fill in a stat structure from RISC OS catalogue information */
+static void
+stat_from_riscos(uint32_t loadaddr, uint32_t execaddr,
+                 uint32_t length, uint32_t attributes, uint32_t obj_type,
+                 const char *leafname, struct _Py_stat_struct *result)
+{
+    memset(result, 0, sizeof(*result));
+    result->st_nlink = 1;
+    result->st_uid   = 1;
+    result->st_gid   = 1;
+    result->st_size  = length;
+    result->st_blksize = 4096;
+    result->st_blocks = (length + 511) / 512;
+
+    if (obj_type == 1)
+        result->st_mode = S_IFREG;
+    else if (obj_type == 2 || obj_type == 3)  /* directory or image file */
+        result->st_mode = S_IFDIR;
+
+    if (attributes & (1<<0)) result->st_mode |=  S_IRUSR;            // Owner R
+    if (attributes & (1<<1)) result->st_mode |=  S_IWUSR;            // Owner W
+    if (attributes & (1<<4)) result->st_mode |= (S_IRGRP | S_IROTH); // Public R
+    if (attributes & (1<<5)) result->st_mode |= (S_IWGRP | S_IWOTH); // Public W
+
+    result->st_loadaddr = loadaddr;
+    result->st_execaddr = execaddr;
+    result->st_objtype  = obj_type;
+    result->st_filetype = -1;
+
+    time_t stamp = 0;
+    long nsec = 0;
+    if ((loadaddr & 0xfff00000) == 0xfff00000) { /* Typed and date stamped */
+        if (obj_type == 1)
+            result->st_filetype = (loadaddr & 0xfff00) >> 8;
+
+        uint64_t timestamp =
+            execaddr + (((uint64_t)(loadaddr & 0xff)) << 32);
+
+        if (timestamp >= riscos_epoch_offset) {
+            timestamp -= riscos_epoch_offset; /* cs since 1970-01-01 */
+            stamp = (time_t)(timestamp / 100);
+            nsec  = (long)(timestamp % 100) * 10000000;
+        }
+    }
+
+    if (obj_type == 2 || obj_type == 3)
+        result->st_filetype = leafname[0] == '!' ? 0x2000 : 0x1000;
+
+    result->st_atim.tv_sec  = result->st_mtim.tv_sec  = result->st_ctim.tv_sec  = stamp;
+    result->st_atim.tv_nsec = result->st_mtim.tv_nsec = result->st_ctim.tv_nsec = nsec;
+}
+
+/* Use OS_File 17 (Read catalogue information) to stat an object.  The
+   load/exec addresses give the timestamp and file type. */
+static int
+riscos_stat(const char *path, struct _Py_stat_struct *result)
+{
+    uint32_t obj_type, load_addr, exec_addr, length, attributes;
+    _kernel_oserror *e = _swix(OS_File, _INR(0,1) | _OUT(0) | _OUTR(2,5),
+                               17, path,
+                               &obj_type, &load_addr, &exec_addr,
+                               &length, &attributes);
+
+    if (e != NULL || obj_type == 0) {
+        errno = ENOENT;
+        return -1;
+    }
+
+    const char *leafname = path;
+    const char *last_dot = strrchr(path, SEP);
+    if (last_dot)
+        leafname = last_dot + 1;
+
+    stat_from_riscos(load_addr, exec_addr, length, attributes, obj_type,
+                     leafname, result);
+    return 0;
+}
+#endif /* RISCOS */
+
 PyDoc_STRVAR(stat_result__doc__,
 "stat_result: Result from stat, fstat, or lstat.\n\n\
 This object may be accessed either as a tuple of\n\
@@ -2377,6 +2476,12 @@ static PyStructSequence_Field stat_result_fields[] = {
 #endif
 #ifdef HAVE_STRUCT_STAT_ST_REPARSE_TAG
     {"st_reparse_tag", "Windows reparse tag"},
+#endif
+#ifdef RISCOS
+    {"st_loadaddr", "RISC OS load address"},
+    {"st_execaddr", "RISC OS exec address"},
+    {"st_objtype",  "RISC OS object type"},
+    {"st_filetype", "RISC OS filetype"},
 #endif
     {0}
 };
@@ -2439,6 +2544,13 @@ static PyStructSequence_Field stat_result_fields[] = {
 #define ST_REPARSE_TAG_IDX (ST_FSTYPE_IDX+1)
 #else
 #define ST_REPARSE_TAG_IDX ST_FSTYPE_IDX
+#endif
+
+#ifdef RISCOS
+#define ST_LOADADDR_IDX (ST_REPARSE_TAG_IDX+1)
+#define ST_EXECADDR_IDX (ST_LOADADDR_IDX+1)
+#define ST_OBJTYPE_IDX  (ST_EXECADDR_IDX+1)
+#define ST_FILETYPE_IDX (ST_OBJTYPE_IDX+1)
 #endif
 
 static PyStructSequence_Desc stat_result_desc = {
@@ -2512,7 +2624,16 @@ statresult_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
     // ht_module doesn't get set in PyStructSequence_NewType(),
     // so we can't use PyType_GetModule().
+#ifdef MODNAME_OBJ
     PyObject *mod = PyImport_GetModule(MODNAME_OBJ);
+#else
+    PyObject *modname = PyUnicode_FromString(MODNAME);
+    if (modname == NULL) {
+        return NULL;
+    }
+    PyObject *mod = PyImport_GetModule(modname);
+    Py_DECREF(modname);
+#endif
     if (mod == NULL) {
         return NULL;
     }
@@ -2789,6 +2910,12 @@ _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
 #ifdef HAVE_STRUCT_STAT_ST_REPARSE_TAG
     SET_ITEM(ST_REPARSE_TAG_IDX, PyLong_FromUnsignedLong(st->st_reparse_tag));
 #endif
+#ifdef RISCOS
+    SET_ITEM(ST_LOADADDR_IDX, PyLong_FromUnsignedLong(st->st_loadaddr));
+    SET_ITEM(ST_EXECADDR_IDX, PyLong_FromUnsignedLong(st->st_execaddr));
+    SET_ITEM(ST_OBJTYPE_IDX, PyLong_FromLong(st->st_objtype));
+    SET_ITEM(ST_FILETYPE_IDX, PyLong_FromLong(st->st_filetype));
+#endif
 
     assert(!PyErr_Occurred());
     return v;
@@ -2832,6 +2959,9 @@ posix_do_stat(PyObject *module, const char *function_name, path_t *path,
         result = win32_stat(path->wide, &st);
     else
         result = win32_lstat(path->wide, &st);
+#elif defined(RISCOS)
+    else
+        result = riscos_stat(path->narrow, &st);
 #else
     else
 #if defined(HAVE_LSTAT)
@@ -4587,7 +4717,11 @@ _posix_listdir(path_t *path, PyObject *list)
             return_str = !PyBytes_Check(path->object);
         }
         else {
+#ifdef RISCOS
+            name = "@";
+#else
             name = ".";
+#endif
             return_str = 1;
         }
 
@@ -11206,11 +11340,13 @@ os_open_impl(PyObject *module, path_t *path, int flags, int mode, int dir_fd)
         return -1;
     }
 
-#ifndef MS_WINDOWS
+#if !defined(MS_WINDOWS) && !defined(RISCOS)
     if (_Py_set_inheritable(fd, 0, atomic_flag_works) < 0) {
         close(fd);
         return -1;
     }
+#elif defined(RISCOS)
+    (void)atomic_flag_works;  /* RISC OS does not support inheritable fds */
 #endif
 
     return fd;
@@ -12213,6 +12349,7 @@ os_pipe_impl(PyObject *module)
         res = pipe(fds);
         Py_END_ALLOW_THREADS
 
+#ifndef RISCOS
         if (res == 0) {
             if (_Py_set_inheritable(fds[0], 0, NULL) < 0) {
                 close(fds[0]);
@@ -12225,6 +12362,7 @@ os_pipe_impl(PyObject *module)
                 return NULL;
             }
         }
+#endif /* !RISCOS */
 #ifdef HAVE_PIPE2
     }
 #endif
@@ -16124,7 +16262,11 @@ join_path_filename(const char *path_narrow, const char* filename, Py_ssize_t fil
     char *result;
 
     if (!path_narrow) { /* Default arg: "." */
+#ifdef RISCOS
+        path_narrow = "@";
+#else
         path_narrow = ".";
+#endif
         path_len = 1;
     }
     else {
@@ -16142,8 +16284,8 @@ join_path_filename(const char *path_narrow, const char* filename, Py_ssize_t fil
         return NULL;
     }
     strcpy(result, path_narrow);
-    if (path_len > 0 && result[path_len - 1] != '/')
-        result[path_len++] = '/';
+    if (path_len > 0 && result[path_len - 1] != SEP)
+        result[path_len++] = SEP;
     strcpy(result + path_len, filename);
     return result;
 }
@@ -16211,6 +16353,47 @@ error:
     return NULL;
 }
 
+#ifdef RISCOS
+/* An entry returned by OS_GBPB 10 */
+typedef struct {
+    uint32_t loadaddr;
+    uint32_t execaddr;
+    uint32_t length;
+    uint32_t attributes;
+    uint32_t obj_type;
+    char     name[];
+} gbpb_data_t;
+
+/* Create a DirEntry from OS_GBPB data.  The catalogue information is
+   already known, so the stat results are filled in straight away. */
+static PyObject *
+DirEntry_from_gbpb_data(PyObject *module, path_t *path,
+                        const gbpb_data_t *data, Py_ssize_t name_len)
+{
+    PyObject *entry = DirEntry_from_posix_info(module, path, data->name,
+                                               name_len, 0
+#ifdef HAVE_DIRENT_D_TYPE
+                                               , data->obj_type == 1 ? DT_REG : DT_DIR
+#endif
+                                               );
+    if (entry == NULL)
+        return NULL;
+
+    struct _Py_stat_struct st;
+    stat_from_riscos(data->loadaddr, data->execaddr, data->length,
+                     data->attributes, data->obj_type, data->name, &st);
+
+    DirEntry *self = DirEntry_CAST(entry);
+    self->stat = _pystat_fromstructstat(module, &st);
+    if (self->stat == NULL) {
+        Py_DECREF(entry);
+        return NULL;
+    }
+    self->lstat = Py_NewRef(self->stat);
+    return entry;
+}
+#endif /* RISCOS */
+
 #endif
 
 
@@ -16221,6 +16404,11 @@ typedef struct {
     HANDLE handle;
     WIN32_FIND_DATAW file_data;
     int first_time;
+#elif defined(RISCOS)
+    char   *gbpb_buffer;    /* NULL when closed */
+    int32_t gbpb_index;     /* next entry to read, -1 at end of directory */
+    int32_t gbpb_count;     /* entries left in the buffer */
+    int32_t gbpb_offset;    /* offset of the next entry in the buffer */
 #else /* POSIX */
     DIR *dirp;
 #endif
@@ -16291,6 +16479,84 @@ ScandirIterator_iternext(PyObject *op)
         }
 
         /* Loop till we get a non-dot directory or finish iterating */
+    }
+
+    /* Error or no more files */
+    ScandirIterator_closedir(iterator);
+    return NULL;
+}
+
+#elif defined(RISCOS)
+
+#define GBPB_BUFSIZE 4096
+
+static int
+ScandirIterator_is_closed(ScandirIterator *iterator)
+{
+    return iterator->gbpb_buffer == NULL;
+}
+
+static void
+ScandirIterator_closedir(ScandirIterator *iterator)
+{
+    PyMem_Free(iterator->gbpb_buffer);
+    iterator->gbpb_buffer = NULL;
+}
+
+static PyObject *
+ScandirIterator_iternext(PyObject *op)
+{
+    ScandirIterator *iterator = ScandirIterator_CAST(op);
+
+    /* Happens if the iterator is iterated twice, or closed explicitly */
+    if (iterator->gbpb_buffer == NULL)
+        return NULL;
+
+    /* Read more entries from the filing system if the buffer is empty */
+    while (iterator->gbpb_count == 0 && iterator->gbpb_index != -1) {
+        const char *path = iterator->path.narrow ? iterator->path.narrow : "@";
+        _kernel_swi_regs r;
+        _kernel_oserror *e;
+
+        r.r[0] = 10;  /* Read entries and catalogue information */
+        r.r[1] = (int)path;
+        r.r[2] = (int)iterator->gbpb_buffer;
+        r.r[3] = GBPB_BUFSIZE / 24;  /* An entry is at least 24 bytes */
+        r.r[4] = iterator->gbpb_index;
+        r.r[5] = GBPB_BUFSIZE;
+        r.r[6] = 0;  /* Match all names */
+
+        Py_BEGIN_ALLOW_THREADS
+        e = _kernel_swi(OS_GBPB, &r, &r);
+        Py_END_ALLOW_THREADS
+
+        if (e != NULL) {
+            errno = ENOENT;
+            path_error(&iterator->path);
+            ScandirIterator_closedir(iterator);
+            return NULL;
+        }
+
+        iterator->gbpb_offset = 0;
+        iterator->gbpb_count = r.r[3];
+        iterator->gbpb_index = r.r[4];
+    }
+
+    if (iterator->gbpb_count > 0) {
+        const gbpb_data_t *data =
+            (const gbpb_data_t *)(iterator->gbpb_buffer + iterator->gbpb_offset);
+        Py_ssize_t name_len = strlen(data->name);
+
+        PyObject *module = PyType_GetModule(Py_TYPE(iterator));
+        PyObject *entry = DirEntry_from_gbpb_data(module, &iterator->path,
+                                                  data, name_len);
+        if (entry != NULL) {
+            /* Entries are 20 bytes of information followed by the
+               name and its terminator, padded to a word boundary. */
+            iterator->gbpb_count--;
+            iterator->gbpb_offset += (20 + name_len + 1 + 3) & ~3;
+            return entry;
+        }
     }
 
     /* Error or no more files */
@@ -16488,7 +16754,7 @@ os_scandir_impl(PyObject *module, path_t *path)
     ScandirIterator *iterator;
 #ifdef MS_WINDOWS
     wchar_t *path_strW;
-#else
+#elif !defined(RISCOS)
     const char *path_str;
 #ifdef HAVE_FDOPENDIR
     int fd = -1;
@@ -16507,6 +16773,11 @@ os_scandir_impl(PyObject *module, path_t *path)
 
 #ifdef MS_WINDOWS
     iterator->handle = INVALID_HANDLE_VALUE;
+#elif defined(RISCOS)
+    iterator->gbpb_buffer = NULL;
+    iterator->gbpb_index  = 0;
+    iterator->gbpb_count  = 0;
+    iterator->gbpb_offset = 0;
 #else
     iterator->dirp = NULL;
 #endif
@@ -16532,6 +16803,12 @@ os_scandir_impl(PyObject *module, path_t *path)
         goto error;
     }
     PyMem_Free(path_strW);
+#elif defined(RISCOS)
+    iterator->gbpb_buffer = PyMem_Malloc(GBPB_BUFSIZE);
+    if (iterator->gbpb_buffer == NULL) {
+        PyErr_NoMemory();
+        goto error;
+    }
 #else /* POSIX */
     errno = 0;
 #ifdef HAVE_FDOPENDIR
@@ -16998,6 +17275,68 @@ os__emscripten_log_impl(PyObject *module, const char *arg)
 #endif /* __EMSCRIPTEN__ */
 
 
+#ifdef RISCOS
+PyDoc_STRVAR(os_get_filetype__doc__,
+"get_filetype(path)\n--\n\n"
+"Return the RISC OS filetype of the specified file, or None.");
+
+static PyObject *
+os_get_filetype(PyObject *module, PyObject *args, PyObject *kwargs)
+{
+    static char *keywords[] = {"path", NULL};
+    path_t path = PATH_T_INITIALIZE_P("get_filetype", "path", 0, 0, 0, 0);
+    int objtype = 0, filetype = -1;
+    _kernel_oserror *e;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&:get_filetype", keywords,
+                                     path_converter, &path))
+        return NULL;
+
+    Py_BEGIN_ALLOW_THREADS
+    e = _swix(OS_File, _INR(0,1) | _OUT(0) | _OUT(6),
+              23, path.narrow, &objtype, &filetype);
+    Py_END_ALLOW_THREADS
+    path_cleanup(&path);
+
+    if (e != NULL || objtype == 0 || filetype == -1)
+        Py_RETURN_NONE;
+    return PyLong_FromLong(filetype);
+}
+
+PyDoc_STRVAR(os_set_filetype__doc__,
+"set_filetype(path, type)\n--\n\n"
+"Set the RISC OS filetype of the specified file.");
+
+static PyObject *
+os_set_filetype(PyObject *module, PyObject *args, PyObject *kwargs)
+{
+    static char *keywords[] = {"path", "type", NULL};
+    path_t path = PATH_T_INITIALIZE_P("set_filetype", "path", 0, 0, 0, 0);
+    int type;
+    _kernel_oserror *e;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&i:set_filetype", keywords,
+                                     path_converter, &path, &type))
+        return NULL;
+
+    Py_BEGIN_ALLOW_THREADS
+    e = _swix(OS_File, _INR(0,2), 18, path.narrow, type);
+    Py_END_ALLOW_THREADS
+
+    if (e != NULL) {
+        PyObject *exc_args = Py_BuildValue("(si)", e->errmess, e->errnum);
+        if (exc_args != NULL) {
+            PyErr_SetObject(PyExc_RISCOSError, exc_args);
+            Py_DECREF(exc_args);
+        }
+        path_cleanup(&path);
+        return NULL;
+    }
+    path_cleanup(&path);
+    Py_RETURN_NONE;
+}
+#endif /* RISCOS */
+
 static PyMethodDef posix_methods[] = {
     OS_STAT_METHODDEF
     OS_ACCESS_METHODDEF
@@ -17215,6 +17554,12 @@ static PyMethodDef posix_methods[] = {
     OS__CREATE_ENVIRON_METHODDEF
     OS__EMSCRIPTEN_DEBUGGER_METHODDEF
     OS__EMSCRIPTEN_LOG_METHODDEF
+#ifdef RISCOS
+    {"get_filetype", _PyCFunction_CAST(os_get_filetype),
+     METH_VARARGS | METH_KEYWORDS, os_get_filetype__doc__},
+    {"set_filetype", _PyCFunction_CAST(os_set_filetype),
+     METH_VARARGS | METH_KEYWORDS, os_set_filetype__doc__},
+#endif
     {NULL,              NULL}            /* Sentinel */
 };
 

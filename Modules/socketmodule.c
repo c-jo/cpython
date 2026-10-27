@@ -3116,10 +3116,12 @@ sock_accept(PyObject *self, PyObject *Py_UNUSED(ignored))
     if (!_Py_atomic_load_int_relaxed(&accept4_works))
 #endif
     {
+#ifndef RISCOS
         if (_Py_set_inheritable(newfd, 0, NULL) < 0) {
             SOCKETCLOSE(newfd);
             goto finally;
         }
+#endif
     }
 #endif
 
@@ -5807,10 +5809,12 @@ sock_initobj_impl(PySocketSockObject *self, int family, int type, int proto,
             return -1;
         }
 
+#ifndef RISCOS
         if (_Py_set_inheritable(fd, 0, atomic_flag_works) < 0) {
             SOCKETCLOSE(fd);
             return -1;
         }
+#endif
 #endif
     }
     if (init_sockobject(state, self, fd, family, type, proto) == -1) {
@@ -6572,10 +6576,12 @@ socket_socketpair(PyObject *self, PyObject *args)
     if (ret < 0)
         return set_error();
 
+#ifndef RISCOS
     if (_Py_set_inheritable(sv[0], 0, atomic_flag_works) < 0)
         goto finally;
     if (_Py_set_inheritable(sv[1], 0, atomic_flag_works) < 0)
         goto finally;
+#endif
 
     s0 = new_sockobject(state, sv[0], family, type, proto);
     if (s0 == NULL)
@@ -9142,6 +9148,13 @@ socket_exec(PyObject *m)
     ADD_INT_MACRO(m, AI_V4MAPPED);
 #endif
 #ifdef AI_DEFAULT
+#ifdef RISCOS
+/* UnixLib defines AI_DEFAULT to (AI_V4MAPPED | AI_ADDRCONFIG)
+ * but doesn't define AI_ADDRCONFIG...
+ */
+#undef AI_DEFAULT
+#define AI_DEFAULT (AI_V4MAPPED)
+#endif
     ADD_INT_MACRO(m, AI_DEFAULT);
 #endif
 #ifdef NI_MAXHOST

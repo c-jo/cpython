@@ -2,6 +2,15 @@
 
 #include "Python.h"
 
+#ifdef RISCOS
+#include <unixlib/local.h>
+#pragma GCC visibility push(default)
+int __riscosify_control =  __RISCOSIFY_NO_PROCESS |
+                           __RISCOSIFY_NO_SUFFIX |
+                           __RISCOSIFY_NO_REVERSE_SUFFIX;
+#pragma GCC visibility pop
+#endif
+
 #ifdef MS_WINDOWS
 int
 wmain(int argc, wchar_t **argv)

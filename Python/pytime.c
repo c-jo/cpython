@@ -11,6 +11,11 @@
 #ifdef MS_WINDOWS
 #  include <winsock2.h>           // struct timeval
 #endif
+#ifdef RISCOS
+#  include <swis.h>               // _swix(), OS_ReadMonotonicTime
+   /* Timer_Value is provided by the TimerMod module, if loaded */
+#  define RISCOS_Timer_Value 0x490c2
+#endif
 
 #if defined(__APPLE__)
 #  include <mach/mach_time.h>     // mach_absolute_time(), mach_timebase_info()
@@ -1161,6 +1166,35 @@ py_get_monotonic_clock(PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
 
     PyTime_t ns = _PyTimeFraction_Mul(ticks, &_PyRuntime.time.base);
     *tp = ns;
+
+#elif defined(RISCOS)
+    static int use_timermod = -1;
+    if (use_timermod == -1) {
+        use_timermod = (_swix(RISCOS_Timer_Value, 0) == NULL);
+    }
+
+    if (use_timermod) {
+        unsigned int mt_sec = 0, mt_usec = 0;
+        _swix(RISCOS_Timer_Value, _OUTR(0,1), &mt_sec, &mt_usec);
+        *tp = ((PyTime_t)mt_sec * SEC_TO_NS) + ((PyTime_t)mt_usec * US_TO_NS);
+        if (info) {
+            info->implementation = "Timer_Value";
+            info->resolution = 1e-6;
+            info->monotonic = 1;
+            info->adjustable = 0;
+        }
+    }
+    else {
+        unsigned int mt_csec = 0;
+        _swix(OS_ReadMonotonicTime, _OUT(0), &mt_csec);
+        *tp = (PyTime_t)mt_csec * (SEC_TO_NS / 100);
+        if (info) {
+            info->implementation = "OS_ReadMonotonicTime";
+            info->resolution = 1e-2;
+            info->monotonic = 1;
+            info->adjustable = 0;
+        }
+    }
 
 #elif defined(__hpux)
     hrtime_t time = gethrtime();

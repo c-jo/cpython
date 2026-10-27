@@ -31,15 +31,20 @@ import marshal
 
 
 _MS_WINDOWS = (sys.platform == 'win32')
+_RISCOS = (sys.platform == 'riscos')
 if _MS_WINDOWS:
     import nt as _os
     import winreg
+elif _RISCOS:
+    import riscos as _os
 else:
     import posix as _os
 
 
 if _MS_WINDOWS:
     path_separators = ['\\', '/']
+elif _RISCOS:
+    path_separators = ['.']
 else:
     path_separators = ['/']
 # Assumption made in _path_join()
@@ -181,6 +186,17 @@ if _MS_WINDOWS:
         root = _os._path_splitroot(path)[0].replace('/', '\\')
         return len(root) > 1 and (root.startswith('\\\\') or root.endswith('\\'))
 
+elif _RISCOS:
+    def _path_isabs(path):
+        """Replacement for os.path.isabs.
+
+        A RISC OS path is absolute if it has a filing system or path variable
+        prefix (contains ':'), starts with a system variable (<Foo$Dir>) or
+        starts with a special directory ($, &, %, @ or \\)."""
+        if ':' in path or path.startswith('<'):
+            return True
+        return path.split('.', 1)[0] in ('$', '&', '%', '@', '\\')
+
 else:
     def _path_isabs(path):
         """Replacement for os.path.isabs."""
@@ -190,8 +206,9 @@ else:
 def _path_abspath(path):
     """Replacement for os.path.abspath."""
     if not _path_isabs(path):
-        for sep in path_separators:
-            path = path.removeprefix(f".{sep}")
+        if not _RISCOS:
+            for sep in path_separators:
+                path = path.removeprefix(f".{sep}")
         return _path_join(_os.getcwd(), path)
     else:
         return path
@@ -202,7 +219,10 @@ def _write_atomic(path, data, mode=0o666):
     Be prepared to handle a FileExistsError if concurrent writing of the
     temporary file is attempted."""
     # id() is used to generate a pseudo-random filename.
-    path_tmp = f'{path}.{id(path)}'
+    if _RISCOS:
+        path_tmp = f'{path}-{id(path)}'  # '.' is the directory separator
+    else:
+        path_tmp = f'{path}.{id(path)}'
     fd = _os.open(path_tmp,
                   _os.O_EXCL | _os.O_CREAT | _os.O_WRONLY, mode & 0o666)
     try:
@@ -233,6 +253,30 @@ if _MS_WINDOWS:
 EXTENSION_SUFFIXES = _imp.extension_suffixes()
 
 BYTECODE_SUFFIXES = ['.pyc']
+
+# The separator between a file name and its suffix ('.' is the directory
+# separator on RISC OS, so suffixes are written "spam/py").
+_EXTSEP = '.'
+
+if _RISCOS:
+    # RISC OS identifies files by filetype rather than suffix.  A file with
+    # the Python filetype and no suffix is a source file, for example.  The
+    # suffixes are still supported for files from other systems.
+    _EXTSEP = '/'
+    SOURCE_SUFFIXES = ['/py']
+    BYTECODE_SUFFIXES = ['/pyc']
+    PY_FILETYPE = 0xa73
+    PYC_FILETYPE = 0xa74
+    SO_FILETYPE = 0xa75
+    # The suffix that is equivalent to each filetype
+    FILETYPE_MAP = {PY_FILETYPE: '/py', PYC_FILETYPE: '/pyc', SO_FILETYPE: '/so'}
+
+    def _get_filetype(path):
+        """Return the RISC OS filetype of path, or None."""
+        try:
+            return _os.get_filetype(path)
+        except (OSError, ValueError, TypeError):
+            return None
 # Deprecated.
 DEBUG_BYTECODE_SUFFIXES = OPTIMIZED_BYTECODE_SUFFIXES = BYTECODE_SUFFIXES
 
@@ -263,7 +307,15 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
         optimization = '' if debug_override else 1
     path = _os.fspath(path)
     head, tail = _path_split(path)
-    base, sep, rest = tail.rpartition('.')
+    if _RISCOS:
+        # A typed source file has no suffix, and nor does its bytecode file
+        # (which is typed instead).
+        has_suffix = tail.endswith(SOURCE_SUFFIXES[0])
+        if has_suffix:
+            tail = tail[:-len(SOURCE_SUFFIXES[0])]
+        base, sep, rest = tail, _EXTSEP, ''
+    else:
+        base, sep, rest = tail.rpartition('.')
     tag = sys.implementation.cache_tag
     if tag is None:
         raise NotImplementedError('sys.implementation.cache_tag is None')
@@ -277,8 +329,11 @@ def cache_from_source(path, debug_override=None, *, optimization=None):
     if optimization != '':
         if not optimization.isalnum():
             raise ValueError(f'{optimization!r} is not alphanumeric')
-        almost_filename = f'{almost_filename}.{_OPT}{optimization}'
-    filename = almost_filename + BYTECODE_SUFFIXES[0]
+        almost_filename = f'{almost_filename}{_EXTSEP}{_OPT}{optimization}'
+    if _RISCOS and not has_suffix:
+        filename = almost_filename
+    else:
+        filename = almost_filename + BYTECODE_SUFFIXES[0]
     if sys.pycache_prefix is not None:
         # We need an absolute path to the py file to avoid the possibility of
         # collisions within sys.pycache_prefix, if someone has two different
@@ -331,6 +386,27 @@ def source_from_cache(path):
         if pycache != _PYCACHE:
             raise ValueError(f'{_PYCACHE} not bottom-level directory in '
                              f'{path!r}')
+    if _RISCOS:
+        # spam/cpython-314[/opt-1][/pyc]: no /pyc suffix for typed files
+        parts = pycache_filename.split(_EXTSEP)
+        has_suffix = parts[-1] == BYTECODE_SUFFIXES[0][1:]
+        if has_suffix:
+            del parts[-1]
+        if len(parts) not in {2, 3}:
+            raise ValueError(f'unexpected bytecode file name {pycache_filename!r}')
+        if len(parts) == 3:
+            optimization = parts[2]
+            if not optimization.startswith(_OPT):
+                raise ValueError("optimization portion of filename does not start "
+                                 f"with {_OPT!r}")
+            opt_level = optimization[len(_OPT):]
+            if not opt_level.isalnum():
+                raise ValueError(f"optimization level {optimization!r} is not an "
+                                 "alphanumeric value")
+        base_filename = parts[0]
+        if has_suffix:
+            base_filename += SOURCE_SUFFIXES[0]
+        return _path_join(head, base_filename)
     dot_count = pycache_filename.count('.')
     if dot_count not in {2, 3}:
         raise ValueError(f'expected only 2 or 3 dots in {pycache_filename!r}')
@@ -374,8 +450,16 @@ def _get_cached(filename):
             pass
     elif filename.endswith(tuple(BYTECODE_SUFFIXES)):
         return filename
-    else:
-        return None
+    elif _RISCOS:
+        filetype = _get_filetype(filename)
+        if filetype == PY_FILETYPE:
+            try:
+                return cache_from_source(filename)
+            except NotImplementedError:
+                pass
+        elif filetype == PYC_FILETYPE:
+            return filename
+    return None
 
 
 def _calc_mode(path):
@@ -604,7 +688,17 @@ def spec_from_file_location(name, location=None, *, loader=None,
                 spec.loader = loader
                 break
         else:
-            return None
+            if not _RISCOS:
+                return None
+            # Use the suffix that is equivalent to the filetype
+            equiv_suffix = FILETYPE_MAP.get(_get_filetype(location))
+            for loader_class, suffixes in _get_supported_file_loaders():
+                if equiv_suffix in suffixes:
+                    loader = loader_class(name, location)
+                    spec.loader = loader
+                    break
+            else:
+                return None
 
     # Set submodule_search_paths appropriately.
     if submodule_search_locations is _POPULATE:
@@ -743,7 +837,7 @@ class _LoaderBasics:
         """Concrete implementation of InspectLoader.is_package by checking if
         the path returned by get_filename has a filename of '__init__.py'."""
         filename = _path_split(self.get_filename(fullname))[1]
-        filename_base = filename.rsplit('.', 1)[0]
+        filename_base = filename.rsplit(_EXTSEP, 1)[0]
         tail_name = fullname.rpartition('.')[2]
         return filename_base == '__init__' and tail_name != '__init__'
 
@@ -997,6 +1091,8 @@ class SourceFileLoader(FileLoader, SourceLoader):
                 return
         try:
             _write_atomic(path, data, _mode)
+            if _RISCOS:
+                _os.set_filetype(path, PYC_FILETYPE)
             _bootstrap._verbose_message('created {!r}', path)
         except OSError as exc:
             # Same as above: just don't write the bytecode.
@@ -1065,6 +1161,8 @@ class ExtensionFileLoader(FileLoader, _LoaderBasics):
     def is_package(self, fullname):
         """Return True if the extension module is a package."""
         file_name = _path_split(self.path)[1]
+        if _RISCOS and file_name == '__init__':
+            return _get_filetype(self.path) == SO_FILETYPE
         return any(file_name == '__init__' + suffix
                    for suffix in EXTENSION_SUFFIXES)
 
@@ -1337,13 +1435,15 @@ class FileFinder:
             loaders.extend((suffix, loader) for suffix in suffixes)
         self._loaders = loaders
         # Base (directory) path
-        if not path or path == '.':
+        if not path or path == '.' or (_RISCOS and path == '@'):
             self.path = _os.getcwd()
         else:
             self.path = _path_abspath(path)
         self._path_mtime = -1
         self._path_cache = set()
         self._relaxed_path_cache = set()
+        if _RISCOS:
+            self._filetype_cache = {}
 
     def invalidate_caches(self):
         """Invalidate the directory mtime."""
@@ -1375,9 +1475,24 @@ class FileFinder:
         else:
             cache = self._path_cache
             cache_module = tail_module
+        is_dir = cache_module in cache
+        if _RISCOS:
+            # The name may be a directory, or a typed file with no suffix.
+            # equiv_suffix is the suffix that is equivalent to its filetype.
+            filetype = self._filetype_cache.get(cache_module)
+            is_dir = is_dir and filetype == 0x1000
+            equiv_suffix = FILETYPE_MAP.get(filetype)
         # Check if the module is the name of a directory (and thus a package).
-        if cache_module in cache:
+        if is_dir:
             base_path = _path_join(self.path, tail_module)
+            if _RISCOS:
+                # Look for a typed __init__ file (with no suffix)
+                full_path = _path_join(base_path, '__init__')
+                init_suffix = FILETYPE_MAP.get(_get_filetype(full_path))
+                for suffix, loader_class in self._loaders:
+                    if suffix == init_suffix:
+                        return self._get_spec(loader_class, fullname, full_path,
+                                              [base_path], target)
             for suffix, loader_class in self._loaders:
                 init_filename = '__init__' + suffix
                 full_path = _path_join(base_path, init_filename)
@@ -1398,6 +1513,11 @@ class FileFinder:
                 if _path_isfile(full_path):
                     return self._get_spec(loader_class, fullname, full_path,
                                           None, target)
+            if _RISCOS and suffix == equiv_suffix:
+                # A typed file with no suffix
+                full_path = _path_join(self.path, tail_module)
+                return self._get_spec(loader_class, fullname, full_path,
+                                      None, target)
         if is_namespace:
             _bootstrap._verbose_message('possible namespace for {}', base_path)
             spec = _bootstrap.ModuleSpec(fullname, None)
@@ -1409,11 +1529,22 @@ class FileFinder:
         """Fill the cache of potential modules and packages for this directory."""
         path = self.path
         try:
-            contents = _os.listdir(path or _os.getcwd())
+            if _RISCOS:
+                # Also record the filetypes (scandir already has them)
+                filetypes = {}
+                with _os.scandir(path or _os.getcwd()) as it:
+                    for entry in it:
+                        filetypes[entry.name] = entry.stat().st_filetype
+                contents = list(filetypes)
+                self._filetype_cache = filetypes
+            else:
+                contents = _os.listdir(path or _os.getcwd())
         except (FileNotFoundError, PermissionError, NotADirectoryError):
             # Directory has either been removed, turned into a file, or made
             # unreadable.
             contents = []
+            if _RISCOS:
+                self._filetype_cache = {}
         # We store two cached versions, to handle runtime changes of the
         # PYTHONCASEOK environment variable.
         if not sys.platform.startswith('win'):

@@ -175,7 +175,9 @@ _PyPathConfig_UpdateGlobal(const PyConfig *config)
         wchar_t *p = path;
         for (Py_ssize_t i = 0; i < config->module_search_paths.length; ++i) {
             wcscpy(p, config->module_search_paths.items[i]);
-            p = wcschr(p, L'\0');
+            /* Not wcschr(p, L'\0'): UnixLib's wcschr() returns NULL
+               when searching for the terminator */
+            p += wcslen(p);
             *p++ = DELIM;
             *p = L'\0';
         }
@@ -452,7 +454,7 @@ _PyPathConfig_ComputeSysPath0(const PyWideStringList *argv, PyObject **path0_p)
     }
     if (p != NULL) {
         n = p + 1 - path0;
-#if SEP == '/' /* Special case for Unix filename syntax */
+#if SEP == '/' || SEP == '.' /* for Unix and RISC OS filename syntax */
         if (n > 1) {
             /* Drop trailing separator */
             n--;

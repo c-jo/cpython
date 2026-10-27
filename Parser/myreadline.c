@@ -24,6 +24,9 @@
 #ifdef HAVE_UNISTD_H
 #  include <unistd.h>             // isatty()
 #endif
+#ifdef RISCOS
+#  include <swis.h>               // OS_ReadLine32
+#endif
 
 
 // Export the symbol since it's used by the readline shared extension
@@ -312,6 +315,45 @@ PyOS_StdioReadline(FILE *sys_stdin, FILE *sys_stdout, const char *prompt)
         fprintf(stderr, "%s", prompt);
     }
     fflush(stderr);
+
+#ifdef RISCOS
+    /* Use OS_ReadLine32 so that the RISC OS line editing keys work.
+       It reads a whole line (terminated by Return) in one call. */
+    {
+        const size_t bufsize = 1024;
+        unsigned int got = 0, flags = 0;
+        p = (char *)PyMem_RawMalloc(bufsize);
+        if (p == NULL) {
+            PyEval_RestoreThread(tstate);
+            PyErr_NoMemory();
+            PyEval_SaveThread();
+            return NULL;
+        }
+        if (_swix(OS_ReadLine32, _INR(0,4) | _OUT(1) | _OUT(_FLAGS),
+                  p, (int)(bufsize - 2), 0x00, 0xff, 0,
+                  &got, &flags) != NULL) {
+            /* Error: treat as EOF */
+            p[0] = '\0';
+        }
+        else if (flags & _C) {
+            /* Escape: raise KeyboardInterrupt if SIGINT is pending,
+               otherwise treat as EOF */
+            PyEval_RestoreThread(tstate);
+            int s = PyErr_CheckSignals();
+            PyEval_SaveThread();
+            if (s < 0) {
+                PyMem_RawFree(p);
+                return NULL;
+            }
+            p[0] = '\0';
+        }
+        else {
+            p[got] = '\n';
+            p[got + 1] = '\0';
+        }
+        return p;
+    }
+#endif
 
     n = 0;
     p = NULL;

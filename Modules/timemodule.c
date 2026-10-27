@@ -60,6 +60,9 @@
 #  define HAVE_CLOCK_GETTIME_RUNTIME 1
 #endif
 
+#ifdef RISCOS
+#  include <swis.h>               // _swi(), OS_ReadMonotonicTime
+#endif
 
 #define SEC_TO_NS (1000 * 1000 * 1000)
 
@@ -2253,7 +2256,17 @@ pysleep(PyTime_t timeout)
 
         int ret;
         Py_BEGIN_ALLOW_THREADS
-#ifdef HAVE_CLOCK_NANOSLEEP
+#if defined(RISCOS)
+        /* Wait on the centisecond monotonic timer, rounding up */
+        {
+            unsigned int csecs = (unsigned int)((timeout + 9999999) / 10000000);
+            unsigned int start = _swi(OS_ReadMonotonicTime, _RETURN(0));
+            while ((unsigned int)_swi(OS_ReadMonotonicTime, _RETURN(0)) - start
+                   < csecs)
+                ;
+        }
+        ret = 0;
+#elif defined(HAVE_CLOCK_NANOSLEEP)
         ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &timeout_abs, NULL);
         err = ret;
 #elif defined(HAVE_NANOSLEEP)

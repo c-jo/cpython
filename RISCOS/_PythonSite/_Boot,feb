@@ -1,0 +1,9 @@
+| !Boot file for RISC OS Python Site.
+
+If "<PythonSite$Dir>" <> "" Then Set PythonSite$Seen "True"
+If "<PythonSite$Seen>" = "" Then Set PythonSite$Dir <Obey$Dir>
+If "<PythonSite$Seen>" = "" Then Set PythonSite$Path <PythonSite$Dir>.
+If "<PythonSite$Seen>" = "" Then IconSprites <PythonSite$Dir>.!Sprites
+If "<PythonSite$Seen>" = "" Then Run <PythonSite$Dir>.PathAdd -site
+
+Unset PythonSite$Seen

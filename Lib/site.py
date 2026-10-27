@@ -8,6 +8,10 @@ This will append site-specific paths to the module search path.  On
 Unix (including Mac OSX), it starts with sys.prefix and
 sys.exec_prefix (if different) and appends
 lib/python<version>/site-packages.
+
+On RISC OS it will use <PythonSite$Dir>.PythonXY.Site-Packages and
+<PythonUser$Dir>.PythonXY.Site-Packages (if they exist).
+
 On other platforms (such as Windows), it tries each of the
 prefixes directly, as well as with lib/site-packages appended.  The
 resulting directories, if they exist, are appended to sys.path, and
@@ -249,7 +253,7 @@ def addsitedir(sitedir, known_paths=None):
     except OSError:
         return
     names = [name for name in names
-             if name.endswith(".pth") and not name.startswith(".")]
+             if name.endswith(os.extsep + "pth") and not name.startswith(".")]
     for name in sorted(names):
         addpackage(sitedir, name, known_paths)
     if reset:
@@ -269,6 +273,9 @@ def check_enableusersite():
     """
     if sys.flags.no_user_site:
         return False
+
+    if os.name == 'riscos':
+        return 'PythonUser$Dir' in os.environ
 
     if hasattr(os, "getuid") and hasattr(os, "geteuid"):
         # check process uid == effective uid
@@ -313,6 +320,12 @@ def _getuserbase():
         return joinuser("~", "Library", sys._framework,
                         "%d.%d" % sys.version_info[:2])
 
+    if os.name == "riscos":
+        try:
+            return os.path.canonicalise("<PythonUser$Dir>")
+        except:
+            return None
+
     return joinuser("~", ".local")
 
 
@@ -332,6 +345,9 @@ def _get_path(userbase):
 
     if sys.platform == 'darwin' and sys._framework:
         return f'{userbase}/lib/{implementation_lower}/site-packages'
+
+    if os.name == 'riscos':
+        return f'{userbase}.{implementation}{version[0]}{version[1]}.Site-Packages'
 
     return f'{userbase}/lib/python{version[0]}.{version[1]}{abi_thread}/site-packages'
 
@@ -390,6 +406,15 @@ def getsitepackages(prefixes=None):
     """
     sitepackages = []
     seen = set()
+
+    if os.name == 'riscos':
+        try:
+            sitepackages.append(os.path.canonicalise(
+                "<PythonSite$Dir>.Python%d%d.Site-Packages" % \
+                sys.version_info[:2]))
+        except:
+            pass
+        return sitepackages
 
     if prefixes is None:
         prefixes = PREFIXES
@@ -459,7 +484,7 @@ development.  See www.python.org for more information.""")
     if not here and hasattr(os, '__file__'):
         here = os.path.dirname(os.__file__)
     if here:
-        files.extend(["LICENSE.txt", "LICENSE"])
+        files.extend(["LICENSE" + os.extsep + "txt", "LICENSE"])
         dirs.extend([os.path.join(here, os.pardir), here, os.curdir])
     builtins.license = _sitebuiltins._Printer(
         "license",
@@ -517,7 +542,8 @@ def register_readline():
         return
 
     try:
-        if PYTHON_BASIC_REPL:
+        if PYTHON_BASIC_REPL or sys.platform == 'riscos':
+            # pyrepl needs a VT100 terminal, which task windows are not
             CAN_USE_PYREPL = False
         else:
             original_path = sys.path

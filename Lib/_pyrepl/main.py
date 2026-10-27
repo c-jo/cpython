@@ -6,20 +6,25 @@ import types
 
 CAN_USE_PYREPL: bool
 FAIL_REASON: str
-try:
-    if sys.platform == "win32" and sys.getwindowsversion().build < 10586:
-        raise RuntimeError("Windows 10 TH2 or later required")
-    if not os.isatty(sys.stdin.fileno()):
-        raise OSError(errno.ENOTTY, "tty required", "stdin")
-    from .simple_interact import check
-    if err := check():
-        raise RuntimeError(err)
-except Exception as e:
+if sys.platform == "riscos":
+    # Task windows are not VT100 terminals, so use the basic REPL quietly
     CAN_USE_PYREPL = False
-    FAIL_REASON = f"warning: can't use pyrepl: {e}"
-else:
-    CAN_USE_PYREPL = True
     FAIL_REASON = ""
+else:
+    try:
+        if sys.platform == "win32" and sys.getwindowsversion().build < 10586:
+            raise RuntimeError("Windows 10 TH2 or later required")
+        if not os.isatty(sys.stdin.fileno()):
+            raise OSError(errno.ENOTTY, "tty required", "stdin")
+        from .simple_interact import check
+        if err := check():
+            raise RuntimeError(err)
+    except Exception as e:
+        CAN_USE_PYREPL = False
+        FAIL_REASON = f"warning: can't use pyrepl: {e}"
+    else:
+        CAN_USE_PYREPL = True
+        FAIL_REASON = ""
 
 
 def interactive_console(mainmodule=None, quiet=False, pythonstartup=False):

@@ -2710,8 +2710,11 @@ PyAPI_FUNC(int) PyUnstable_PerfMapState_Init(void) {
 #ifndef MS_WINDOWS
     char filename[100];
     pid_t pid = getpid();
+    int flags = O_WRONLY | O_CREAT | O_APPEND;
+#ifdef O_NOFOLLOW
     // Use nofollow flag to prevent symlink attacks.
-    int flags = O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW;
+    flags |= O_NOFOLLOW;
+#endif
 #ifdef O_CLOEXEC
     flags |= O_CLOEXEC;
 #endif

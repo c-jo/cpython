@@ -296,6 +296,9 @@ def can_colorize(*, file: IO[str] | IO[bytes] | None = None) -> bool:
         return True
     if _safe_getenv("TERM") == "dumb":
         return False
+    if sys.platform == "riscos":
+        # Task windows do not support ANSI escape sequences
+        return False
 
     if not hasattr(file, "fileno"):
         return False
